@@ -1,0 +1,31 @@
+{
+  "architecture": {
+    "d_model": 56,
+    "block_count": 2,
+    "attention_heads": 4,
+    "feed_forward_width": 200,
+    "dropout": 0.1,
+    "sequence_length": 32,
+    "feature_width": 16
+  },
+  "training": {
+    "experiment_name": "step01_checkpoint_75k_extended_15k",
+    "architecture_version": "step01-unit-v0",
+    "benchmark_version": "step01-v0",
+    "seed": 1,
+    "train_count": 100000,
+    "validation_count": 20000,
+    "test_count": 20000,
+    "batch_size": 256,
+    "learning_rate": 0.0003,
+    "weight_decay": 0.01,
+    "max_training_steps": 15000,
+    "eval_interval": 250,
+    "early_stopping_patience": 60,
+    "gradient_clip_norm": 1.0,
+    "uncertainty_threshold": 0.5,
+    "num_workers": 0,
+    "device": "auto",
+    "output_dir": "results/step01/checkpoint_75k_extended_15k/seed_1"
+  }
+}
