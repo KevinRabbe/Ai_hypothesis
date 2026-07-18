@@ -1,4 +1,4 @@
-"""Command-line entry point for the Step 1 10M reference experiment."""
+"""Command-line entry point for the Step 1 neural-unit experiments."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from .training import TrainConfig, load_experiment_config, run_training
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Train and evaluate the Step 1 reference neural unit."
+        description="Train and evaluate a Step 1 neural unit."
     )
     parser.add_argument(
         "--config",
@@ -35,9 +35,15 @@ def _parse_args() -> argparse.Namespace:
         help="Optional training-step override.",
     )
     parser.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help="Optional random-seed override for repeated confirmation runs.",
+    )
+    parser.add_argument(
         "--smoke-test",
         action="store_true",
-        help="Run a very small end-to-end training check instead of the real 10M experiment.",
+        help="Run a very small end-to-end training check instead of the configured experiment.",
     )
     return parser.parse_args()
 
@@ -78,6 +84,8 @@ def main() -> None:
         train_config = replace(train_config, output_dir=args.output_dir)
     if args.max_steps is not None:
         train_config = replace(train_config, max_training_steps=args.max_steps)
+    if args.seed is not None:
+        train_config = replace(train_config, seed=args.seed)
 
     run_training(unit_config=unit_config, train_config=train_config, verbose=True)
 
