@@ -23,7 +23,7 @@ Change unit size while holding the rest of the experiment as controlled as reaso
 
 ## Candidate size sweep
 
-Initial checkpoints are placeholders and may be adjusted after the architecture is selected:
+Initial coarse checkpoints:
 
 - 10M;
 - 3M;
@@ -38,45 +38,42 @@ The purpose is to bracket the collapse boundary, not to force every size to work
 
 Once the boundary is roughly located, run a denser sweep around it.
 
-## Benchmark properties
+## Step 1 design decisions
 
-The first benchmark suite should test small local transformations rather than full language generation.
+The v0 experiment now defines:
 
-Tasks should include a mix of:
+1. **Architecture family** — a compact residual sequence encoder / tiny Transformer-style encoder operating on standardized feature sequences rather than raw language tokens.
+2. **Input contract** — up to 32 elements with 16 floating-point features per element plus a validity mask.
+3. **Output contract** — compact structured logits with explicit uncertainty/abstention support; no free-form language generation.
+4. **Benchmark families** — noisy local pattern detection, fuzzy change detection, local conflict detection, local relationship extraction, and sparse relevant-signal detection.
+5. **Dataset strategy** — deterministic procedural generation with hidden latent truth and disjoint train/validation/test seed ranges.
+6. **Training policy** — controlled size sweep with shared objectives, validation-based early stopping, and best-checkpoint evaluation.
+7. **Seed policy** — at least three training seeds in the coarse sweep and at least five around the suspected boundary.
+8. **Performance policy** — measure end-to-end latency, batch throughput, memory use, and low-overhead system resource samples.
 
-1. transformations that deterministic logic can solve, to establish a baseline;
-2. transformations with noisy, fuzzy, incomplete, or ambiguous inputs where learned processing may add value;
-3. transformations where a unit can explicitly return an uncertain/unknown state instead of guessing.
+Detailed specifications:
 
-Potential task families:
+- [`architecture_v0.md`](architecture_v0.md)
+- [`protocol_v0.md`](protocol_v0.md)
+- [`../../benchmarks/step_01_benchmark_v0.md`](../../benchmarks/step_01_benchmark_v0.md)
 
-- relevance detection;
-- anomaly detection;
-- local relationship extraction;
-- fuzzy change detection;
-- conflict detection under noisy representations;
-- local pattern classification;
-- compact signal extraction from small text or feature inputs.
+## Why the worker does not process raw text in Step 1
 
-The exact benchmark dataset must be defined before training starts.
+Vocabulary embeddings and natural-language decoding can require more parameters than the tiny worker sizes being investigated.
 
-## Output contract
+Step 1 therefore isolates the learned processing unit itself. Future shared front-ends may convert text, images, audio, or other modalities into the compact representation consumed by the population.
 
-Prefer a very small structured output space for Step 1.
+This is analogous to supplying standardized raw materials to many small factories rather than rebuilding the entire supply chain inside every worker.
 
-Example conceptual statuses:
+## Deterministic baseline rule
 
-- `SIGNAL`;
-- `NO_SIGNAL`;
-- `UNCERTAIN`.
+Every benchmark task must document whether a deterministic algorithm can solve it.
 
-Task-specific outputs may use compact class IDs or fixed-size vectors.
+If deterministic logic solves a task equally well or better at lower cost, that task is not evidence that a neural unit is necessary. It may remain as a control.
 
-Avoid evaluating tiny units through verbose natural-language generation because vocabulary and decoding overhead would dominate the question being studied.
+The important boundary is the smallest unit that still adds useful learned behavior where rigid deterministic methods are insufficient or less robust.
 
 ## Metrics
-
-Record at minimum:
 
 ### Quality
 
@@ -93,27 +90,35 @@ Record at minimum:
 - false-positive rate;
 - false-negative rate;
 - output instability across equivalent inputs;
-- performance on distractor-heavy inputs.
+- performance on distractor-heavy inputs;
+- variance across training seeds.
 
 ### Performance
 
-- parameter count;
-- model size;
+- actual parameter count;
+- model/checkpoint size;
 - single-unit inference latency;
 - batched throughput;
 - CPU utilization;
-- GPU utilization;
+- GPU utilization where available;
 - RAM;
-- VRAM;
+- VRAM where available;
 - data-transfer overhead where measurable.
 
-## Deterministic baseline
+## Collapse classifications
 
-Every benchmark task must document whether a deterministic algorithm can solve it.
+Each tested size should eventually be classified as one of:
 
-If deterministic logic solves a task equally well or better at lower cost, that task should not be used as evidence that the neural unit is necessary.
+```text
+CLEARLY_USEFUL
+WEAK_BUT_USEFUL
+BOUNDARY_UNCERTAIN
+MOSTLY_NOISE
+DETERMINISTICALLY_DOMINATED
+OPTIMIZATION_FAILURE
+```
 
-It may remain useful as a control.
+A unit is not considered useful merely because it performs slightly above random chance.
 
 ## Success criteria
 
@@ -123,7 +128,7 @@ Step 1 succeeds when the results identify:
 2. at least one smaller range where performance clearly collapses, becomes mostly noise, or loses value relative to deterministic logic;
 3. enough evidence to choose candidate unit sizes for Step 2 population-scaling experiments.
 
-The result does not need to be a single exact parameter count. A useful interval is sufficient for the first pass.
+The result does not need to be one exact parameter count. A useful interval is sufficient for the first pass.
 
 ## Failure is informative
 
@@ -137,17 +142,18 @@ Possible valid outcomes include:
 
 Each outcome should update the hypothesis rather than being hidden.
 
-## Before implementation
+## Implementation order
 
-Still to define:
+The next work should proceed in this order:
 
-1. the first architecture family;
-2. the exact benchmark tasks;
-3. training-data generation or collection;
-4. train/validation/test split policy;
-5. size-scaling method;
-6. hardware measurement method;
-7. experiment configuration format;
-8. reproducibility requirements and random-seed policy.
+1. implement the procedural benchmark generator;
+2. implement and validate deterministic baselines;
+3. freeze benchmark v0 test seeds and difficulty distributions;
+4. implement the scalable neural-unit architecture;
+5. implement parameter-count/config generation;
+6. train one comfortably large reference configuration;
+7. confirm every intended task family is learnable;
+8. run the coarse size sweep;
+9. locate and confirm the collapse boundary.
 
-Those definitions are the next planning work before training code is written.
+No population coordination code is needed until Step 1 establishes which unit sizes are worth scaling.
