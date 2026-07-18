@@ -48,7 +48,10 @@ See:
 - [`docs/research_questions.md`](docs/research_questions.md)
 - [`docs/roadmap.md`](docs/roadmap.md)
 - [`experiments/step_01_minimum_useful_unit/README.md`](experiments/step_01_minimum_useful_unit/README.md)
+- [`experiments/step_01_minimum_useful_unit/architecture_v0.md`](experiments/step_01_minimum_useful_unit/architecture_v0.md)
+- [`experiments/step_01_minimum_useful_unit/protocol_v0.md`](experiments/step_01_minimum_useful_unit/protocol_v0.md)
+- [`benchmarks/step_01_benchmark_v0.md`](benchmarks/step_01_benchmark_v0.md)
 
 ## Current status
 
-**Planning / hypothesis definition.** No architecture has yet been selected as the final implementation. The first task is to define and run a controlled size sweep that identifies where learned signal becomes too weak or noisy to remain useful.
+**Step 1 experiment design.** The v0 architecture family, benchmark concept, and controlled experiment protocol are now defined. The next work is implementation: procedural benchmark generators and deterministic baselines first, followed by the scalable neural-unit implementation and the first large reference training run.
