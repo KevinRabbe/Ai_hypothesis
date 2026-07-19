@@ -1,0 +1,321 @@
+{
+  "rows": [
+    {
+      "architecture_version": "step01-unit-v0",
+      "benchmark_version": "step01-v0",
+      "best_step": 13000,
+      "best_validation_score": 0.94825,
+      "checkpoint_path": "results\\step01\\checkpoint_50k_extended_15k\\seed_1\\best.pt",
+      "first_step_at_or_above": {
+        "0.9000": 1250,
+        "0.9200": 2750,
+        "0.9300": 2750,
+        "0.9400": 4750,
+        "0.9450": 8500
+      },
+      "parameter_count": 50268,
+      "result_path": "results\\step01\\checkpoint_50k_extended_15k\\seed_1\\result.json",
+      "seed": 1,
+      "test_accuracy_from_existing_step1_protocol": 0.94865,
+      "training_duration_seconds": 608.1417260999879
+    },
+    {
+      "architecture_version": "step01-unit-v0",
+      "benchmark_version": "step01-v0",
+      "best_step": 13000,
+      "best_validation_score": 0.9483499999999999,
+      "checkpoint_path": "results\\step01\\checkpoint_50k_extended_15k\\seed_2\\best.pt",
+      "first_step_at_or_above": {
+        "0.9000": 1250,
+        "0.9200": 3000,
+        "0.9300": 3250,
+        "0.9400": 5500,
+        "0.9450": 9000
+      },
+      "parameter_count": 50268,
+      "result_path": "results\\step01\\checkpoint_50k_extended_15k\\seed_2\\result.json",
+      "seed": 2,
+      "test_accuracy_from_existing_step1_protocol": 0.94815,
+      "training_duration_seconds": 796.3618763999984
+    },
+    {
+      "architecture_version": "step01-unit-v0",
+      "benchmark_version": "step01-v0",
+      "best_step": 13500,
+      "best_validation_score": 0.9489000000000001,
+      "checkpoint_path": "results\\step01\\checkpoint_50k_extended_15k\\seed_3\\best.pt",
+      "first_step_at_or_above": {
+        "0.9000": 1500,
+        "0.9200": 3750,
+        "0.9300": 4750,
+        "0.9400": 7000,
+        "0.9450": 8750
+      },
+      "parameter_count": 50268,
+      "result_path": "results\\step01\\checkpoint_50k_extended_15k\\seed_3\\result.json",
+      "seed": 3,
+      "test_accuracy_from_existing_step1_protocol": 0.94705,
+      "training_duration_seconds": 619.4408163000044
+    },
+    {
+      "architecture_version": "step01-unit-v0",
+      "benchmark_version": "step01-v0",
+      "best_step": 11500,
+      "best_validation_score": 0.9489000000000001,
+      "checkpoint_path": "results\\step01\\checkpoint_50k_extended_15k\\seed_4\\best.pt",
+      "first_step_at_or_above": {
+        "0.9000": 1250,
+        "0.9200": 2000,
+        "0.9300": 3000,
+        "0.9400": 5000,
+        "0.9450": 9500
+      },
+      "parameter_count": 50268,
+      "result_path": "results\\step01\\checkpoint_50k_extended_15k\\seed_4\\result.json",
+      "seed": 4,
+      "test_accuracy_from_existing_step1_protocol": 0.9486,
+      "training_duration_seconds": 618.0788945000095
+    },
+    {
+      "architecture_version": "step01-unit-v0",
+      "benchmark_version": "step01-v0",
+      "best_step": 11000,
+      "best_validation_score": 0.9478,
+      "checkpoint_path": "results\\step01\\checkpoint_50k_extended_15k\\seed_5\\best.pt",
+      "first_step_at_or_above": {
+        "0.9000": 1250,
+        "0.9200": 2250,
+        "0.9300": 3750,
+        "0.9400": 6250,
+        "0.9450": 8250
+      },
+      "parameter_count": 50268,
+      "result_path": "results\\step01\\checkpoint_50k_extended_15k\\seed_5\\result.json",
+      "seed": 5,
+      "test_accuracy_from_existing_step1_protocol": 0.94765,
+      "training_duration_seconds": 625.4137479000055
+    },
+    {
+      "architecture_version": "step01-unit-v0",
+      "benchmark_version": "step01-v0",
+      "best_step": 11000,
+      "best_validation_score": 0.94885,
+      "checkpoint_path": "results\\step01\\checkpoint_50k_extended_15k\\seed_6\\best.pt",
+      "first_step_at_or_above": {
+        "0.9000": 1250,
+        "0.9200": 3250,
+        "0.9300": 4250,
+        "0.9400": 6500,
+        "0.9450": 8750
+      },
+      "parameter_count": 50268,
+      "result_path": "results\\step01\\checkpoint_50k_extended_15k\\seed_6\\result.json",
+      "seed": 6,
+      "test_accuracy_from_existing_step1_protocol": 0.9491,
+      "training_duration_seconds": 708.9273756000039
+    },
+    {
+      "architecture_version": "step01-unit-v0",
+      "benchmark_version": "step01-v0",
+      "best_step": 11500,
+      "best_validation_score": 0.9468,
+      "checkpoint_path": "results\\step01\\checkpoint_50k_extended_15k\\seed_7\\best.pt",
+      "first_step_at_or_above": {
+        "0.9000": 1500,
+        "0.9200": 2500,
+        "0.9300": 4000,
+        "0.9400": 6000,
+        "0.9450": 8250
+      },
+      "parameter_count": 50268,
+      "result_path": "results\\step01\\checkpoint_50k_extended_15k\\seed_7\\result.json",
+      "seed": 7,
+      "test_accuracy_from_existing_step1_protocol": 0.9464,
+      "training_duration_seconds": 694.330274100008
+    },
+    {
+      "architecture_version": "step01-unit-v0",
+      "benchmark_version": "step01-v0",
+      "best_step": 13750,
+      "best_validation_score": 0.94855,
+      "checkpoint_path": "results\\step01\\checkpoint_50k_extended_15k\\seed_8\\best.pt",
+      "first_step_at_or_above": {
+        "0.9000": 1250,
+        "0.9200": 3000,
+        "0.9300": 4500,
+        "0.9400": 7250,
+        "0.9450": 9250
+      },
+      "parameter_count": 50268,
+      "result_path": "results\\step01\\checkpoint_50k_extended_15k\\seed_8\\result.json",
+      "seed": 8,
+      "test_accuracy_from_existing_step1_protocol": 0.94725,
+      "training_duration_seconds": 714.5733538999921
+    },
+    {
+      "architecture_version": "step01-unit-v0",
+      "benchmark_version": "step01-v0",
+      "best_step": 15000,
+      "best_validation_score": 0.9496500000000001,
+      "checkpoint_path": "results\\step01\\checkpoint_50k_extended_15k\\seed_9\\best.pt",
+      "first_step_at_or_above": {
+        "0.9000": 1250,
+        "0.9200": 2750,
+        "0.9300": 4000,
+        "0.9400": 6250,
+        "0.9450": 9250
+      },
+      "parameter_count": 50268,
+      "result_path": "results\\step01\\checkpoint_50k_extended_15k\\seed_9\\result.json",
+      "seed": 9,
+      "test_accuracy_from_existing_step1_protocol": 0.9467,
+      "training_duration_seconds": 984.114974199998
+    },
+    {
+      "architecture_version": "step01-unit-v0",
+      "benchmark_version": "step01-v0",
+      "best_step": 14500,
+      "best_validation_score": 0.9507999999999999,
+      "checkpoint_path": "results\\step01\\checkpoint_50k_extended_15k\\seed_10\\best.pt",
+      "first_step_at_or_above": {
+        "0.9000": 1250,
+        "0.9200": 2750,
+        "0.9300": 3250,
+        "0.9400": 6750,
+        "0.9450": 9250
+      },
+      "parameter_count": 50268,
+      "result_path": "results\\step01\\checkpoint_50k_extended_15k\\seed_10\\result.json",
+      "seed": 10,
+      "test_accuracy_from_existing_step1_protocol": 0.94775,
+      "training_duration_seconds": 952.6463235999981
+    },
+    {
+      "architecture_version": "step01-unit-v0",
+      "benchmark_version": "step01-v0",
+      "best_step": 13000,
+      "best_validation_score": 0.94865,
+      "checkpoint_path": "results\\step01\\checkpoint_50k_extended_15k\\seed_11\\best.pt",
+      "first_step_at_or_above": {
+        "0.9000": 1250,
+        "0.9200": 2250,
+        "0.9300": 3500,
+        "0.9400": 6000,
+        "0.9450": 9000
+      },
+      "parameter_count": 50268,
+      "result_path": "results\\step01\\checkpoint_50k_extended_15k\\seed_11\\result.json",
+      "seed": 11,
+      "test_accuracy_from_existing_step1_protocol": 0.94835,
+      "training_duration_seconds": 730.2548611999955
+    },
+    {
+      "architecture_version": "step01-unit-v0",
+      "benchmark_version": "step01-v0",
+      "best_step": 13000,
+      "best_validation_score": 0.9488,
+      "checkpoint_path": "results\\step01\\checkpoint_50k_extended_15k\\seed_12\\best.pt",
+      "first_step_at_or_above": {
+        "0.9000": 1500,
+        "0.9200": 3000,
+        "0.9300": 3500,
+        "0.9400": 6500,
+        "0.9450": 9250
+      },
+      "parameter_count": 50268,
+      "result_path": "results\\step01\\checkpoint_50k_extended_15k\\seed_12\\result.json",
+      "seed": 12,
+      "test_accuracy_from_existing_step1_protocol": 0.94905,
+      "training_duration_seconds": 715.4957575000008
+    },
+    {
+      "architecture_version": "step01-unit-v0",
+      "benchmark_version": "step01-v0",
+      "best_step": 13250,
+      "best_validation_score": 0.9500500000000001,
+      "checkpoint_path": "results\\step01\\checkpoint_50k_extended_15k\\seed_13\\best.pt",
+      "first_step_at_or_above": {
+        "0.9000": 1500,
+        "0.9200": 2250,
+        "0.9300": 3250,
+        "0.9400": 5750,
+        "0.9450": 8750
+      },
+      "parameter_count": 50268,
+      "result_path": "results\\step01\\checkpoint_50k_extended_15k\\seed_13\\result.json",
+      "seed": 13,
+      "test_accuracy_from_existing_step1_protocol": 0.9492,
+      "training_duration_seconds": 708.2728737000143
+    },
+    {
+      "architecture_version": "step01-unit-v0",
+      "benchmark_version": "step01-v0",
+      "best_step": 14000,
+      "best_validation_score": 0.9480999999999999,
+      "checkpoint_path": "results\\step01\\checkpoint_50k_extended_15k\\seed_14\\best.pt",
+      "first_step_at_or_above": {
+        "0.9000": 1500,
+        "0.9200": 3000,
+        "0.9300": 4250,
+        "0.9400": 6750,
+        "0.9450": 9750
+      },
+      "parameter_count": 50268,
+      "result_path": "results\\step01\\checkpoint_50k_extended_15k\\seed_14\\result.json",
+      "seed": 14,
+      "test_accuracy_from_existing_step1_protocol": 0.9481,
+      "training_duration_seconds": 722.7934539999987
+    },
+    {
+      "architecture_version": "step01-unit-v0",
+      "benchmark_version": "step01-v0",
+      "best_step": 14750,
+      "best_validation_score": 0.9486000000000001,
+      "checkpoint_path": "results\\step01\\checkpoint_50k_extended_15k\\seed_15\\best.pt",
+      "first_step_at_or_above": {
+        "0.9000": 1500,
+        "0.9200": 2250,
+        "0.9300": 3000,
+        "0.9400": 4250,
+        "0.9450": 8000
+      },
+      "parameter_count": 50268,
+      "result_path": "results\\step01\\checkpoint_50k_extended_15k\\seed_15\\result.json",
+      "seed": 15,
+      "test_accuracy_from_existing_step1_protocol": 0.94785,
+      "training_duration_seconds": 725.2118561999814
+    },
+    {
+      "architecture_version": "step01-unit-v0",
+      "benchmark_version": "step01-v0",
+      "best_step": 14500,
+      "best_validation_score": 0.9484999999999999,
+      "checkpoint_path": "results\\step01\\checkpoint_50k_extended_15k\\seed_16\\best.pt",
+      "first_step_at_or_above": {
+        "0.9000": 1750,
+        "0.9200": 2500,
+        "0.9300": 4750,
+        "0.9400": 7250,
+        "0.9450": 8250
+      },
+      "parameter_count": 50268,
+      "result_path": "results\\step01\\checkpoint_50k_extended_15k\\seed_16\\result.json",
+      "seed": 16,
+      "test_accuracy_from_existing_step1_protocol": 0.947,
+      "training_duration_seconds": 716.9989133000199
+    }
+  ],
+  "training_duration_seconds_stats": {
+    "max": 984.114974199998,
+    "mean": 727.566067406251,
+    "min": 608.1417260999879,
+    "sample_stdev": 107.04300409339001
+  },
+  "validation_stats": {
+    "count": 16,
+    "max": 0.9507999999999999,
+    "mean": 0.948721875,
+    "min": 0.9468,
+    "sample_stdev": 0.0009099393294793562
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "aggregation_config": {
+    "eps": 1e-08,
+    "evidence_clip": 8.0,
+    "max_mean_invalid_mass": 0.5,
+    "max_mean_uncertainty": 0.5,
+    "min_primary_margin": 0.15,
+    "protected_conflict_mean_gap": 0.5,
+    "strong_evidence_threshold": 2.0,
+    "support_threshold": 0.5,
+    "top_k": 3
+  },
+  "benchmark_version": "step01-v0",
+  "checkpoint_paths": [
+    "results\\step01\\checkpoint_50k_extended_15k\\seed_1\\best.pt",
+    "results\\step01\\checkpoint_50k_extended_15k\\seed_2\\best.pt",
+    "results\\step01\\checkpoint_50k_extended_15k\\seed_3\\best.pt",
+    "results\\step01\\checkpoint_50k_extended_15k\\seed_4\\best.pt",
+    "results\\step01\\checkpoint_50k_extended_15k\\seed_5\\best.pt",
+    "results\\step01\\checkpoint_50k_extended_15k\\seed_6\\best.pt",
+    "results\\step01\\checkpoint_50k_extended_15k\\seed_7\\best.pt",
+    "results\\step01\\checkpoint_50k_extended_15k\\seed_8\\best.pt",
+    "results\\step01\\checkpoint_50k_extended_15k\\seed_9\\best.pt",
+    "results\\step01\\checkpoint_50k_extended_15k\\seed_10\\best.pt",
+    "results\\step01\\checkpoint_50k_extended_15k\\seed_11\\best.pt",
+    "results\\step01\\checkpoint_50k_extended_15k\\seed_12\\best.pt",
+    "results\\step01\\checkpoint_50k_extended_15k\\seed_13\\best.pt",
+    "results\\step01\\checkpoint_50k_extended_15k\\seed_14\\best.pt",
+    "results\\step01\\checkpoint_50k_extended_15k\\seed_15\\best.pt",
+    "results\\step01\\checkpoint_50k_extended_15k\\seed_16\\best.pt"
+  ],
+  "dataset_contract": {
+    "batch_size": 256,
+    "count": 20000,
+    "seed": 1,
+    "split": "validation"
+  },
+  "frozen_test_accessed_for_population": false,
+  "git_revision": "651706e106c438ec13ce42d9ed9dbe4560f8214d",
+  "phase": "step2a7_16_worker_scaling_gate",
+  "population_widths": [
+    1,
+    4,
+    16
+  ],
+  "workers_beyond_seed_16_trained": false,
+  "workers_trained": [
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16
+  ]
+}
