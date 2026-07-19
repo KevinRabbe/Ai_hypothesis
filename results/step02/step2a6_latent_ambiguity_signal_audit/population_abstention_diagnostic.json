@@ -1,0 +1,302 @@
+[
+  {
+    "candidate_source": "reducer_v0_pre_abstention",
+    "consumed_confirmation_1": {
+      "false_abstention_count": 742,
+      "missed_uncertain_count": 159,
+      "non_uncertain_label_accuracy": 0.9471333333333334,
+      "overall_accuracy": 0.9524,
+      "threshold": 0.6,
+      "uncertain_precision": 0.8670965430771986,
+      "uncertain_prediction_rate": 0.27915,
+      "uncertain_recall": 0.9682
+    },
+    "development": {
+      "false_abstention_count": 780,
+      "missed_uncertain_count": 170,
+      "non_uncertain_label_accuracy": 0.9438,
+      "overall_accuracy": 0.94935,
+      "threshold": 0.6,
+      "uncertain_precision": 0.8609625668449198,
+      "uncertain_prediction_rate": 0.2805,
+      "uncertain_recall": 0.966
+    },
+    "score": "latent_mean_probability",
+    "selected_threshold": 0.6
+  },
+  {
+    "candidate_source": "mean_logit",
+    "consumed_confirmation_1": {
+      "false_abstention_count": 742,
+      "missed_uncertain_count": 159,
+      "non_uncertain_label_accuracy": 0.9472,
+      "overall_accuracy": 0.95245,
+      "threshold": 0.6,
+      "uncertain_precision": 0.8670965430771986,
+      "uncertain_prediction_rate": 0.27915,
+      "uncertain_recall": 0.9682
+    },
+    "development": {
+      "false_abstention_count": 780,
+      "missed_uncertain_count": 170,
+      "non_uncertain_label_accuracy": 0.9438666666666666,
+      "overall_accuracy": 0.9494,
+      "threshold": 0.6,
+      "uncertain_precision": 0.8609625668449198,
+      "uncertain_prediction_rate": 0.2805,
+      "uncertain_recall": 0.966
+    },
+    "score": "latent_mean_probability",
+    "selected_threshold": 0.6
+  },
+  {
+    "candidate_source": "mean_probability",
+    "consumed_confirmation_1": {
+      "false_abstention_count": 742,
+      "missed_uncertain_count": 159,
+      "non_uncertain_label_accuracy": 0.9471333333333334,
+      "overall_accuracy": 0.9524,
+      "threshold": 0.6,
+      "uncertain_precision": 0.8670965430771986,
+      "uncertain_prediction_rate": 0.27915,
+      "uncertain_recall": 0.9682
+    },
+    "development": {
+      "false_abstention_count": 780,
+      "missed_uncertain_count": 170,
+      "non_uncertain_label_accuracy": 0.9437333333333333,
+      "overall_accuracy": 0.9493,
+      "threshold": 0.6,
+      "uncertain_precision": 0.8609625668449198,
+      "uncertain_prediction_rate": 0.2805,
+      "uncertain_recall": 0.966
+    },
+    "score": "latent_mean_probability",
+    "selected_threshold": 0.6
+  },
+  {
+    "candidate_source": "reducer_v0_pre_abstention",
+    "consumed_confirmation_1": {
+      "false_abstention_count": 979,
+      "missed_uncertain_count": 108,
+      "non_uncertain_label_accuracy": 0.9317333333333333,
+      "overall_accuracy": 0.9434,
+      "threshold": 0.7,
+      "uncertain_precision": 0.8332481689661045,
+      "uncertain_prediction_rate": 0.29355,
+      "uncertain_recall": 0.9784
+    },
+    "development": {
+      "false_abstention_count": 1002,
+      "missed_uncertain_count": 115,
+      "non_uncertain_label_accuracy": 0.9293333333333333,
+      "overall_accuracy": 0.94125,
+      "threshold": 0.7,
+      "uncertain_precision": 0.829794462374724,
+      "uncertain_prediction_rate": 0.29435,
+      "uncertain_recall": 0.977
+    },
+    "score": "latent_max_probability",
+    "selected_threshold": 0.7
+  },
+  {
+    "candidate_source": "mean_logit",
+    "consumed_confirmation_1": {
+      "false_abstention_count": 979,
+      "missed_uncertain_count": 108,
+      "non_uncertain_label_accuracy": 0.9317333333333333,
+      "overall_accuracy": 0.9434,
+      "threshold": 0.7,
+      "uncertain_precision": 0.8332481689661045,
+      "uncertain_prediction_rate": 0.29355,
+      "uncertain_recall": 0.9784
+    },
+    "development": {
+      "false_abstention_count": 1002,
+      "missed_uncertain_count": 115,
+      "non_uncertain_label_accuracy": 0.9294,
+      "overall_accuracy": 0.9413,
+      "threshold": 0.7,
+      "uncertain_precision": 0.829794462374724,
+      "uncertain_prediction_rate": 0.29435,
+      "uncertain_recall": 0.977
+    },
+    "score": "latent_max_probability",
+    "selected_threshold": 0.7
+  },
+  {
+    "candidate_source": "mean_probability",
+    "consumed_confirmation_1": {
+      "false_abstention_count": 979,
+      "missed_uncertain_count": 108,
+      "non_uncertain_label_accuracy": 0.9317333333333333,
+      "overall_accuracy": 0.9434,
+      "threshold": 0.7,
+      "uncertain_precision": 0.8332481689661045,
+      "uncertain_prediction_rate": 0.29355,
+      "uncertain_recall": 0.9784
+    },
+    "development": {
+      "false_abstention_count": 1002,
+      "missed_uncertain_count": 115,
+      "non_uncertain_label_accuracy": 0.9292666666666667,
+      "overall_accuracy": 0.9412,
+      "threshold": 0.7,
+      "uncertain_precision": 0.829794462374724,
+      "uncertain_prediction_rate": 0.29435,
+      "uncertain_recall": 0.977
+    },
+    "score": "latent_max_probability",
+    "selected_threshold": 0.7
+  },
+  {
+    "candidate_source": "reducer_v0_pre_abstention",
+    "consumed_confirmation_1": {
+      "false_abstention_count": 743,
+      "missed_uncertain_count": 170,
+      "non_uncertain_label_accuracy": 0.9470666666666666,
+      "overall_accuracy": 0.9518,
+      "threshold": 0.7,
+      "uncertain_precision": 0.8666786291046116,
+      "uncertain_prediction_rate": 0.27865,
+      "uncertain_recall": 0.966
+    },
+    "development": {
+      "false_abstention_count": 788,
+      "missed_uncertain_count": 173,
+      "non_uncertain_label_accuracy": 0.9432666666666667,
+      "overall_accuracy": 0.9488,
+      "threshold": 0.7,
+      "uncertain_precision": 0.8596616206589492,
+      "uncertain_prediction_rate": 0.28075,
+      "uncertain_recall": 0.9654
+    },
+    "score": "latent_fraction_above_worker_threshold",
+    "selected_threshold": 0.7
+  },
+  {
+    "candidate_source": "mean_logit",
+    "consumed_confirmation_1": {
+      "false_abstention_count": 743,
+      "missed_uncertain_count": 170,
+      "non_uncertain_label_accuracy": 0.9471333333333334,
+      "overall_accuracy": 0.95185,
+      "threshold": 0.7,
+      "uncertain_precision": 0.8666786291046116,
+      "uncertain_prediction_rate": 0.27865,
+      "uncertain_recall": 0.966
+    },
+    "development": {
+      "false_abstention_count": 788,
+      "missed_uncertain_count": 173,
+      "non_uncertain_label_accuracy": 0.9433333333333334,
+      "overall_accuracy": 0.94885,
+      "threshold": 0.7,
+      "uncertain_precision": 0.8596616206589492,
+      "uncertain_prediction_rate": 0.28075,
+      "uncertain_recall": 0.9654
+    },
+    "score": "latent_fraction_above_worker_threshold",
+    "selected_threshold": 0.7
+  },
+  {
+    "candidate_source": "mean_probability",
+    "consumed_confirmation_1": {
+      "false_abstention_count": 743,
+      "missed_uncertain_count": 170,
+      "non_uncertain_label_accuracy": 0.9470666666666666,
+      "overall_accuracy": 0.9518,
+      "threshold": 0.7,
+      "uncertain_precision": 0.8666786291046116,
+      "uncertain_prediction_rate": 0.27865,
+      "uncertain_recall": 0.966
+    },
+    "development": {
+      "false_abstention_count": 788,
+      "missed_uncertain_count": 173,
+      "non_uncertain_label_accuracy": 0.9432,
+      "overall_accuracy": 0.94875,
+      "threshold": 0.7,
+      "uncertain_precision": 0.8596616206589492,
+      "uncertain_prediction_rate": 0.28075,
+      "uncertain_recall": 0.9654
+    },
+    "score": "latent_fraction_above_worker_threshold",
+    "selected_threshold": 0.7
+  },
+  {
+    "candidate_source": "reducer_v0_pre_abstention",
+    "consumed_confirmation_1": {
+      "false_abstention_count": 857,
+      "missed_uncertain_count": 102,
+      "non_uncertain_label_accuracy": 0.9396,
+      "overall_accuracy": 0.9496,
+      "threshold": 0.3,
+      "uncertain_precision": 0.8510860121633362,
+      "uncertain_prediction_rate": 0.28775,
+      "uncertain_recall": 0.9796
+    },
+    "development": {
+      "false_abstention_count": 894,
+      "missed_uncertain_count": 137,
+      "non_uncertain_label_accuracy": 0.9364,
+      "overall_accuracy": 0.94545,
+      "threshold": 0.3,
+      "uncertain_precision": 0.8447107868681605,
+      "uncertain_prediction_rate": 0.28785,
+      "uncertain_recall": 0.9726
+    },
+    "score": "mean_worker_uncertainty",
+    "selected_threshold": 0.3
+  },
+  {
+    "candidate_source": "mean_logit",
+    "consumed_confirmation_1": {
+      "false_abstention_count": 857,
+      "missed_uncertain_count": 102,
+      "non_uncertain_label_accuracy": 0.9396666666666667,
+      "overall_accuracy": 0.94965,
+      "threshold": 0.3,
+      "uncertain_precision": 0.8510860121633362,
+      "uncertain_prediction_rate": 0.28775,
+      "uncertain_recall": 0.9796
+    },
+    "development": {
+      "false_abstention_count": 894,
+      "missed_uncertain_count": 137,
+      "non_uncertain_label_accuracy": 0.9364666666666667,
+      "overall_accuracy": 0.9455,
+      "threshold": 0.3,
+      "uncertain_precision": 0.8447107868681605,
+      "uncertain_prediction_rate": 0.28785,
+      "uncertain_recall": 0.9726
+    },
+    "score": "mean_worker_uncertainty",
+    "selected_threshold": 0.3
+  },
+  {
+    "candidate_source": "mean_probability",
+    "consumed_confirmation_1": {
+      "false_abstention_count": 857,
+      "missed_uncertain_count": 102,
+      "non_uncertain_label_accuracy": 0.9396,
+      "overall_accuracy": 0.9496,
+      "threshold": 0.3,
+      "uncertain_precision": 0.8510860121633362,
+      "uncertain_prediction_rate": 0.28775,
+      "uncertain_recall": 0.9796
+    },
+    "development": {
+      "false_abstention_count": 894,
+      "missed_uncertain_count": 137,
+      "non_uncertain_label_accuracy": 0.9363333333333334,
+      "overall_accuracy": 0.9454,
+      "threshold": 0.3,
+      "uncertain_precision": 0.8447107868681605,
+      "uncertain_prediction_rate": 0.28785,
+      "uncertain_recall": 0.9726
+    },
+    "score": "mean_worker_uncertainty",
+    "selected_threshold": 0.3
+  }
+]
