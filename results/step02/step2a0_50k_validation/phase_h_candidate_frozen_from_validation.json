@@ -1,0 +1,16 @@
+{
+  "config": {
+    "eps": 1e-08,
+    "evidence_clip": 8.0,
+    "max_mean_invalid_mass": 0.5,
+    "max_mean_uncertainty": 0.5,
+    "min_primary_margin": 0.05,
+    "protected_conflict_mean_gap": 0.0,
+    "strong_evidence_threshold": 2.0,
+    "support_threshold": 0.5,
+    "top_k": 3
+  },
+  "selected_tag": "low_margin_no_conflict_gap",
+  "selection_basis": "highest width-5 validation evidence reducer accuracy, with minority suppression and utilization gap retained as diagnostics",
+  "status": "CANDIDATE_FROZEN_FROM_VALIDATION"
+}

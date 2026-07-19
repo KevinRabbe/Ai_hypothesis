@@ -1,0 +1,21 @@
+{
+  "consumed_confirmation_1": {
+    "accuracy": 0.95415,
+    "uncertain_rate": 0.25765,
+    "utilization_gap": 0.01935
+  },
+  "development_internal_calibration": {
+    "accuracy": 0.9485,
+    "uncertain_rate": 0.26125,
+    "utilization_gap": 0.02175
+  },
+  "development_train": {
+    "accuracy": 0.954375,
+    "uncertain_rate": 0.2594375,
+    "utilization_gap": 0.0164375
+  },
+  "feature_count": 93,
+  "internal_calibration_count": 4000,
+  "model": "single linear softmax classifier over current evidence-contract aggregate features",
+  "train_count": 16000
+}

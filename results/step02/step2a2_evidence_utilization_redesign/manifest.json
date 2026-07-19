@@ -1,0 +1,72 @@
+{
+  "benchmark_version": "step01-v0",
+  "candidate_selected_from_development": "combined_b_c_candidate",
+  "candidate_status": "TEMPORARY_DEV_SELECTED_NOT_FROZEN",
+  "dev_confirmation_set": {
+    "base_seed": 3000000000,
+    "count": 20000,
+    "distribution": "balanced TASKS x DIFFICULTIES, same generate_sample contract",
+    "source": "results\\step02\\step2a2_evidence_utilization_redesign\\cache\\w5_dev_confirmation_logits.pt",
+    "split_name": "development_confirmation_not_test",
+    "test_overlap": "none by seed range; test base is 2_000_000_000, confirmation base is 3_000_000_000"
+  },
+  "development_set": {
+    "interpretation": "existing 20K validation set now treated as aggregation-development set",
+    "source": "results\\step02\\step2a1_aggregation_diagnosis\\cache\\w5_validation_logits.pt"
+  },
+  "historical_artifacts_modified": false,
+  "hypotheses": {
+    "A": "cohesive minority challenger based on supporter count, supporter evidence, uncertainty, invalid mass, and primary margin",
+    "B": "task-conditioned worker reliability weighting calibrated from development data",
+    "C": "conservative protected-contradiction resolution when primary evidence is clean",
+    "combined": "B plus relaxed v0 conflict/margin configuration; evaluated only as a candidate check"
+  },
+  "phase": "step2a2_evidence_utilization_redesign_validation_dev_only",
+  "reliability_from_development": {
+    "global": [
+      0.9480259870064968,
+      0.9481259370314843,
+      0.9486756621689155,
+      0.9486756621689155,
+      0.9475762118940529
+    ],
+    "task_conditioned": {
+      "A_PATTERN": [
+        0.9308191808191808,
+        0.9345654345654346,
+        0.9370629370629371,
+        0.9335664335664335,
+        0.936063936063936
+      ],
+      "B_CHANGE": [
+        0.9772727272727273,
+        0.9772727272727273,
+        0.9762737262737263,
+        0.981018981018981,
+        0.9765234765234765
+      ],
+      "C_CONFLICT": [
+        0.9585414585414586,
+        0.9572927072927073,
+        0.951048951048951,
+        0.9582917082917083,
+        0.957042957042957
+      ],
+      "D_RELATION": [
+        0.9522977022977023,
+        0.9505494505494505,
+        0.952047952047952,
+        0.945054945054945,
+        0.9378121878121878
+      ],
+      "E_RELEVANCE": [
+        0.9200799200799201,
+        0.9198301698301699,
+        0.9258241758241759,
+        0.9243256743256744,
+        0.9293206793206793
+      ]
+    }
+  },
+  "test_split_accessed": false
+}

@@ -1,0 +1,111 @@
+{
+  "backend": "vmap",
+  "batch_size": 256,
+  "calibration_tag": "calibration_low_margin_gate",
+  "checkpoints": [
+    "results\\step01\\checkpoint_50k_extended_15k\\seed_1\\best.pt",
+    "results\\step01\\checkpoint_50k_extended_15k\\seed_2\\best.pt"
+  ],
+  "count": 20000,
+  "device": "cuda",
+  "evidence_contract_version": "step02-evidence-v0",
+  "experiment_phase": "step2a0_validation_only",
+  "metrics": {
+    "aggregation_config": {
+      "eps": 1e-08,
+      "evidence_clip": 8.0,
+      "max_mean_invalid_mass": 0.5,
+      "max_mean_uncertainty": 0.5,
+      "min_primary_margin": 0.05,
+      "protected_conflict_mean_gap": 0.5,
+      "strong_evidence_threshold": 2.0,
+      "support_threshold": 0.5,
+      "top_k": 3
+    },
+    "all_wrong_rate": 0.038,
+    "by_task": {
+      "A_PATTERN": {
+        "count": 4000,
+        "evidence_accuracy": 0.935,
+        "majority_vote_accuracy": 0.9355,
+        "mean_logit_accuracy": 0.935,
+        "mean_probability_accuracy": 0.935,
+        "oracle_any_correct_coverage": 0.947
+      },
+      "B_CHANGE": {
+        "count": 4000,
+        "evidence_accuracy": 0.97875,
+        "majority_vote_accuracy": 0.9775,
+        "mean_logit_accuracy": 0.97875,
+        "mean_probability_accuracy": 0.97875,
+        "oracle_any_correct_coverage": 0.98525
+      },
+      "C_CONFLICT": {
+        "count": 4000,
+        "evidence_accuracy": 0.96025,
+        "majority_vote_accuracy": 0.9595,
+        "mean_logit_accuracy": 0.96025,
+        "mean_probability_accuracy": 0.96025,
+        "oracle_any_correct_coverage": 0.9655
+      },
+      "D_RELATION": {
+        "count": 4000,
+        "evidence_accuracy": 0.951,
+        "majority_vote_accuracy": 0.9515,
+        "mean_logit_accuracy": 0.95625,
+        "mean_probability_accuracy": 0.95625,
+        "oracle_any_correct_coverage": 0.96525
+      },
+      "E_RELEVANCE": {
+        "count": 4000,
+        "evidence_accuracy": 0.92675,
+        "majority_vote_accuracy": 0.919,
+        "mean_logit_accuracy": 0.92675,
+        "mean_probability_accuracy": 0.92675,
+        "oracle_any_correct_coverage": 0.947
+      }
+    },
+    "count": 20000,
+    "discovery_failure_rate": 0.038,
+    "evidence_reducer_accuracy": 0.95035,
+    "evidence_utilization_gap": 0.011649999999999938,
+    "execution_backend": "vmap",
+    "majority_failure_with_oracle_rate": 0.0134,
+    "majority_harm_rate": 0.0064,
+    "majority_vote_accuracy": 0.9486,
+    "mean_disagreement_entropy": 0.009749809876084328,
+    "mean_invalid_label_mass": 0.00015051354467868804,
+    "mean_logit_accuracy": 0.9514,
+    "mean_population_uncertainty": 0.2552866630077362,
+    "mean_probability_accuracy": 0.9514,
+    "minority_rescue_opportunity_rate": 0.0134,
+    "minority_rescue_rate": 0.6082089552238806,
+    "minority_suppression_rate": 0.975609756097561,
+    "oracle_any_correct_coverage": 0.962,
+    "population_width": 2,
+    "reducer_rescue_rate_total": 0.00815,
+    "single_worker_accuracy": {
+      "max": 0.94835,
+      "mean": 0.9483,
+      "min": 0.94825,
+      "values": [
+        0.94825,
+        0.94835
+      ]
+    },
+    "strong_correct_minority_case_rate": 0.01435,
+    "unit_config": {
+      "attention_heads": 4,
+      "block_count": 2,
+      "d_model": 48,
+      "dropout": 0.1,
+      "feature_width": 16,
+      "feed_forward_width": 144,
+      "sequence_length": 32
+    },
+    "utilization_failure_rate": 0.01165
+  },
+  "runtime_version": "step02-population-runtime-v0",
+  "seed": 1,
+  "split": "validation"
+}

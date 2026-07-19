@@ -1,0 +1,28 @@
+{
+  "calibration_exists": false,
+  "contradiction_can_emit_uncertain": true,
+  "decision_tree": [
+    "Build valid-label evidence from worker logits and uncertainty-weighted reliability.",
+    "Select primary candidate as valid label with highest mean evidence.",
+    "Compute primary margin versus runner-up mean evidence.",
+    "Mark protected competitor labels when max evidence >= strong_evidence_threshold.",
+    "If primary margin < min_primary_margin, add low_primary_margin.",
+    "If mean_uncertainty > max_mean_uncertainty, add high_mean_uncertainty.",
+    "If mean_invalid_label_mass > max_mean_invalid_mass, add high_invalid_label_mass.",
+    "If protected competitor remains within protected_conflict_mean_gap, add protected_minority_contradiction.",
+    "If any reason exists, output UNCERTAIN; otherwise output primary label."
+  ],
+  "evidence_reliability": "worker evidence is multiplied by (1 - uncertainty_probability) * (1 - invalid_label_mass)",
+  "invalid_label_mass_can_emit_uncertain": true,
+  "max_mean_uncertainty": "final reducer appends high_mean_uncertainty when mean_uncertainty > 0.5",
+  "multiple_reasons_possible": true,
+  "other_abstention_paths": [
+    "low_primary_margin",
+    "high_invalid_label_mass",
+    "protected_minority_contradiction"
+  ],
+  "population_uncertainty": "mean_uncertainty is arithmetic mean of worker uncertainty probabilities; max_uncertainty and quantiles are diagnostics",
+  "worker_uncertain_decode": "worker decoded prediction becomes UNCERTAIN when sigmoid(uncertainty_logit) >= 0.5; otherwise argmax over 11 label logits",
+  "worker_uncertain_decode_threshold": 0.5,
+  "worker_uncertainty_probability": "sigmoid(worker uncertainty logit)"
+}

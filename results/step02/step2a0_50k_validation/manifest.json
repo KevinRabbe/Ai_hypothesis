@@ -1,0 +1,59 @@
+{
+  "aggregation_parameters": {
+    "eps": {
+      "default": 1e-08,
+      "semantics": "probability/log numerical floor"
+    },
+    "evidence_clip": {
+      "default": 8.0,
+      "semantics": "absolute clip for centered log-support evidence"
+    },
+    "max_mean_invalid_mass": {
+      "default": 0.5,
+      "semantics": "maximum mean task-invalid probability mass before abstention"
+    },
+    "max_mean_uncertainty": {
+      "default": 0.5,
+      "semantics": "maximum population mean uncertainty before abstention"
+    },
+    "min_primary_margin": {
+      "default": 0.15,
+      "semantics": "minimum mean-evidence gap before choosing primary label"
+    },
+    "protected_conflict_mean_gap": {
+      "default": 0.5,
+      "semantics": "mean-evidence gap below which protected competitor causes UNCERTAIN"
+    },
+    "strong_evidence_threshold": {
+      "default": 2.0,
+      "semantics": "threshold for protected minority candidate evidence"
+    },
+    "support_threshold": {
+      "default": 0.5,
+      "semantics": "evidence threshold for support-count diagnostics"
+    },
+    "top_k": {
+      "default": 3,
+      "semantics": "per-label strongest evidence entries retained"
+    }
+  },
+  "checkpoints": [
+    "results\\step01\\checkpoint_50k_extended_15k\\seed_1\\best.pt",
+    "results\\step01\\checkpoint_50k_extended_15k\\seed_2\\best.pt",
+    "results\\step01\\checkpoint_50k_extended_15k\\seed_3\\best.pt",
+    "results\\step01\\checkpoint_50k_extended_15k\\seed_4\\best.pt",
+    "results\\step01\\checkpoint_50k_extended_15k\\seed_5\\best.pt"
+  ],
+  "cuda_available": true,
+  "cuda_device": "NVIDIA GeForce RTX 4060 Ti",
+  "device": "cuda",
+  "phase": "step2a0_validation_only",
+  "split": "validation",
+  "torch_version": "2.9.0+cu128",
+  "widths": [
+    1,
+    2,
+    4,
+    5
+  ]
+}

@@ -4,3 +4,4 @@ __pycache__/
 .pytest_cache/
 dashboard/frontend/node_modules/
 dashboard/frontend/dist/
+results/step02/**/cache/

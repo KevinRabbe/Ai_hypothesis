@@ -1,0 +1,67 @@
+{
+  "all_wrong_rate": {
+    "conditional": false,
+    "denominator": "all evaluated samples",
+    "numerator": "samples where no worker decoded prediction equals the ground-truth label",
+    "w1_meaning": "meaningful; equals 1 - single decoded worker accuracy",
+    "zero_denominator": "evaluation raises if total samples is zero"
+  },
+  "evidence_utilization_gap": {
+    "conditional": false,
+    "denominator": "all evaluated samples",
+    "note": "Can differ from utilization_failure_rate when reducer is correct on samples where no worker decoded the truth.",
+    "numerator": "oracle_any_correct_count - evidence_reducer_correct_count",
+    "w1_meaning": "mathematically defined but not a population utilization measure",
+    "zero_denominator": "evaluation raises if total samples is zero"
+  },
+  "majority_harm_rate": {
+    "conditional": false,
+    "denominator": "all evaluated samples",
+    "numerator": "samples where majority vote is correct and evidence reducer is wrong",
+    "w1_meaning": "defined, but at W=1 describes reducer changing a correct single-worker decoded answer to wrong",
+    "zero_denominator": "evaluation raises if total samples is zero"
+  },
+  "minority_rescue_opportunity_rate": {
+    "conditional": false,
+    "denominator": "all evaluated samples",
+    "numerator": "samples where majority vote is wrong and at least one worker decoded truth",
+    "w1_meaning": "not meaningful as a minority metric; with W=1 it should be zero",
+    "zero_denominator": "evaluation raises if total samples is zero"
+  },
+  "minority_rescue_rate": {
+    "conditional": true,
+    "denominator": "minority_rescue_opportunities",
+    "numerator": "minority_rescues: rescue opportunities where evidence reducer is correct",
+    "w1_meaning": "not applicable when no rescue opportunities exist; current 0.0 is a sentinel, not a real rate",
+    "zero_denominator": "currently reported as 0.0"
+  },
+  "minority_suppression_rate": {
+    "bug_or_issue": "misleading name/denominator for W=1 and non-minority cases",
+    "conditional": true,
+    "denominator": "strong_correct_minority_cases",
+    "numerator": "samples with strong_correct_minority true where evidence reducer is not correct",
+    "w1_meaning": "not meaningful; current strong_correct_minority is actually strong-correct-evidence while majority != truth, not a true minority condition",
+    "zero_denominator": "currently reported as 0.0"
+  },
+  "oracle_any_correct_coverage": {
+    "conditional": false,
+    "denominator": "all evaluated samples",
+    "numerator": "samples where at least one worker decoded prediction equals the ground-truth label",
+    "w1_meaning": "meaningful; equals single decoded worker accuracy",
+    "zero_denominator": "evaluation raises if total samples is zero"
+  },
+  "reducer_rescue_rate_total": {
+    "conditional": false,
+    "denominator": "all evaluated samples",
+    "numerator": "samples where majority vote is wrong, at least one worker decoded truth, and evidence reducer is correct",
+    "w1_meaning": "not meaningful as population rescue; should be zero",
+    "zero_denominator": "diagnostic-only here"
+  },
+  "utilization_failure_rate": {
+    "conditional": false,
+    "denominator": "all evaluated samples",
+    "numerator": "samples where at least one worker decoded truth and evidence reducer prediction is wrong",
+    "w1_meaning": "defined, but describes disagreement between single decoded worker and reducer, not population utilization",
+    "zero_denominator": "not in production evaluate_population; diagnostic-only here"
+  }
+}

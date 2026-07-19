@@ -1,0 +1,370 @@
+[
+  {
+    "accuracy": 0.95205,
+    "all_wrong_rate": 0.0293,
+    "count": 20000,
+    "legacy_strong_correct_evidence_suppression": {
+      "denominator": 459,
+      "numerator": 431,
+      "rate": 0.9389978213507625
+    },
+    "majority_harm_rate": 0.0027,
+    "mean_disagreement_entropy": 0.016816506162285805,
+    "mean_invalid_label_mass": 0.0001590995816513896,
+    "mean_population_uncertainty": 0.25581392645835876,
+    "name": "reducer_v0",
+    "oracle_any_correct_coverage": 0.9707,
+    "overlap_vs_baseline": {
+      "a_correct_b_wrong": 0,
+      "b_correct_a_wrong": 0,
+      "both_correct": 19041,
+      "both_wrong": 959,
+      "both_wrong_oracle_available": 373
+    },
+    "overlap_vs_mean_logit": {
+      "a_correct_b_wrong": 3,
+      "b_correct_a_wrong": 21,
+      "both_correct": 19038,
+      "both_wrong": 938,
+      "both_wrong_oracle_available": 352
+    },
+    "true_minority_metrics": {
+      "denominator_true_minority_opportunities": 364,
+      "numerator_rescues": 45,
+      "numerator_suppressions": 319,
+      "rescue_rate": 0.12362637362637363,
+      "suppression_rate": 0.8763736263736264
+    },
+    "uncertain_behavior": {
+      "uncertain_correct_count": 4713,
+      "uncertain_prediction_count": 5336,
+      "uncertain_prediction_rate": 0.2668,
+      "uncertain_wrong_with_oracle_count": 226,
+      "useful_label_evidence_suppressed_by_uncertain_count": 226
+    },
+    "utilization_failure_rate": 0.01865,
+    "utilization_gap": 0.01865
+  },
+  {
+    "accuracy": 0.9525,
+    "all_wrong_rate": 0.0293,
+    "count": 20000,
+    "legacy_strong_correct_evidence_suppression": {
+      "denominator": 459,
+      "numerator": 459,
+      "rate": 1.0
+    },
+    "majority_harm_rate": 0.0,
+    "mean_disagreement_entropy": 0.016816506162285805,
+    "mean_invalid_label_mass": 0.0001590995816513896,
+    "mean_population_uncertainty": 0.25581392645835876,
+    "name": "majority",
+    "oracle_any_correct_coverage": 0.9707,
+    "overlap_vs_baseline": {
+      "a_correct_b_wrong": 54,
+      "b_correct_a_wrong": 45,
+      "both_correct": 18996,
+      "both_wrong": 905,
+      "both_wrong_oracle_available": 319
+    },
+    "overlap_vs_mean_logit": {
+      "a_correct_b_wrong": 43,
+      "b_correct_a_wrong": 52,
+      "both_correct": 19007,
+      "both_wrong": 898,
+      "both_wrong_oracle_available": 312
+    },
+    "true_minority_metrics": {
+      "denominator_true_minority_opportunities": 364,
+      "numerator_rescues": 0,
+      "numerator_suppressions": 364,
+      "rescue_rate": 0.0,
+      "suppression_rate": 1.0
+    },
+    "uncertain_behavior": {
+      "uncertain_correct_count": 4717,
+      "uncertain_prediction_count": 5325,
+      "uncertain_prediction_rate": 0.26625,
+      "uncertain_wrong_with_oracle_count": 210,
+      "useful_label_evidence_suppressed_by_uncertain_count": 210
+    },
+    "utilization_failure_rate": 0.0182,
+    "utilization_gap": 0.0182
+  },
+  {
+    "accuracy": 0.95295,
+    "all_wrong_rate": 0.0293,
+    "count": 20000,
+    "legacy_strong_correct_evidence_suppression": {
+      "denominator": 459,
+      "numerator": 423,
+      "rate": 0.9215686274509803
+    },
+    "majority_harm_rate": 0.00215,
+    "mean_disagreement_entropy": 0.016816506162285805,
+    "mean_invalid_label_mass": 0.0001590995816513896,
+    "mean_population_uncertainty": 0.25581392645835876,
+    "name": "mean_logit",
+    "oracle_any_correct_coverage": 0.9707,
+    "overlap_vs_baseline": {
+      "a_correct_b_wrong": 21,
+      "b_correct_a_wrong": 3,
+      "both_correct": 19038,
+      "both_wrong": 938,
+      "both_wrong_oracle_available": 352
+    },
+    "overlap_vs_mean_logit": {
+      "a_correct_b_wrong": 0,
+      "b_correct_a_wrong": 0,
+      "both_correct": 19059,
+      "both_wrong": 941,
+      "both_wrong_oracle_available": 355
+    },
+    "true_minority_metrics": {
+      "denominator_true_minority_opportunities": 364,
+      "numerator_rescues": 52,
+      "numerator_suppressions": 312,
+      "rescue_rate": 0.14285714285714285,
+      "suppression_rate": 0.8571428571428571
+    },
+    "uncertain_behavior": {
+      "uncertain_correct_count": 4711,
+      "uncertain_prediction_count": 5300,
+      "uncertain_prediction_rate": 0.265,
+      "uncertain_wrong_with_oracle_count": 192,
+      "useful_label_evidence_suppressed_by_uncertain_count": 192
+    },
+    "utilization_failure_rate": 0.01775,
+    "utilization_gap": 0.01775
+  },
+  {
+    "accuracy": 0.95265,
+    "all_wrong_rate": 0.0293,
+    "count": 20000,
+    "legacy_strong_correct_evidence_suppression": {
+      "denominator": 459,
+      "numerator": 429,
+      "rate": 0.934640522875817
+    },
+    "majority_harm_rate": 0.0021,
+    "mean_disagreement_entropy": 0.016816506162285805,
+    "mean_invalid_label_mass": 0.0001590995816513896,
+    "mean_population_uncertainty": 0.25581392645835876,
+    "name": "mean_probability",
+    "oracle_any_correct_coverage": 0.9707,
+    "overlap_vs_baseline": {
+      "a_correct_b_wrong": 14,
+      "b_correct_a_wrong": 2,
+      "both_correct": 19039,
+      "both_wrong": 945,
+      "both_wrong_oracle_available": 359
+    },
+    "overlap_vs_mean_logit": {
+      "a_correct_b_wrong": 1,
+      "b_correct_a_wrong": 7,
+      "both_correct": 19052,
+      "both_wrong": 940,
+      "both_wrong_oracle_available": 354
+    },
+    "true_minority_metrics": {
+      "denominator_true_minority_opportunities": 364,
+      "numerator_rescues": 45,
+      "numerator_suppressions": 319,
+      "rescue_rate": 0.12362637362637363,
+      "suppression_rate": 0.8763736263736264
+    },
+    "uncertain_behavior": {
+      "uncertain_correct_count": 4711,
+      "uncertain_prediction_count": 5304,
+      "uncertain_prediction_rate": 0.2652,
+      "uncertain_wrong_with_oracle_count": 196,
+      "useful_label_evidence_suppressed_by_uncertain_count": 196
+    },
+    "utilization_failure_rate": 0.01805,
+    "utilization_gap": 0.01805
+  },
+  {
+    "accuracy": 0.95205,
+    "all_wrong_rate": 0.0293,
+    "count": 20000,
+    "legacy_strong_correct_evidence_suppression": {
+      "denominator": 459,
+      "numerator": 431,
+      "rate": 0.9389978213507625
+    },
+    "majority_harm_rate": 0.0027,
+    "mean_disagreement_entropy": 0.016816506162285805,
+    "mean_invalid_label_mass": 0.0001590995816513896,
+    "mean_population_uncertainty": 0.25581392645835876,
+    "name": "hypothesis_a_cohesive_minority_challenger",
+    "oracle_any_correct_coverage": 0.9707,
+    "overlap_vs_baseline": {
+      "a_correct_b_wrong": 0,
+      "b_correct_a_wrong": 0,
+      "both_correct": 19041,
+      "both_wrong": 959,
+      "both_wrong_oracle_available": 373
+    },
+    "overlap_vs_mean_logit": {
+      "a_correct_b_wrong": 3,
+      "b_correct_a_wrong": 21,
+      "both_correct": 19038,
+      "both_wrong": 938,
+      "both_wrong_oracle_available": 352
+    },
+    "true_minority_metrics": {
+      "denominator_true_minority_opportunities": 364,
+      "numerator_rescues": 45,
+      "numerator_suppressions": 319,
+      "rescue_rate": 0.12362637362637363,
+      "suppression_rate": 0.8763736263736264
+    },
+    "uncertain_behavior": {
+      "uncertain_correct_count": 4713,
+      "uncertain_prediction_count": 5336,
+      "uncertain_prediction_rate": 0.2668,
+      "uncertain_wrong_with_oracle_count": 226,
+      "useful_label_evidence_suppressed_by_uncertain_count": 226
+    },
+    "utilization_failure_rate": 0.01865,
+    "utilization_gap": 0.01865
+  },
+  {
+    "accuracy": 0.9521,
+    "all_wrong_rate": 0.0293,
+    "count": 20000,
+    "legacy_strong_correct_evidence_suppression": {
+      "denominator": 459,
+      "numerator": 431,
+      "rate": 0.9389978213507625
+    },
+    "majority_harm_rate": 0.00265,
+    "mean_disagreement_entropy": 0.016816506162285805,
+    "mean_invalid_label_mass": 0.0001590995816513896,
+    "mean_population_uncertainty": 0.25581392645835876,
+    "name": "hypothesis_b_task_reliability_weighted",
+    "oracle_any_correct_coverage": 0.9707,
+    "overlap_vs_baseline": {
+      "a_correct_b_wrong": 1,
+      "b_correct_a_wrong": 0,
+      "both_correct": 19041,
+      "both_wrong": 958,
+      "both_wrong_oracle_available": 372
+    },
+    "overlap_vs_mean_logit": {
+      "a_correct_b_wrong": 3,
+      "b_correct_a_wrong": 20,
+      "both_correct": 19039,
+      "both_wrong": 938,
+      "both_wrong_oracle_available": 352
+    },
+    "true_minority_metrics": {
+      "denominator_true_minority_opportunities": 364,
+      "numerator_rescues": 45,
+      "numerator_suppressions": 319,
+      "rescue_rate": 0.12362637362637363,
+      "suppression_rate": 0.8763736263736264
+    },
+    "uncertain_behavior": {
+      "uncertain_correct_count": 4713,
+      "uncertain_prediction_count": 5336,
+      "uncertain_prediction_rate": 0.2668,
+      "uncertain_wrong_with_oracle_count": 226,
+      "useful_label_evidence_suppressed_by_uncertain_count": 226
+    },
+    "utilization_failure_rate": 0.0186,
+    "utilization_gap": 0.0186
+  },
+  {
+    "accuracy": 0.9523,
+    "all_wrong_rate": 0.0293,
+    "count": 20000,
+    "legacy_strong_correct_evidence_suppression": {
+      "denominator": 459,
+      "numerator": 431,
+      "rate": 0.9389978213507625
+    },
+    "majority_harm_rate": 0.00245,
+    "mean_disagreement_entropy": 0.016816506162285805,
+    "mean_invalid_label_mass": 0.0001590995816513896,
+    "mean_population_uncertainty": 0.25581392645835876,
+    "name": "hypothesis_c_contradiction_resolution",
+    "oracle_any_correct_coverage": 0.9707,
+    "overlap_vs_baseline": {
+      "a_correct_b_wrong": 5,
+      "b_correct_a_wrong": 0,
+      "both_correct": 19041,
+      "both_wrong": 954,
+      "both_wrong_oracle_available": 368
+    },
+    "overlap_vs_mean_logit": {
+      "a_correct_b_wrong": 3,
+      "b_correct_a_wrong": 16,
+      "both_correct": 19043,
+      "both_wrong": 938,
+      "both_wrong_oracle_available": 352
+    },
+    "true_minority_metrics": {
+      "denominator_true_minority_opportunities": 364,
+      "numerator_rescues": 45,
+      "numerator_suppressions": 319,
+      "rescue_rate": 0.12362637362637363,
+      "suppression_rate": 0.8763736263736264
+    },
+    "uncertain_behavior": {
+      "uncertain_correct_count": 4713,
+      "uncertain_prediction_count": 5330,
+      "uncertain_prediction_rate": 0.2665,
+      "uncertain_wrong_with_oracle_count": 220,
+      "useful_label_evidence_suppressed_by_uncertain_count": 220
+    },
+    "utilization_failure_rate": 0.0184,
+    "utilization_gap": 0.0184
+  },
+  {
+    "accuracy": 0.9526,
+    "all_wrong_rate": 0.0293,
+    "count": 20000,
+    "legacy_strong_correct_evidence_suppression": {
+      "denominator": 459,
+      "numerator": 429,
+      "rate": 0.934640522875817
+    },
+    "majority_harm_rate": 0.00215,
+    "mean_disagreement_entropy": 0.016816506162285805,
+    "mean_invalid_label_mass": 0.0001590995816513896,
+    "mean_population_uncertainty": 0.25581392645835876,
+    "name": "combined_b_c_candidate",
+    "oracle_any_correct_coverage": 0.9707,
+    "overlap_vs_baseline": {
+      "a_correct_b_wrong": 13,
+      "b_correct_a_wrong": 2,
+      "both_correct": 19039,
+      "both_wrong": 946,
+      "both_wrong_oracle_available": 360
+    },
+    "overlap_vs_mean_logit": {
+      "a_correct_b_wrong": 1,
+      "b_correct_a_wrong": 8,
+      "both_correct": 19051,
+      "both_wrong": 940,
+      "both_wrong_oracle_available": 354
+    },
+    "true_minority_metrics": {
+      "denominator_true_minority_opportunities": 364,
+      "numerator_rescues": 45,
+      "numerator_suppressions": 319,
+      "rescue_rate": 0.12362637362637363,
+      "suppression_rate": 0.8763736263736264
+    },
+    "uncertain_behavior": {
+      "uncertain_correct_count": 4711,
+      "uncertain_prediction_count": 5307,
+      "uncertain_prediction_rate": 0.26535,
+      "uncertain_wrong_with_oracle_count": 199,
+      "useful_label_evidence_suppressed_by_uncertain_count": 199
+    },
+    "utilization_failure_rate": 0.0181,
+    "utilization_gap": 0.0181
+  }
+]

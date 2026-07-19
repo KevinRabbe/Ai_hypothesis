@@ -1,0 +1,37 @@
+[
+  {
+    "backend": "loop",
+    "batch_size": 256,
+    "count": 4096,
+    "device": "cuda",
+    "peak_gpu_memory_bytes": 29303808,
+    "samples_per_second": 8156.910601620574,
+    "split": "validation",
+    "total_wall_time_seconds": 0.5021509000216611,
+    "warmup_batches": 2,
+    "warnings": [
+      "The argument 'device' of Tensor.is_pinned() is deprecated. Please do not pass this argument. (Triggered internally at C:\\actions-runner\\_work\\pytorch\\pytorch\\pytorch\\aten\\src\\ATen\\native\\Memory.cpp:33.)",
+      "The argument 'device' of Tensor.pin_memory() is deprecated. Please do not pass this argument. (Triggered internally at C:\\actions-runner\\_work\\pytorch\\pytorch\\pytorch\\aten\\src\\ATen\\native\\Memory.cpp:48.)"
+    ],
+    "width": 5,
+    "worker_evaluations_per_second": 40784.55300810287
+  },
+  {
+    "backend": "vmap",
+    "batch_size": 256,
+    "count": 4096,
+    "device": "cuda",
+    "peak_gpu_memory_bytes": 49177600,
+    "samples_per_second": 8672.784480413695,
+    "split": "validation",
+    "total_wall_time_seconds": 0.47228200000245124,
+    "warmup_batches": 2,
+    "warnings": [
+      "The argument 'device' of Tensor.is_pinned() is deprecated. Please do not pass this argument. (Triggered internally at C:\\actions-runner\\_work\\pytorch\\pytorch\\pytorch\\aten\\src\\ATen\\native\\Memory.cpp:33.)",
+      "The argument 'device' of Tensor.pin_memory() is deprecated. Please do not pass this argument. (Triggered internally at C:\\actions-runner\\_work\\pytorch\\pytorch\\pytorch\\aten\\src\\ATen\\native\\Memory.cpp:48.)",
+      "There is a performance drop because we have not yet implemented the batching rule for aten::_transformer_encoder_layer_fwd. Please file us an issue on GitHub so that we can prioritize its implementation. (Triggered internally at C:\\actions-runner\\_work\\pytorch\\pytorch\\pytorch\\aten\\src\\ATen\\functorch\\BatchedFallback.cpp:84.)"
+    ],
+    "width": 5,
+    "worker_evaluations_per_second": 43363.92240206848
+  }
+]

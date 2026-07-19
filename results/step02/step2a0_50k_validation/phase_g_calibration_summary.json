@@ -1,0 +1,154 @@
+[
+  {
+    "config": {
+      "eps": 1e-08,
+      "evidence_clip": 8.0,
+      "max_mean_invalid_mass": 0.5,
+      "max_mean_uncertainty": 0.5,
+      "min_primary_margin": 0.05,
+      "protected_conflict_mean_gap": 0.0,
+      "strong_evidence_threshold": 2.0,
+      "support_threshold": 0.5,
+      "top_k": 3
+    },
+    "tag": "low_margin_no_conflict_gap",
+    "width5_evidence_reducer_accuracy": 0.95265,
+    "width5_evidence_utilization_gap": 0.01805000000000001,
+    "width5_majority_harm_rate": 0.00215,
+    "width5_minority_rescue_rate": 0.12637362637362637,
+    "width5_minority_suppression_rate": 0.9324618736383442
+  },
+  {
+    "config": {
+      "eps": 1e-08,
+      "evidence_clip": 8.0,
+      "max_mean_invalid_mass": 0.5,
+      "max_mean_uncertainty": 0.5,
+      "min_primary_margin": 0.15,
+      "protected_conflict_mean_gap": 0.0,
+      "strong_evidence_threshold": 2.0,
+      "support_threshold": 0.5,
+      "top_k": 3
+    },
+    "tag": "no_protected_conflict_gap",
+    "width5_evidence_reducer_accuracy": 0.9526,
+    "width5_evidence_utilization_gap": 0.018100000000000005,
+    "width5_majority_harm_rate": 0.0022,
+    "width5_minority_rescue_rate": 0.12637362637362637,
+    "width5_minority_suppression_rate": 0.934640522875817
+  },
+  {
+    "config": {
+      "eps": 1e-08,
+      "evidence_clip": 8.0,
+      "max_mean_invalid_mass": 0.5,
+      "max_mean_uncertainty": 0.5,
+      "min_primary_margin": 0.15,
+      "protected_conflict_mean_gap": 0.5,
+      "strong_evidence_threshold": 3.0,
+      "support_threshold": 0.5,
+      "top_k": 3
+    },
+    "tag": "stronger_strong_evidence",
+    "width5_evidence_reducer_accuracy": 0.9521,
+    "width5_evidence_utilization_gap": 0.01860000000000006,
+    "width5_majority_harm_rate": 0.0027,
+    "width5_minority_rescue_rate": 0.12637362637362637,
+    "width5_minority_suppression_rate": 0.9149560117302052
+  },
+  {
+    "config": {
+      "eps": 1e-08,
+      "evidence_clip": 8.0,
+      "max_mean_invalid_mass": 0.5,
+      "max_mean_uncertainty": 0.5,
+      "min_primary_margin": 0.15,
+      "protected_conflict_mean_gap": 0.5,
+      "strong_evidence_threshold": 2.0,
+      "support_threshold": 0.5,
+      "top_k": 3
+    },
+    "tag": "baseline_defaults",
+    "width5_evidence_reducer_accuracy": 0.95205,
+    "width5_evidence_utilization_gap": 0.018650000000000055,
+    "width5_majority_harm_rate": 0.0027,
+    "width5_minority_rescue_rate": 0.12362637362637363,
+    "width5_minority_suppression_rate": 0.9389978213507625
+  },
+  {
+    "config": {
+      "eps": 1e-08,
+      "evidence_clip": 8.0,
+      "max_mean_invalid_mass": 0.5,
+      "max_mean_uncertainty": 0.5,
+      "min_primary_margin": 0.0,
+      "protected_conflict_mean_gap": 0.5,
+      "strong_evidence_threshold": 2.0,
+      "support_threshold": 0.5,
+      "top_k": 3
+    },
+    "tag": "no_margin_gate",
+    "width5_evidence_reducer_accuracy": 0.95205,
+    "width5_evidence_utilization_gap": 0.018650000000000055,
+    "width5_majority_harm_rate": 0.0027,
+    "width5_minority_rescue_rate": 0.12362637362637363,
+    "width5_minority_suppression_rate": 0.9389978213507625
+  },
+  {
+    "config": {
+      "eps": 1e-08,
+      "evidence_clip": 8.0,
+      "max_mean_invalid_mass": 0.5,
+      "max_mean_uncertainty": 0.5,
+      "min_primary_margin": 0.05,
+      "protected_conflict_mean_gap": 0.5,
+      "strong_evidence_threshold": 2.0,
+      "support_threshold": 0.5,
+      "top_k": 3
+    },
+    "tag": "low_margin_gate",
+    "width5_evidence_reducer_accuracy": 0.95205,
+    "width5_evidence_utilization_gap": 0.018650000000000055,
+    "width5_majority_harm_rate": 0.0027,
+    "width5_minority_rescue_rate": 0.12362637362637363,
+    "width5_minority_suppression_rate": 0.9389978213507625
+  },
+  {
+    "config": {
+      "eps": 1e-08,
+      "evidence_clip": 8.0,
+      "max_mean_invalid_mass": 0.5,
+      "max_mean_uncertainty": 0.5,
+      "min_primary_margin": 0.1,
+      "protected_conflict_mean_gap": 0.5,
+      "strong_evidence_threshold": 2.0,
+      "support_threshold": 0.5,
+      "top_k": 3
+    },
+    "tag": "medium_margin_gate",
+    "width5_evidence_reducer_accuracy": 0.95205,
+    "width5_evidence_utilization_gap": 0.018650000000000055,
+    "width5_majority_harm_rate": 0.0027,
+    "width5_minority_rescue_rate": 0.12362637362637363,
+    "width5_minority_suppression_rate": 0.9389978213507625
+  },
+  {
+    "config": {
+      "eps": 1e-08,
+      "evidence_clip": 8.0,
+      "max_mean_invalid_mass": 0.5,
+      "max_mean_uncertainty": 0.5,
+      "min_primary_margin": 0.15,
+      "protected_conflict_mean_gap": 0.5,
+      "strong_evidence_threshold": 1.0,
+      "support_threshold": 0.5,
+      "top_k": 3
+    },
+    "tag": "weaker_strong_evidence",
+    "width5_evidence_reducer_accuracy": 0.95205,
+    "width5_evidence_utilization_gap": 0.018650000000000055,
+    "width5_majority_harm_rate": 0.0027,
+    "width5_minority_rescue_rate": 0.12362637362637363,
+    "width5_minority_suppression_rate": 0.9495495495495495
+  }
+]

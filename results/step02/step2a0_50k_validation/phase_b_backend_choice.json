@@ -1,0 +1,4 @@
+{
+  "chosen_backend": "vmap",
+  "reason": "vmap was at least 5% faster in the CUDA performance check"
+}

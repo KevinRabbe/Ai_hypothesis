@@ -1,0 +1,676 @@
+{
+  "dev_confirmation_results": [
+    {
+      "accuracy": 0.9548,
+      "all_wrong_rate": 0.0265,
+      "count": 20000,
+      "legacy_strong_correct_evidence_suppression": {
+        "denominator": 446,
+        "numerator": 415,
+        "rate": 0.9304932735426009
+      },
+      "majority_harm_rate": 0.0019,
+      "mean_disagreement_entropy": 0.01553479302674532,
+      "mean_invalid_label_mass": 0.00015456027176696807,
+      "mean_population_uncertainty": 0.2550502419471741,
+      "name": "reducer_v0",
+      "oracle_any_correct_coverage": 0.9735,
+      "overlap_vs_baseline": {
+        "a_correct_b_wrong": 0,
+        "b_correct_a_wrong": 0,
+        "both_correct": 19096,
+        "both_wrong": 904,
+        "both_wrong_oracle_available": 374
+      },
+      "overlap_vs_mean_logit": {
+        "a_correct_b_wrong": 8,
+        "b_correct_a_wrong": 13,
+        "both_correct": 19088,
+        "both_wrong": 891,
+        "both_wrong_oracle_available": 361
+      },
+      "true_minority_metrics": {
+        "denominator_true_minority_opportunities": 392,
+        "numerator_rescues": 56,
+        "numerator_suppressions": 336,
+        "rescue_rate": 0.14285714285714285,
+        "suppression_rate": 0.8571428571428571
+      },
+      "uncertain_behavior": {
+        "uncertain_correct_count": 4716,
+        "uncertain_prediction_count": 5294,
+        "uncertain_prediction_rate": 0.2647,
+        "uncertain_wrong_with_oracle_count": 215,
+        "useful_label_evidence_suppressed_by_uncertain_count": 215
+      },
+      "utilization_failure_rate": 0.0187,
+      "utilization_gap": 0.0187
+    },
+    {
+      "accuracy": 0.9539,
+      "all_wrong_rate": 0.0265,
+      "count": 20000,
+      "legacy_strong_correct_evidence_suppression": {
+        "denominator": 446,
+        "numerator": 446,
+        "rate": 1.0
+      },
+      "majority_harm_rate": 0.0,
+      "mean_disagreement_entropy": 0.01553479302674532,
+      "mean_invalid_label_mass": 0.00015456027176696807,
+      "mean_population_uncertainty": 0.2550502419471741,
+      "name": "majority",
+      "oracle_any_correct_coverage": 0.9735,
+      "overlap_vs_baseline": {
+        "a_correct_b_wrong": 38,
+        "b_correct_a_wrong": 56,
+        "both_correct": 19040,
+        "both_wrong": 866,
+        "both_wrong_oracle_available": 336
+      },
+      "overlap_vs_mean_logit": {
+        "a_correct_b_wrong": 39,
+        "b_correct_a_wrong": 62,
+        "both_correct": 19039,
+        "both_wrong": 860,
+        "both_wrong_oracle_available": 330
+      },
+      "true_minority_metrics": {
+        "denominator_true_minority_opportunities": 392,
+        "numerator_rescues": 0,
+        "numerator_suppressions": 392,
+        "rescue_rate": 0.0,
+        "suppression_rate": 1.0
+      },
+      "uncertain_behavior": {
+        "uncertain_correct_count": 4708,
+        "uncertain_prediction_count": 5283,
+        "uncertain_prediction_rate": 0.26415,
+        "uncertain_wrong_with_oracle_count": 212,
+        "useful_label_evidence_suppressed_by_uncertain_count": 212
+      },
+      "utilization_failure_rate": 0.0196,
+      "utilization_gap": 0.0196
+    },
+    {
+      "accuracy": 0.95505,
+      "all_wrong_rate": 0.0265,
+      "count": 20000,
+      "legacy_strong_correct_evidence_suppression": {
+        "denominator": 446,
+        "numerator": 408,
+        "rate": 0.9147982062780269
+      },
+      "majority_harm_rate": 0.00195,
+      "mean_disagreement_entropy": 0.01553479302674532,
+      "mean_invalid_label_mass": 0.00015456027176696807,
+      "mean_population_uncertainty": 0.2550502419471741,
+      "name": "mean_logit",
+      "oracle_any_correct_coverage": 0.9735,
+      "overlap_vs_baseline": {
+        "a_correct_b_wrong": 13,
+        "b_correct_a_wrong": 8,
+        "both_correct": 19088,
+        "both_wrong": 891,
+        "both_wrong_oracle_available": 361
+      },
+      "overlap_vs_mean_logit": {
+        "a_correct_b_wrong": 0,
+        "b_correct_a_wrong": 0,
+        "both_correct": 19101,
+        "both_wrong": 899,
+        "both_wrong_oracle_available": 369
+      },
+      "true_minority_metrics": {
+        "denominator_true_minority_opportunities": 392,
+        "numerator_rescues": 62,
+        "numerator_suppressions": 330,
+        "rescue_rate": 0.15816326530612246,
+        "suppression_rate": 0.8418367346938775
+      },
+      "uncertain_behavior": {
+        "uncertain_correct_count": 4712,
+        "uncertain_prediction_count": 5274,
+        "uncertain_prediction_rate": 0.2637,
+        "uncertain_wrong_with_oracle_count": 199,
+        "useful_label_evidence_suppressed_by_uncertain_count": 199
+      },
+      "utilization_failure_rate": 0.01845,
+      "utilization_gap": 0.01845
+    },
+    {
+      "accuracy": 0.95515,
+      "all_wrong_rate": 0.0265,
+      "count": 20000,
+      "legacy_strong_correct_evidence_suppression": {
+        "denominator": 446,
+        "numerator": 410,
+        "rate": 0.9192825112107623
+      },
+      "majority_harm_rate": 0.0017,
+      "mean_disagreement_entropy": 0.01553479302674532,
+      "mean_invalid_label_mass": 0.00015456027176696807,
+      "mean_population_uncertainty": 0.2550502419471741,
+      "name": "mean_probability",
+      "oracle_any_correct_coverage": 0.9735,
+      "overlap_vs_baseline": {
+        "a_correct_b_wrong": 9,
+        "b_correct_a_wrong": 2,
+        "both_correct": 19094,
+        "both_wrong": 895,
+        "both_wrong_oracle_available": 365
+      },
+      "overlap_vs_mean_logit": {
+        "a_correct_b_wrong": 6,
+        "b_correct_a_wrong": 4,
+        "both_correct": 19097,
+        "both_wrong": 893,
+        "both_wrong_oracle_available": 363
+      },
+      "true_minority_metrics": {
+        "denominator_true_minority_opportunities": 392,
+        "numerator_rescues": 59,
+        "numerator_suppressions": 333,
+        "rescue_rate": 0.15051020408163265,
+        "suppression_rate": 0.8494897959183674
+      },
+      "uncertain_behavior": {
+        "uncertain_correct_count": 4714,
+        "uncertain_prediction_count": 5275,
+        "uncertain_prediction_rate": 0.26375,
+        "uncertain_wrong_with_oracle_count": 198,
+        "useful_label_evidence_suppressed_by_uncertain_count": 198
+      },
+      "utilization_failure_rate": 0.01835,
+      "utilization_gap": 0.01835
+    },
+    {
+      "accuracy": 0.9551,
+      "all_wrong_rate": 0.0265,
+      "count": 20000,
+      "legacy_strong_correct_evidence_suppression": {
+        "denominator": 446,
+        "numerator": 411,
+        "rate": 0.92152466367713
+      },
+      "majority_harm_rate": 0.00175,
+      "mean_disagreement_entropy": 0.01553479302674532,
+      "mean_invalid_label_mass": 0.00015456027176696807,
+      "mean_population_uncertainty": 0.2550502419471741,
+      "name": "combined_b_c_candidate",
+      "oracle_any_correct_coverage": 0.9735,
+      "overlap_vs_baseline": {
+        "a_correct_b_wrong": 7,
+        "b_correct_a_wrong": 1,
+        "both_correct": 19095,
+        "both_wrong": 897,
+        "both_wrong_oracle_available": 367
+      },
+      "overlap_vs_mean_logit": {
+        "a_correct_b_wrong": 7,
+        "b_correct_a_wrong": 6,
+        "both_correct": 19095,
+        "both_wrong": 892,
+        "both_wrong_oracle_available": 362
+      },
+      "true_minority_metrics": {
+        "denominator_true_minority_opportunities": 392,
+        "numerator_rescues": 59,
+        "numerator_suppressions": 333,
+        "rescue_rate": 0.15051020408163265,
+        "suppression_rate": 0.8494897959183674
+      },
+      "uncertain_behavior": {
+        "uncertain_correct_count": 4715,
+        "uncertain_prediction_count": 5279,
+        "uncertain_prediction_rate": 0.26395,
+        "uncertain_wrong_with_oracle_count": 201,
+        "useful_label_evidence_suppressed_by_uncertain_count": 201
+      },
+      "utilization_failure_rate": 0.0184,
+      "utilization_gap": 0.0184
+    }
+  ],
+  "development_results": [
+    {
+      "accuracy": 0.95205,
+      "all_wrong_rate": 0.0293,
+      "count": 20000,
+      "legacy_strong_correct_evidence_suppression": {
+        "denominator": 459,
+        "numerator": 431,
+        "rate": 0.9389978213507625
+      },
+      "majority_harm_rate": 0.0027,
+      "mean_disagreement_entropy": 0.016816506162285805,
+      "mean_invalid_label_mass": 0.0001590995816513896,
+      "mean_population_uncertainty": 0.25581392645835876,
+      "name": "reducer_v0",
+      "oracle_any_correct_coverage": 0.9707,
+      "overlap_vs_baseline": {
+        "a_correct_b_wrong": 0,
+        "b_correct_a_wrong": 0,
+        "both_correct": 19041,
+        "both_wrong": 959,
+        "both_wrong_oracle_available": 373
+      },
+      "overlap_vs_mean_logit": {
+        "a_correct_b_wrong": 3,
+        "b_correct_a_wrong": 21,
+        "both_correct": 19038,
+        "both_wrong": 938,
+        "both_wrong_oracle_available": 352
+      },
+      "true_minority_metrics": {
+        "denominator_true_minority_opportunities": 364,
+        "numerator_rescues": 45,
+        "numerator_suppressions": 319,
+        "rescue_rate": 0.12362637362637363,
+        "suppression_rate": 0.8763736263736264
+      },
+      "uncertain_behavior": {
+        "uncertain_correct_count": 4713,
+        "uncertain_prediction_count": 5336,
+        "uncertain_prediction_rate": 0.2668,
+        "uncertain_wrong_with_oracle_count": 226,
+        "useful_label_evidence_suppressed_by_uncertain_count": 226
+      },
+      "utilization_failure_rate": 0.01865,
+      "utilization_gap": 0.01865
+    },
+    {
+      "accuracy": 0.9525,
+      "all_wrong_rate": 0.0293,
+      "count": 20000,
+      "legacy_strong_correct_evidence_suppression": {
+        "denominator": 459,
+        "numerator": 459,
+        "rate": 1.0
+      },
+      "majority_harm_rate": 0.0,
+      "mean_disagreement_entropy": 0.016816506162285805,
+      "mean_invalid_label_mass": 0.0001590995816513896,
+      "mean_population_uncertainty": 0.25581392645835876,
+      "name": "majority",
+      "oracle_any_correct_coverage": 0.9707,
+      "overlap_vs_baseline": {
+        "a_correct_b_wrong": 54,
+        "b_correct_a_wrong": 45,
+        "both_correct": 18996,
+        "both_wrong": 905,
+        "both_wrong_oracle_available": 319
+      },
+      "overlap_vs_mean_logit": {
+        "a_correct_b_wrong": 43,
+        "b_correct_a_wrong": 52,
+        "both_correct": 19007,
+        "both_wrong": 898,
+        "both_wrong_oracle_available": 312
+      },
+      "true_minority_metrics": {
+        "denominator_true_minority_opportunities": 364,
+        "numerator_rescues": 0,
+        "numerator_suppressions": 364,
+        "rescue_rate": 0.0,
+        "suppression_rate": 1.0
+      },
+      "uncertain_behavior": {
+        "uncertain_correct_count": 4717,
+        "uncertain_prediction_count": 5325,
+        "uncertain_prediction_rate": 0.26625,
+        "uncertain_wrong_with_oracle_count": 210,
+        "useful_label_evidence_suppressed_by_uncertain_count": 210
+      },
+      "utilization_failure_rate": 0.0182,
+      "utilization_gap": 0.0182
+    },
+    {
+      "accuracy": 0.95295,
+      "all_wrong_rate": 0.0293,
+      "count": 20000,
+      "legacy_strong_correct_evidence_suppression": {
+        "denominator": 459,
+        "numerator": 423,
+        "rate": 0.9215686274509803
+      },
+      "majority_harm_rate": 0.00215,
+      "mean_disagreement_entropy": 0.016816506162285805,
+      "mean_invalid_label_mass": 0.0001590995816513896,
+      "mean_population_uncertainty": 0.25581392645835876,
+      "name": "mean_logit",
+      "oracle_any_correct_coverage": 0.9707,
+      "overlap_vs_baseline": {
+        "a_correct_b_wrong": 21,
+        "b_correct_a_wrong": 3,
+        "both_correct": 19038,
+        "both_wrong": 938,
+        "both_wrong_oracle_available": 352
+      },
+      "overlap_vs_mean_logit": {
+        "a_correct_b_wrong": 0,
+        "b_correct_a_wrong": 0,
+        "both_correct": 19059,
+        "both_wrong": 941,
+        "both_wrong_oracle_available": 355
+      },
+      "true_minority_metrics": {
+        "denominator_true_minority_opportunities": 364,
+        "numerator_rescues": 52,
+        "numerator_suppressions": 312,
+        "rescue_rate": 0.14285714285714285,
+        "suppression_rate": 0.8571428571428571
+      },
+      "uncertain_behavior": {
+        "uncertain_correct_count": 4711,
+        "uncertain_prediction_count": 5300,
+        "uncertain_prediction_rate": 0.265,
+        "uncertain_wrong_with_oracle_count": 192,
+        "useful_label_evidence_suppressed_by_uncertain_count": 192
+      },
+      "utilization_failure_rate": 0.01775,
+      "utilization_gap": 0.01775
+    },
+    {
+      "accuracy": 0.95265,
+      "all_wrong_rate": 0.0293,
+      "count": 20000,
+      "legacy_strong_correct_evidence_suppression": {
+        "denominator": 459,
+        "numerator": 429,
+        "rate": 0.934640522875817
+      },
+      "majority_harm_rate": 0.0021,
+      "mean_disagreement_entropy": 0.016816506162285805,
+      "mean_invalid_label_mass": 0.0001590995816513896,
+      "mean_population_uncertainty": 0.25581392645835876,
+      "name": "mean_probability",
+      "oracle_any_correct_coverage": 0.9707,
+      "overlap_vs_baseline": {
+        "a_correct_b_wrong": 14,
+        "b_correct_a_wrong": 2,
+        "both_correct": 19039,
+        "both_wrong": 945,
+        "both_wrong_oracle_available": 359
+      },
+      "overlap_vs_mean_logit": {
+        "a_correct_b_wrong": 1,
+        "b_correct_a_wrong": 7,
+        "both_correct": 19052,
+        "both_wrong": 940,
+        "both_wrong_oracle_available": 354
+      },
+      "true_minority_metrics": {
+        "denominator_true_minority_opportunities": 364,
+        "numerator_rescues": 45,
+        "numerator_suppressions": 319,
+        "rescue_rate": 0.12362637362637363,
+        "suppression_rate": 0.8763736263736264
+      },
+      "uncertain_behavior": {
+        "uncertain_correct_count": 4711,
+        "uncertain_prediction_count": 5304,
+        "uncertain_prediction_rate": 0.2652,
+        "uncertain_wrong_with_oracle_count": 196,
+        "useful_label_evidence_suppressed_by_uncertain_count": 196
+      },
+      "utilization_failure_rate": 0.01805,
+      "utilization_gap": 0.01805
+    },
+    {
+      "accuracy": 0.95205,
+      "all_wrong_rate": 0.0293,
+      "count": 20000,
+      "legacy_strong_correct_evidence_suppression": {
+        "denominator": 459,
+        "numerator": 431,
+        "rate": 0.9389978213507625
+      },
+      "majority_harm_rate": 0.0027,
+      "mean_disagreement_entropy": 0.016816506162285805,
+      "mean_invalid_label_mass": 0.0001590995816513896,
+      "mean_population_uncertainty": 0.25581392645835876,
+      "name": "hypothesis_a_cohesive_minority_challenger",
+      "oracle_any_correct_coverage": 0.9707,
+      "overlap_vs_baseline": {
+        "a_correct_b_wrong": 0,
+        "b_correct_a_wrong": 0,
+        "both_correct": 19041,
+        "both_wrong": 959,
+        "both_wrong_oracle_available": 373
+      },
+      "overlap_vs_mean_logit": {
+        "a_correct_b_wrong": 3,
+        "b_correct_a_wrong": 21,
+        "both_correct": 19038,
+        "both_wrong": 938,
+        "both_wrong_oracle_available": 352
+      },
+      "true_minority_metrics": {
+        "denominator_true_minority_opportunities": 364,
+        "numerator_rescues": 45,
+        "numerator_suppressions": 319,
+        "rescue_rate": 0.12362637362637363,
+        "suppression_rate": 0.8763736263736264
+      },
+      "uncertain_behavior": {
+        "uncertain_correct_count": 4713,
+        "uncertain_prediction_count": 5336,
+        "uncertain_prediction_rate": 0.2668,
+        "uncertain_wrong_with_oracle_count": 226,
+        "useful_label_evidence_suppressed_by_uncertain_count": 226
+      },
+      "utilization_failure_rate": 0.01865,
+      "utilization_gap": 0.01865
+    },
+    {
+      "accuracy": 0.9521,
+      "all_wrong_rate": 0.0293,
+      "count": 20000,
+      "legacy_strong_correct_evidence_suppression": {
+        "denominator": 459,
+        "numerator": 431,
+        "rate": 0.9389978213507625
+      },
+      "majority_harm_rate": 0.00265,
+      "mean_disagreement_entropy": 0.016816506162285805,
+      "mean_invalid_label_mass": 0.0001590995816513896,
+      "mean_population_uncertainty": 0.25581392645835876,
+      "name": "hypothesis_b_task_reliability_weighted",
+      "oracle_any_correct_coverage": 0.9707,
+      "overlap_vs_baseline": {
+        "a_correct_b_wrong": 1,
+        "b_correct_a_wrong": 0,
+        "both_correct": 19041,
+        "both_wrong": 958,
+        "both_wrong_oracle_available": 372
+      },
+      "overlap_vs_mean_logit": {
+        "a_correct_b_wrong": 3,
+        "b_correct_a_wrong": 20,
+        "both_correct": 19039,
+        "both_wrong": 938,
+        "both_wrong_oracle_available": 352
+      },
+      "true_minority_metrics": {
+        "denominator_true_minority_opportunities": 364,
+        "numerator_rescues": 45,
+        "numerator_suppressions": 319,
+        "rescue_rate": 0.12362637362637363,
+        "suppression_rate": 0.8763736263736264
+      },
+      "uncertain_behavior": {
+        "uncertain_correct_count": 4713,
+        "uncertain_prediction_count": 5336,
+        "uncertain_prediction_rate": 0.2668,
+        "uncertain_wrong_with_oracle_count": 226,
+        "useful_label_evidence_suppressed_by_uncertain_count": 226
+      },
+      "utilization_failure_rate": 0.0186,
+      "utilization_gap": 0.0186
+    },
+    {
+      "accuracy": 0.9523,
+      "all_wrong_rate": 0.0293,
+      "count": 20000,
+      "legacy_strong_correct_evidence_suppression": {
+        "denominator": 459,
+        "numerator": 431,
+        "rate": 0.9389978213507625
+      },
+      "majority_harm_rate": 0.00245,
+      "mean_disagreement_entropy": 0.016816506162285805,
+      "mean_invalid_label_mass": 0.0001590995816513896,
+      "mean_population_uncertainty": 0.25581392645835876,
+      "name": "hypothesis_c_contradiction_resolution",
+      "oracle_any_correct_coverage": 0.9707,
+      "overlap_vs_baseline": {
+        "a_correct_b_wrong": 5,
+        "b_correct_a_wrong": 0,
+        "both_correct": 19041,
+        "both_wrong": 954,
+        "both_wrong_oracle_available": 368
+      },
+      "overlap_vs_mean_logit": {
+        "a_correct_b_wrong": 3,
+        "b_correct_a_wrong": 16,
+        "both_correct": 19043,
+        "both_wrong": 938,
+        "both_wrong_oracle_available": 352
+      },
+      "true_minority_metrics": {
+        "denominator_true_minority_opportunities": 364,
+        "numerator_rescues": 45,
+        "numerator_suppressions": 319,
+        "rescue_rate": 0.12362637362637363,
+        "suppression_rate": 0.8763736263736264
+      },
+      "uncertain_behavior": {
+        "uncertain_correct_count": 4713,
+        "uncertain_prediction_count": 5330,
+        "uncertain_prediction_rate": 0.2665,
+        "uncertain_wrong_with_oracle_count": 220,
+        "useful_label_evidence_suppressed_by_uncertain_count": 220
+      },
+      "utilization_failure_rate": 0.0184,
+      "utilization_gap": 0.0184
+    },
+    {
+      "accuracy": 0.9526,
+      "all_wrong_rate": 0.0293,
+      "count": 20000,
+      "legacy_strong_correct_evidence_suppression": {
+        "denominator": 459,
+        "numerator": 429,
+        "rate": 0.934640522875817
+      },
+      "majority_harm_rate": 0.00215,
+      "mean_disagreement_entropy": 0.016816506162285805,
+      "mean_invalid_label_mass": 0.0001590995816513896,
+      "mean_population_uncertainty": 0.25581392645835876,
+      "name": "combined_b_c_candidate",
+      "oracle_any_correct_coverage": 0.9707,
+      "overlap_vs_baseline": {
+        "a_correct_b_wrong": 13,
+        "b_correct_a_wrong": 2,
+        "both_correct": 19039,
+        "both_wrong": 946,
+        "both_wrong_oracle_available": 360
+      },
+      "overlap_vs_mean_logit": {
+        "a_correct_b_wrong": 1,
+        "b_correct_a_wrong": 8,
+        "both_correct": 19051,
+        "both_wrong": 940,
+        "both_wrong_oracle_available": 354
+      },
+      "true_minority_metrics": {
+        "denominator_true_minority_opportunities": 364,
+        "numerator_rescues": 45,
+        "numerator_suppressions": 319,
+        "rescue_rate": 0.12362637362637363,
+        "suppression_rate": 0.8763736263736264
+      },
+      "uncertain_behavior": {
+        "uncertain_correct_count": 4711,
+        "uncertain_prediction_count": 5307,
+        "uncertain_prediction_rate": 0.26535,
+        "uncertain_wrong_with_oracle_count": 199,
+        "useful_label_evidence_suppressed_by_uncertain_count": 199
+      },
+      "utilization_failure_rate": 0.0181,
+      "utilization_gap": 0.0181
+    }
+  ],
+  "manifest": {
+    "benchmark_version": "step01-v0",
+    "candidate_selected_from_development": "combined_b_c_candidate",
+    "candidate_status": "TEMPORARY_DEV_SELECTED_NOT_FROZEN",
+    "dev_confirmation_set": {
+      "base_seed": 3000000000,
+      "count": 20000,
+      "distribution": "balanced TASKS x DIFFICULTIES, same generate_sample contract",
+      "source": "results\\step02\\step2a2_evidence_utilization_redesign\\cache\\w5_dev_confirmation_logits.pt",
+      "split_name": "development_confirmation_not_test",
+      "test_overlap": "none by seed range; test base is 2_000_000_000, confirmation base is 3_000_000_000"
+    },
+    "development_set": {
+      "interpretation": "existing 20K validation set now treated as aggregation-development set",
+      "source": "results\\step02\\step2a1_aggregation_diagnosis\\cache\\w5_validation_logits.pt"
+    },
+    "historical_artifacts_modified": false,
+    "hypotheses": {
+      "A": "cohesive minority challenger based on supporter count, supporter evidence, uncertainty, invalid mass, and primary margin",
+      "B": "task-conditioned worker reliability weighting calibrated from development data",
+      "C": "conservative protected-contradiction resolution when primary evidence is clean",
+      "combined": "B plus relaxed v0 conflict/margin configuration; evaluated only as a candidate check"
+    },
+    "phase": "step2a2_evidence_utilization_redesign_validation_dev_only",
+    "reliability_from_development": {
+      "global": [
+        0.9480259870064968,
+        0.9481259370314843,
+        0.9486756621689155,
+        0.9486756621689155,
+        0.9475762118940529
+      ],
+      "task_conditioned": {
+        "A_PATTERN": [
+          0.9308191808191808,
+          0.9345654345654346,
+          0.9370629370629371,
+          0.9335664335664335,
+          0.936063936063936
+        ],
+        "B_CHANGE": [
+          0.9772727272727273,
+          0.9772727272727273,
+          0.9762737262737263,
+          0.981018981018981,
+          0.9765234765234765
+        ],
+        "C_CONFLICT": [
+          0.9585414585414586,
+          0.9572927072927073,
+          0.951048951048951,
+          0.9582917082917083,
+          0.957042957042957
+        ],
+        "D_RELATION": [
+          0.9522977022977023,
+          0.9505494505494505,
+          0.952047952047952,
+          0.945054945054945,
+          0.9378121878121878
+        ],
+        "E_RELEVANCE": [
+          0.9200799200799201,
+          0.9198301698301699,
+          0.9258241758241759,
+          0.9243256743256744,
+          0.9293206793206793
+        ]
+      }
+    },
+    "test_split_accessed": false
+  }
+}

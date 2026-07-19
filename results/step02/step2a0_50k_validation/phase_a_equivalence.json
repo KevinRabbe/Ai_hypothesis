@@ -1,0 +1,90 @@
+[
+  {
+    "atol": 1e-05,
+    "batch_size": 256,
+    "count": 512,
+    "device": "cuda",
+    "evidence_prediction_agreement_rate": 1.0,
+    "label_allclose": true,
+    "label_max_abs_diff": 1.9073486328125e-06,
+    "label_mean_abs_diff": 1.423772614957257e-07,
+    "rtol": 1e-05,
+    "split": "validation",
+    "uncertainty_allclose": true,
+    "uncertainty_max_abs_diff": 1.9073486328125e-06,
+    "uncertainty_mean_abs_diff": 1.3917451724410057e-07,
+    "warnings": [
+      "The argument 'device' of Tensor.is_pinned() is deprecated. Please do not pass this argument. (Triggered internally at C:\\actions-runner\\_work\\pytorch\\pytorch\\pytorch\\aten\\src\\ATen\\native\\Memory.cpp:33.)",
+      "The argument 'device' of Tensor.pin_memory() is deprecated. Please do not pass this argument. (Triggered internally at C:\\actions-runner\\_work\\pytorch\\pytorch\\pytorch\\aten\\src\\ATen\\native\\Memory.cpp:48.)",
+      "There is a performance drop because we have not yet implemented the batching rule for aten::_transformer_encoder_layer_fwd. Please file us an issue on GitHub so that we can prioritize its implementation. (Triggered internally at C:\\actions-runner\\_work\\pytorch\\pytorch\\pytorch\\aten\\src\\ATen\\functorch\\BatchedFallback.cpp:84.)"
+    ],
+    "width": 1,
+    "worker_prediction_agreement_rate": 1.0
+  },
+  {
+    "atol": 1e-05,
+    "batch_size": 256,
+    "count": 512,
+    "device": "cuda",
+    "evidence_prediction_agreement_rate": 1.0,
+    "label_allclose": true,
+    "label_max_abs_diff": 4.76837158203125e-06,
+    "label_mean_abs_diff": 3.6254641599953175e-07,
+    "rtol": 1e-05,
+    "split": "validation",
+    "uncertainty_allclose": true,
+    "uncertainty_max_abs_diff": 1.9073486328125e-06,
+    "uncertainty_mean_abs_diff": 2.96946382150054e-07,
+    "warnings": [
+      "The argument 'device' of Tensor.is_pinned() is deprecated. Please do not pass this argument. (Triggered internally at C:\\actions-runner\\_work\\pytorch\\pytorch\\pytorch\\aten\\src\\ATen\\native\\Memory.cpp:33.)",
+      "The argument 'device' of Tensor.pin_memory() is deprecated. Please do not pass this argument. (Triggered internally at C:\\actions-runner\\_work\\pytorch\\pytorch\\pytorch\\aten\\src\\ATen\\native\\Memory.cpp:48.)",
+      "There is a performance drop because we have not yet implemented the batching rule for aten::_transformer_encoder_layer_fwd. Please file us an issue on GitHub so that we can prioritize its implementation. (Triggered internally at C:\\actions-runner\\_work\\pytorch\\pytorch\\pytorch\\aten\\src\\ATen\\functorch\\BatchedFallback.cpp:84.)"
+    ],
+    "width": 2,
+    "worker_prediction_agreement_rate": 1.0
+  },
+  {
+    "atol": 1e-05,
+    "batch_size": 256,
+    "count": 512,
+    "device": "cuda",
+    "evidence_prediction_agreement_rate": 1.0,
+    "label_allclose": true,
+    "label_max_abs_diff": 5.7220458984375e-06,
+    "label_mean_abs_diff": 3.5813621417963243e-07,
+    "rtol": 1e-05,
+    "split": "validation",
+    "uncertainty_allclose": true,
+    "uncertainty_max_abs_diff": 1.9073486328125e-06,
+    "uncertainty_mean_abs_diff": 2.799861249513924e-07,
+    "warnings": [
+      "The argument 'device' of Tensor.is_pinned() is deprecated. Please do not pass this argument. (Triggered internally at C:\\actions-runner\\_work\\pytorch\\pytorch\\pytorch\\aten\\src\\ATen\\native\\Memory.cpp:33.)",
+      "The argument 'device' of Tensor.pin_memory() is deprecated. Please do not pass this argument. (Triggered internally at C:\\actions-runner\\_work\\pytorch\\pytorch\\pytorch\\aten\\src\\ATen\\native\\Memory.cpp:48.)",
+      "There is a performance drop because we have not yet implemented the batching rule for aten::_transformer_encoder_layer_fwd. Please file us an issue on GitHub so that we can prioritize its implementation. (Triggered internally at C:\\actions-runner\\_work\\pytorch\\pytorch\\pytorch\\aten\\src\\ATen\\functorch\\BatchedFallback.cpp:84.)"
+    ],
+    "width": 4,
+    "worker_prediction_agreement_rate": 1.0
+  },
+  {
+    "atol": 1e-05,
+    "batch_size": 256,
+    "count": 512,
+    "device": "cuda",
+    "evidence_prediction_agreement_rate": 1.0,
+    "label_allclose": true,
+    "label_max_abs_diff": 5.7220458984375e-06,
+    "label_mean_abs_diff": 3.577955629390834e-07,
+    "rtol": 1e-05,
+    "split": "validation",
+    "uncertainty_allclose": true,
+    "uncertainty_max_abs_diff": 1.9073486328125e-06,
+    "uncertainty_mean_abs_diff": 2.8020585887134073e-07,
+    "warnings": [
+      "The argument 'device' of Tensor.is_pinned() is deprecated. Please do not pass this argument. (Triggered internally at C:\\actions-runner\\_work\\pytorch\\pytorch\\pytorch\\aten\\src\\ATen\\native\\Memory.cpp:33.)",
+      "The argument 'device' of Tensor.pin_memory() is deprecated. Please do not pass this argument. (Triggered internally at C:\\actions-runner\\_work\\pytorch\\pytorch\\pytorch\\aten\\src\\ATen\\native\\Memory.cpp:48.)",
+      "There is a performance drop because we have not yet implemented the batching rule for aten::_transformer_encoder_layer_fwd. Please file us an issue on GitHub so that we can prioritize its implementation. (Triggered internally at C:\\actions-runner\\_work\\pytorch\\pytorch\\pytorch\\aten\\src\\ATen\\functorch\\BatchedFallback.cpp:84.)"
+    ],
+    "width": 5,
+    "worker_prediction_agreement_rate": 1.0
+  }
+]

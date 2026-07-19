@@ -1,0 +1,1313 @@
+[
+  {
+    "candidate_source": "mean_logit",
+    "consumed_confirmation_1": {
+      "candidate_source": "mean_logit",
+      "false_abstention_count": 776,
+      "false_abstention_rate": 0.0388,
+      "missed_uncertain_count": 155,
+      "missed_uncertain_rate": 0.031,
+      "name": "logistic_mean_logit",
+      "non_uncertain_label_accuracy": 0.9451333333333334,
+      "overall_accuracy": 0.9511,
+      "threshold": 0.4,
+      "uncertain_precision": 0.861946272905177,
+      "uncertain_prediction_rate": 0.28105,
+      "uncertain_recall": 0.969,
+      "utilization_gap": 0.0224
+    },
+    "development": {
+      "candidate_source": "mean_logit",
+      "false_abstention_count": 790,
+      "false_abstention_rate": 0.0395,
+      "missed_uncertain_count": 178,
+      "missed_uncertain_rate": 0.0356,
+      "name": "logistic_mean_logit",
+      "non_uncertain_label_accuracy": 0.9435333333333333,
+      "overall_accuracy": 0.94875,
+      "threshold": 0.4,
+      "uncertain_precision": 0.8592302209550963,
+      "uncertain_prediction_rate": 0.2806,
+      "uncertain_recall": 0.9644,
+      "utilization_gap": 0.02195
+    },
+    "internal_frontier": [
+      {
+        "full_development": {
+          "candidate_source": "mean_logit",
+          "false_abstention_count": 10269,
+          "false_abstention_rate": 0.51345,
+          "missed_uncertain_count": 0,
+          "missed_uncertain_rate": 0.0,
+          "name": "logistic_mean_logit",
+          "non_uncertain_label_accuracy": 0.3154,
+          "overall_accuracy": 0.48655,
+          "threshold": 0.012258198112249374,
+          "uncertain_precision": 0.3274608684262231,
+          "uncertain_prediction_rate": 0.76345,
+          "uncertain_recall": 1.0,
+          "utilization_gap": 0.48415
+        },
+        "internal_accuracy": 0.45,
+        "threshold": 0.012258198112249374,
+        "uncertain_precision": 0.3125,
+        "uncertain_recall": 1.0
+      },
+      {
+        "full_development": {
+          "candidate_source": "mean_logit",
+          "false_abstention_count": 6008,
+          "false_abstention_rate": 0.3004,
+          "missed_uncertain_count": 0,
+          "missed_uncertain_rate": 0.0,
+          "name": "logistic_mean_logit",
+          "non_uncertain_label_accuracy": 0.5994,
+          "overall_accuracy": 0.69955,
+          "threshold": 0.013423559255897999,
+          "uncertain_precision": 0.45421511627906974,
+          "uncertain_prediction_rate": 0.5504,
+          "uncertain_recall": 1.0,
+          "utilization_gap": 0.27115
+        },
+        "internal_accuracy": 0.6,
+        "threshold": 0.013423559255897999,
+        "uncertain_precision": 0.38461538461538464,
+        "uncertain_recall": 1.0
+      },
+      {
+        "full_development": {
+          "candidate_source": "mean_logit",
+          "false_abstention_count": 3935,
+          "false_abstention_rate": 0.19675,
+          "missed_uncertain_count": 1,
+          "missed_uncertain_rate": 0.0002,
+          "name": "logistic_mean_logit",
+          "non_uncertain_label_accuracy": 0.7376,
+          "overall_accuracy": 0.80315,
+          "threshold": 0.014480877667665482,
+          "uncertain_precision": 0.5595477949406761,
+          "uncertain_prediction_rate": 0.4467,
+          "uncertain_recall": 0.9998,
+          "utilization_gap": 0.16755
+        },
+        "internal_accuracy": 0.75,
+        "threshold": 0.014480877667665482,
+        "uncertain_precision": 0.5,
+        "uncertain_recall": 1.0
+      },
+      {
+        "full_development": {
+          "candidate_source": "mean_logit",
+          "false_abstention_count": 1562,
+          "false_abstention_rate": 0.0781,
+          "missed_uncertain_count": 51,
+          "missed_uncertain_rate": 0.0102,
+          "name": "logistic_mean_logit",
+          "non_uncertain_label_accuracy": 0.8947333333333334,
+          "overall_accuracy": 0.9185,
+          "threshold": 0.06755484640598297,
+          "uncertain_precision": 0.7600982951927507,
+          "uncertain_prediction_rate": 0.32555,
+          "uncertain_recall": 0.9898,
+          "utilization_gap": 0.0522
+        },
+        "internal_accuracy": 0.888,
+        "threshold": 0.06755484640598297,
+        "uncertain_precision": 0.6971428571428572,
+        "uncertain_recall": 0.976
+      },
+      {
+        "full_development": {
+          "candidate_source": "mean_logit",
+          "false_abstention_count": 898,
+          "false_abstention_rate": 0.0449,
+          "missed_uncertain_count": 138,
+          "missed_uncertain_rate": 0.0276,
+          "name": "logistic_mean_logit",
+          "non_uncertain_label_accuracy": 0.9368666666666666,
+          "overall_accuracy": 0.94575,
+          "threshold": 0.3,
+          "uncertain_precision": 0.8440972222222223,
+          "uncertain_prediction_rate": 0.288,
+          "uncertain_recall": 0.9724,
+          "utilization_gap": 0.02495
+        },
+        "internal_accuracy": 0.92075,
+        "threshold": 0.3,
+        "uncertain_precision": 0.7891617273497037,
+        "uncertain_recall": 0.932
+      },
+      {
+        "full_development": {
+          "candidate_source": "mean_logit",
+          "false_abstention_count": 790,
+          "false_abstention_rate": 0.0395,
+          "missed_uncertain_count": 178,
+          "missed_uncertain_rate": 0.0356,
+          "name": "logistic_mean_logit",
+          "non_uncertain_label_accuracy": 0.9435333333333333,
+          "overall_accuracy": 0.94875,
+          "threshold": 0.4,
+          "uncertain_precision": 0.8592302209550963,
+          "uncertain_prediction_rate": 0.2806,
+          "uncertain_recall": 0.9644,
+          "utilization_gap": 0.02195
+        },
+        "internal_accuracy": 0.9215,
+        "threshold": 0.4,
+        "uncertain_precision": 0.8008771929824562,
+        "uncertain_recall": 0.913
+      },
+      {
+        "full_development": {
+          "candidate_source": "mean_logit",
+          "false_abstention_count": 713,
+          "false_abstention_rate": 0.03565,
+          "missed_uncertain_count": 217,
+          "missed_uncertain_rate": 0.0434,
+          "name": "logistic_mean_logit",
+          "non_uncertain_label_accuracy": 0.9484,
+          "overall_accuracy": 0.95045,
+          "threshold": 0.5,
+          "uncertain_precision": 0.870269286754003,
+          "uncertain_prediction_rate": 0.2748,
+          "uncertain_recall": 0.9566,
+          "utilization_gap": 0.02025
+        },
+        "internal_accuracy": 0.92625,
+        "threshold": 0.5,
+        "uncertain_precision": 0.821330902461258,
+        "uncertain_recall": 0.901
+      },
+      {
+        "full_development": {
+          "candidate_source": "mean_logit",
+          "false_abstention_count": 633,
+          "false_abstention_rate": 0.03165,
+          "missed_uncertain_count": 268,
+          "missed_uncertain_rate": 0.0536,
+          "name": "logistic_mean_logit",
+          "non_uncertain_label_accuracy": 0.9536666666666667,
+          "overall_accuracy": 0.95185,
+          "threshold": 0.6,
+          "uncertain_precision": 0.8820130475302889,
+          "uncertain_prediction_rate": 0.26825,
+          "uncertain_recall": 0.9464,
+          "utilization_gap": 0.01885
+        },
+        "internal_accuracy": 0.9285,
+        "threshold": 0.6,
+        "uncertain_precision": 0.8426103646833013,
+        "uncertain_recall": 0.878
+      },
+      {
+        "full_development": {
+          "candidate_source": "mean_logit",
+          "false_abstention_count": 549,
+          "false_abstention_rate": 0.02745,
+          "missed_uncertain_count": 330,
+          "missed_uncertain_rate": 0.066,
+          "name": "logistic_mean_logit",
+          "non_uncertain_label_accuracy": 0.9592666666666667,
+          "overall_accuracy": 0.95295,
+          "threshold": 0.7,
+          "uncertain_precision": 0.8948074343744012,
+          "uncertain_prediction_rate": 0.26095,
+          "uncertain_recall": 0.934,
+          "utilization_gap": 0.01775
+        },
+        "internal_accuracy": 0.92825,
+        "threshold": 0.7,
+        "uncertain_precision": 0.8582914572864322,
+        "uncertain_recall": 0.854
+      },
+      {
+        "full_development": {
+          "candidate_source": "mean_logit",
+          "false_abstention_count": 336,
+          "false_abstention_rate": 0.0168,
+          "missed_uncertain_count": 728,
+          "missed_uncertain_rate": 0.1456,
+          "name": "logistic_mean_logit",
+          "non_uncertain_label_accuracy": 0.9733333333333334,
+          "overall_accuracy": 0.9436,
+          "threshold": 0.9069923758506775,
+          "uncertain_precision": 0.9270833333333334,
+          "uncertain_prediction_rate": 0.2304,
+          "uncertain_recall": 0.8544,
+          "utilization_gap": 0.0271
+        },
+        "internal_accuracy": 0.9145,
+        "threshold": 0.9069923758506775,
+        "uncertain_precision": 0.91125,
+        "uncertain_recall": 0.729
+      }
+    ],
+    "model_type": "logistic_regression",
+    "selected_threshold": 0.4
+  },
+  {
+    "candidate_source": "reducer_v0_pre_abstention",
+    "consumed_confirmation_1": {
+      "candidate_source": "reducer_v0_pre_abstention",
+      "false_abstention_count": 776,
+      "false_abstention_rate": 0.0388,
+      "missed_uncertain_count": 155,
+      "missed_uncertain_rate": 0.031,
+      "name": "logistic_reducer_v0_pre_abstention",
+      "non_uncertain_label_accuracy": 0.9451333333333334,
+      "overall_accuracy": 0.9511,
+      "threshold": 0.4,
+      "uncertain_precision": 0.861946272905177,
+      "uncertain_prediction_rate": 0.28105,
+      "uncertain_recall": 0.969,
+      "utilization_gap": 0.0224
+    },
+    "development": {
+      "candidate_source": "reducer_v0_pre_abstention",
+      "false_abstention_count": 790,
+      "false_abstention_rate": 0.0395,
+      "missed_uncertain_count": 178,
+      "missed_uncertain_rate": 0.0356,
+      "name": "logistic_reducer_v0_pre_abstention",
+      "non_uncertain_label_accuracy": 0.9434666666666667,
+      "overall_accuracy": 0.9487,
+      "threshold": 0.4,
+      "uncertain_precision": 0.8592302209550963,
+      "uncertain_prediction_rate": 0.2806,
+      "uncertain_recall": 0.9644,
+      "utilization_gap": 0.022
+    },
+    "internal_frontier": [
+      {
+        "full_development": {
+          "candidate_source": "reducer_v0_pre_abstention",
+          "false_abstention_count": 10199,
+          "false_abstention_rate": 0.50995,
+          "missed_uncertain_count": 0,
+          "missed_uncertain_rate": 0.0,
+          "name": "logistic_reducer_v0_pre_abstention",
+          "non_uncertain_label_accuracy": 0.32,
+          "overall_accuracy": 0.49,
+          "threshold": 0.012264049611985683,
+          "uncertain_precision": 0.32896901111915255,
+          "uncertain_prediction_rate": 0.75995,
+          "uncertain_recall": 1.0,
+          "utilization_gap": 0.4807
+        },
+        "internal_accuracy": 0.45,
+        "threshold": 0.012264049611985683,
+        "uncertain_precision": 0.3125,
+        "uncertain_recall": 1.0
+      },
+      {
+        "full_development": {
+          "candidate_source": "reducer_v0_pre_abstention",
+          "false_abstention_count": 6004,
+          "false_abstention_rate": 0.3002,
+          "missed_uncertain_count": 0,
+          "missed_uncertain_rate": 0.0,
+          "name": "logistic_reducer_v0_pre_abstention",
+          "non_uncertain_label_accuracy": 0.5996666666666667,
+          "overall_accuracy": 0.69975,
+          "threshold": 0.013432183302938938,
+          "uncertain_precision": 0.45438022537259176,
+          "uncertain_prediction_rate": 0.5502,
+          "uncertain_recall": 1.0,
+          "utilization_gap": 0.27095
+        },
+        "internal_accuracy": 0.6,
+        "threshold": 0.013432183302938938,
+        "uncertain_precision": 0.38461538461538464,
+        "uncertain_recall": 1.0
+      },
+      {
+        "full_development": {
+          "candidate_source": "reducer_v0_pre_abstention",
+          "false_abstention_count": 3934,
+          "false_abstention_rate": 0.1967,
+          "missed_uncertain_count": 1,
+          "missed_uncertain_rate": 0.0002,
+          "name": "logistic_reducer_v0_pre_abstention",
+          "non_uncertain_label_accuracy": 0.7376666666666667,
+          "overall_accuracy": 0.8032,
+          "threshold": 0.014494197443127632,
+          "uncertain_precision": 0.5596104332251204,
+          "uncertain_prediction_rate": 0.44665,
+          "uncertain_recall": 0.9998,
+          "utilization_gap": 0.1675
+        },
+        "internal_accuracy": 0.75,
+        "threshold": 0.014494197443127632,
+        "uncertain_precision": 0.5,
+        "uncertain_recall": 1.0
+      },
+      {
+        "full_development": {
+          "candidate_source": "reducer_v0_pre_abstention",
+          "false_abstention_count": 1562,
+          "false_abstention_rate": 0.0781,
+          "missed_uncertain_count": 51,
+          "missed_uncertain_rate": 0.0102,
+          "name": "logistic_reducer_v0_pre_abstention",
+          "non_uncertain_label_accuracy": 0.8947333333333334,
+          "overall_accuracy": 0.9185,
+          "threshold": 0.06756921857595444,
+          "uncertain_precision": 0.7600982951927507,
+          "uncertain_prediction_rate": 0.32555,
+          "uncertain_recall": 0.9898,
+          "utilization_gap": 0.0522
+        },
+        "internal_accuracy": 0.888,
+        "threshold": 0.06756921857595444,
+        "uncertain_precision": 0.6971428571428572,
+        "uncertain_recall": 0.976
+      },
+      {
+        "full_development": {
+          "candidate_source": "reducer_v0_pre_abstention",
+          "false_abstention_count": 896,
+          "false_abstention_rate": 0.0448,
+          "missed_uncertain_count": 138,
+          "missed_uncertain_rate": 0.0276,
+          "name": "logistic_reducer_v0_pre_abstention",
+          "non_uncertain_label_accuracy": 0.9369333333333333,
+          "overall_accuracy": 0.9458,
+          "threshold": 0.3,
+          "uncertain_precision": 0.8443904133379646,
+          "uncertain_prediction_rate": 0.2879,
+          "uncertain_recall": 0.9724,
+          "utilization_gap": 0.0249
+        },
+        "internal_accuracy": 0.92075,
+        "threshold": 0.3,
+        "uncertain_precision": 0.7891617273497037,
+        "uncertain_recall": 0.932
+      },
+      {
+        "full_development": {
+          "candidate_source": "reducer_v0_pre_abstention",
+          "false_abstention_count": 790,
+          "false_abstention_rate": 0.0395,
+          "missed_uncertain_count": 178,
+          "missed_uncertain_rate": 0.0356,
+          "name": "logistic_reducer_v0_pre_abstention",
+          "non_uncertain_label_accuracy": 0.9434666666666667,
+          "overall_accuracy": 0.9487,
+          "threshold": 0.4,
+          "uncertain_precision": 0.8592302209550963,
+          "uncertain_prediction_rate": 0.2806,
+          "uncertain_recall": 0.9644,
+          "utilization_gap": 0.022
+        },
+        "internal_accuracy": 0.9215,
+        "threshold": 0.4,
+        "uncertain_precision": 0.8008771929824562,
+        "uncertain_recall": 0.913
+      },
+      {
+        "full_development": {
+          "candidate_source": "reducer_v0_pre_abstention",
+          "false_abstention_count": 713,
+          "false_abstention_rate": 0.03565,
+          "missed_uncertain_count": 217,
+          "missed_uncertain_rate": 0.0434,
+          "name": "logistic_reducer_v0_pre_abstention",
+          "non_uncertain_label_accuracy": 0.9483333333333334,
+          "overall_accuracy": 0.9504,
+          "threshold": 0.5,
+          "uncertain_precision": 0.870269286754003,
+          "uncertain_prediction_rate": 0.2748,
+          "uncertain_recall": 0.9566,
+          "utilization_gap": 0.0203
+        },
+        "internal_accuracy": 0.92625,
+        "threshold": 0.5,
+        "uncertain_precision": 0.821330902461258,
+        "uncertain_recall": 0.901
+      },
+      {
+        "full_development": {
+          "candidate_source": "reducer_v0_pre_abstention",
+          "false_abstention_count": 633,
+          "false_abstention_rate": 0.03165,
+          "missed_uncertain_count": 268,
+          "missed_uncertain_rate": 0.0536,
+          "name": "logistic_reducer_v0_pre_abstention",
+          "non_uncertain_label_accuracy": 0.9536,
+          "overall_accuracy": 0.9518,
+          "threshold": 0.6,
+          "uncertain_precision": 0.8820130475302889,
+          "uncertain_prediction_rate": 0.26825,
+          "uncertain_recall": 0.9464,
+          "utilization_gap": 0.0189
+        },
+        "internal_accuracy": 0.9285,
+        "threshold": 0.6,
+        "uncertain_precision": 0.8426103646833013,
+        "uncertain_recall": 0.878
+      },
+      {
+        "full_development": {
+          "candidate_source": "reducer_v0_pre_abstention",
+          "false_abstention_count": 549,
+          "false_abstention_rate": 0.02745,
+          "missed_uncertain_count": 331,
+          "missed_uncertain_rate": 0.0662,
+          "name": "logistic_reducer_v0_pre_abstention",
+          "non_uncertain_label_accuracy": 0.9592,
+          "overall_accuracy": 0.95285,
+          "threshold": 0.7,
+          "uncertain_precision": 0.894787274817938,
+          "uncertain_prediction_rate": 0.2609,
+          "uncertain_recall": 0.9338,
+          "utilization_gap": 0.01785
+        },
+        "internal_accuracy": 0.928,
+        "threshold": 0.7,
+        "uncertain_precision": 0.858148893360161,
+        "uncertain_recall": 0.853
+      },
+      {
+        "full_development": {
+          "candidate_source": "reducer_v0_pre_abstention",
+          "false_abstention_count": 337,
+          "false_abstention_rate": 0.01685,
+          "missed_uncertain_count": 728,
+          "missed_uncertain_rate": 0.1456,
+          "name": "logistic_reducer_v0_pre_abstention",
+          "non_uncertain_label_accuracy": 0.9732,
+          "overall_accuracy": 0.9435,
+          "threshold": 0.9067237973213196,
+          "uncertain_precision": 0.9268821870253852,
+          "uncertain_prediction_rate": 0.23045,
+          "uncertain_recall": 0.8544,
+          "utilization_gap": 0.0272
+        },
+        "internal_accuracy": 0.914,
+        "threshold": 0.9067237973213196,
+        "uncertain_precision": 0.91,
+        "uncertain_recall": 0.728
+      }
+    ],
+    "model_type": "logistic_regression",
+    "selected_threshold": 0.4
+  },
+  {
+    "candidate_source": "mean_probability",
+    "consumed_confirmation_1": {
+      "candidate_source": "mean_probability",
+      "false_abstention_count": 776,
+      "false_abstention_rate": 0.0388,
+      "missed_uncertain_count": 155,
+      "missed_uncertain_rate": 0.031,
+      "name": "logistic_mean_probability",
+      "non_uncertain_label_accuracy": 0.9451333333333334,
+      "overall_accuracy": 0.9511,
+      "threshold": 0.4,
+      "uncertain_precision": 0.861946272905177,
+      "uncertain_prediction_rate": 0.28105,
+      "uncertain_recall": 0.969,
+      "utilization_gap": 0.0224
+    },
+    "development": {
+      "candidate_source": "mean_probability",
+      "false_abstention_count": 790,
+      "false_abstention_rate": 0.0395,
+      "missed_uncertain_count": 178,
+      "missed_uncertain_rate": 0.0356,
+      "name": "logistic_mean_probability",
+      "non_uncertain_label_accuracy": 0.9434,
+      "overall_accuracy": 0.94865,
+      "threshold": 0.4,
+      "uncertain_precision": 0.8592302209550963,
+      "uncertain_prediction_rate": 0.2806,
+      "uncertain_recall": 0.9644,
+      "utilization_gap": 0.02205
+    },
+    "internal_frontier": [
+      {
+        "full_development": {
+          "candidate_source": "mean_probability",
+          "false_abstention_count": 10274,
+          "false_abstention_rate": 0.5137,
+          "missed_uncertain_count": 0,
+          "missed_uncertain_rate": 0.0,
+          "name": "logistic_mean_probability",
+          "non_uncertain_label_accuracy": 0.31506666666666666,
+          "overall_accuracy": 0.4863,
+          "threshold": 0.012254079803824425,
+          "uncertain_precision": 0.32735367290821005,
+          "uncertain_prediction_rate": 0.7637,
+          "uncertain_recall": 1.0,
+          "utilization_gap": 0.4844
+        },
+        "internal_accuracy": 0.45,
+        "threshold": 0.012254079803824425,
+        "uncertain_precision": 0.3125,
+        "uncertain_recall": 1.0
+      },
+      {
+        "full_development": {
+          "candidate_source": "mean_probability",
+          "false_abstention_count": 6008,
+          "false_abstention_rate": 0.3004,
+          "missed_uncertain_count": 0,
+          "missed_uncertain_rate": 0.0,
+          "name": "logistic_mean_probability",
+          "non_uncertain_label_accuracy": 0.5994,
+          "overall_accuracy": 0.69955,
+          "threshold": 0.013420200906693935,
+          "uncertain_precision": 0.45421511627906974,
+          "uncertain_prediction_rate": 0.5504,
+          "uncertain_recall": 1.0,
+          "utilization_gap": 0.27115
+        },
+        "internal_accuracy": 0.6,
+        "threshold": 0.013420200906693935,
+        "uncertain_precision": 0.38461538461538464,
+        "uncertain_recall": 1.0
+      },
+      {
+        "full_development": {
+          "candidate_source": "mean_probability",
+          "false_abstention_count": 3937,
+          "false_abstention_rate": 0.19685,
+          "missed_uncertain_count": 1,
+          "missed_uncertain_rate": 0.0002,
+          "name": "logistic_mean_probability",
+          "non_uncertain_label_accuracy": 0.7374666666666667,
+          "overall_accuracy": 0.80305,
+          "threshold": 0.014479179866611958,
+          "uncertain_precision": 0.5594225604297225,
+          "uncertain_prediction_rate": 0.4468,
+          "uncertain_recall": 0.9998,
+          "utilization_gap": 0.16765
+        },
+        "internal_accuracy": 0.75,
+        "threshold": 0.014479179866611958,
+        "uncertain_precision": 0.5,
+        "uncertain_recall": 1.0
+      },
+      {
+        "full_development": {
+          "candidate_source": "mean_probability",
+          "false_abstention_count": 1562,
+          "false_abstention_rate": 0.0781,
+          "missed_uncertain_count": 51,
+          "missed_uncertain_rate": 0.0102,
+          "name": "logistic_mean_probability",
+          "non_uncertain_label_accuracy": 0.8947333333333334,
+          "overall_accuracy": 0.9185,
+          "threshold": 0.06755249947309494,
+          "uncertain_precision": 0.7600982951927507,
+          "uncertain_prediction_rate": 0.32555,
+          "uncertain_recall": 0.9898,
+          "utilization_gap": 0.0522
+        },
+        "internal_accuracy": 0.888,
+        "threshold": 0.06755249947309494,
+        "uncertain_precision": 0.6971428571428572,
+        "uncertain_recall": 0.976
+      },
+      {
+        "full_development": {
+          "candidate_source": "mean_probability",
+          "false_abstention_count": 897,
+          "false_abstention_rate": 0.04485,
+          "missed_uncertain_count": 138,
+          "missed_uncertain_rate": 0.0276,
+          "name": "logistic_mean_probability",
+          "non_uncertain_label_accuracy": 0.9368,
+          "overall_accuracy": 0.9457,
+          "threshold": 0.3,
+          "uncertain_precision": 0.8442437923250564,
+          "uncertain_prediction_rate": 0.28795,
+          "uncertain_recall": 0.9724,
+          "utilization_gap": 0.025
+        },
+        "internal_accuracy": 0.92075,
+        "threshold": 0.3,
+        "uncertain_precision": 0.7891617273497037,
+        "uncertain_recall": 0.932
+      },
+      {
+        "full_development": {
+          "candidate_source": "mean_probability",
+          "false_abstention_count": 790,
+          "false_abstention_rate": 0.0395,
+          "missed_uncertain_count": 178,
+          "missed_uncertain_rate": 0.0356,
+          "name": "logistic_mean_probability",
+          "non_uncertain_label_accuracy": 0.9434,
+          "overall_accuracy": 0.94865,
+          "threshold": 0.4,
+          "uncertain_precision": 0.8592302209550963,
+          "uncertain_prediction_rate": 0.2806,
+          "uncertain_recall": 0.9644,
+          "utilization_gap": 0.02205
+        },
+        "internal_accuracy": 0.9215,
+        "threshold": 0.4,
+        "uncertain_precision": 0.8008771929824562,
+        "uncertain_recall": 0.913
+      },
+      {
+        "full_development": {
+          "candidate_source": "mean_probability",
+          "false_abstention_count": 713,
+          "false_abstention_rate": 0.03565,
+          "missed_uncertain_count": 217,
+          "missed_uncertain_rate": 0.0434,
+          "name": "logistic_mean_probability",
+          "non_uncertain_label_accuracy": 0.9482666666666667,
+          "overall_accuracy": 0.95035,
+          "threshold": 0.5,
+          "uncertain_precision": 0.870269286754003,
+          "uncertain_prediction_rate": 0.2748,
+          "uncertain_recall": 0.9566,
+          "utilization_gap": 0.02035
+        },
+        "internal_accuracy": 0.92625,
+        "threshold": 0.5,
+        "uncertain_precision": 0.821330902461258,
+        "uncertain_recall": 0.901
+      },
+      {
+        "full_development": {
+          "candidate_source": "mean_probability",
+          "false_abstention_count": 633,
+          "false_abstention_rate": 0.03165,
+          "missed_uncertain_count": 268,
+          "missed_uncertain_rate": 0.0536,
+          "name": "logistic_mean_probability",
+          "non_uncertain_label_accuracy": 0.9535333333333333,
+          "overall_accuracy": 0.95175,
+          "threshold": 0.6,
+          "uncertain_precision": 0.8820130475302889,
+          "uncertain_prediction_rate": 0.26825,
+          "uncertain_recall": 0.9464,
+          "utilization_gap": 0.01895
+        },
+        "internal_accuracy": 0.9285,
+        "threshold": 0.6,
+        "uncertain_precision": 0.8426103646833013,
+        "uncertain_recall": 0.878
+      },
+      {
+        "full_development": {
+          "candidate_source": "mean_probability",
+          "false_abstention_count": 549,
+          "false_abstention_rate": 0.02745,
+          "missed_uncertain_count": 330,
+          "missed_uncertain_rate": 0.066,
+          "name": "logistic_mean_probability",
+          "non_uncertain_label_accuracy": 0.9591333333333333,
+          "overall_accuracy": 0.95285,
+          "threshold": 0.7,
+          "uncertain_precision": 0.8948074343744012,
+          "uncertain_prediction_rate": 0.26095,
+          "uncertain_recall": 0.934,
+          "utilization_gap": 0.01785
+        },
+        "internal_accuracy": 0.92825,
+        "threshold": 0.7,
+        "uncertain_precision": 0.8582914572864322,
+        "uncertain_recall": 0.854
+      },
+      {
+        "full_development": {
+          "candidate_source": "mean_probability",
+          "false_abstention_count": 336,
+          "false_abstention_rate": 0.0168,
+          "missed_uncertain_count": 728,
+          "missed_uncertain_rate": 0.1456,
+          "name": "logistic_mean_probability",
+          "non_uncertain_label_accuracy": 0.9732,
+          "overall_accuracy": 0.9435,
+          "threshold": 0.90699702501297,
+          "uncertain_precision": 0.9270833333333334,
+          "uncertain_prediction_rate": 0.2304,
+          "uncertain_recall": 0.8544,
+          "utilization_gap": 0.0272
+        },
+        "internal_accuracy": 0.9145,
+        "threshold": 0.90699702501297,
+        "uncertain_precision": 0.91125,
+        "uncertain_recall": 0.729
+      }
+    ],
+    "model_type": "logistic_regression",
+    "selected_threshold": 0.4
+  },
+  {
+    "candidate_source": "reducer_v0_pre_abstention",
+    "consumed_confirmation_1": {
+      "candidate_source": "reducer_v0_pre_abstention",
+      "false_abstention_count": 15000,
+      "false_abstention_rate": 0.75,
+      "missed_uncertain_count": 0,
+      "missed_uncertain_rate": 0.0,
+      "name": "stump_reducer_v0_pre_abstention",
+      "non_uncertain_label_accuracy": 0.0,
+      "overall_accuracy": 0.25,
+      "threshold": 0.0,
+      "uncertain_precision": 0.25,
+      "uncertain_prediction_rate": 1.0,
+      "uncertain_recall": 1.0,
+      "utilization_gap": 0.7235
+    },
+    "development": {
+      "candidate_source": "reducer_v0_pre_abstention",
+      "false_abstention_count": 15000,
+      "false_abstention_rate": 0.75,
+      "missed_uncertain_count": 0,
+      "missed_uncertain_rate": 0.0,
+      "name": "stump_reducer_v0_pre_abstention",
+      "non_uncertain_label_accuracy": 0.0,
+      "overall_accuracy": 0.25,
+      "threshold": 0.0,
+      "uncertain_precision": 0.25,
+      "uncertain_prediction_rate": 1.0,
+      "uncertain_recall": 1.0,
+      "utilization_gap": 0.7207
+    },
+    "internal_frontier": [
+      {
+        "full_development": {
+          "candidate_source": "reducer_v0_pre_abstention",
+          "false_abstention_count": 15000,
+          "false_abstention_rate": 0.75,
+          "missed_uncertain_count": 0,
+          "missed_uncertain_rate": 0.0,
+          "name": "stump_reducer_v0_pre_abstention",
+          "non_uncertain_label_accuracy": 0.0,
+          "overall_accuracy": 0.25,
+          "threshold": 0.0,
+          "uncertain_precision": 0.25,
+          "uncertain_prediction_rate": 1.0,
+          "uncertain_recall": 1.0,
+          "utilization_gap": 0.7207
+        },
+        "internal_accuracy": 0.25,
+        "threshold": 0.0,
+        "uncertain_precision": 0.25,
+        "uncertain_recall": 1.0
+      },
+      {
+        "full_development": {
+          "candidate_source": "reducer_v0_pre_abstention",
+          "false_abstention_count": 397,
+          "false_abstention_rate": 0.01985,
+          "missed_uncertain_count": 601,
+          "missed_uncertain_rate": 0.1202,
+          "name": "stump_reducer_v0_pre_abstention",
+          "non_uncertain_label_accuracy": 0.9692,
+          "overall_accuracy": 0.94685,
+          "threshold": 0.3,
+          "uncertain_precision": 0.9172226855713094,
+          "uncertain_prediction_rate": 0.2398,
+          "uncertain_recall": 0.8798,
+          "utilization_gap": 0.02385
+        },
+        "internal_accuracy": 0.91725,
+        "threshold": 0.3,
+        "uncertain_precision": 0.8858131487889274,
+        "uncertain_recall": 0.768
+      },
+      {
+        "full_development": {
+          "candidate_source": "reducer_v0_pre_abstention",
+          "false_abstention_count": 397,
+          "false_abstention_rate": 0.01985,
+          "missed_uncertain_count": 601,
+          "missed_uncertain_rate": 0.1202,
+          "name": "stump_reducer_v0_pre_abstention",
+          "non_uncertain_label_accuracy": 0.9692,
+          "overall_accuracy": 0.94685,
+          "threshold": 0.4,
+          "uncertain_precision": 0.9172226855713094,
+          "uncertain_prediction_rate": 0.2398,
+          "uncertain_recall": 0.8798,
+          "utilization_gap": 0.02385
+        },
+        "internal_accuracy": 0.91725,
+        "threshold": 0.4,
+        "uncertain_precision": 0.8858131487889274,
+        "uncertain_recall": 0.768
+      },
+      {
+        "full_development": {
+          "candidate_source": "reducer_v0_pre_abstention",
+          "false_abstention_count": 397,
+          "false_abstention_rate": 0.01985,
+          "missed_uncertain_count": 601,
+          "missed_uncertain_rate": 0.1202,
+          "name": "stump_reducer_v0_pre_abstention",
+          "non_uncertain_label_accuracy": 0.9692,
+          "overall_accuracy": 0.94685,
+          "threshold": 0.5,
+          "uncertain_precision": 0.9172226855713094,
+          "uncertain_prediction_rate": 0.2398,
+          "uncertain_recall": 0.8798,
+          "utilization_gap": 0.02385
+        },
+        "internal_accuracy": 0.91725,
+        "threshold": 0.5,
+        "uncertain_precision": 0.8858131487889274,
+        "uncertain_recall": 0.768
+      },
+      {
+        "full_development": {
+          "candidate_source": "reducer_v0_pre_abstention",
+          "false_abstention_count": 397,
+          "false_abstention_rate": 0.01985,
+          "missed_uncertain_count": 601,
+          "missed_uncertain_rate": 0.1202,
+          "name": "stump_reducer_v0_pre_abstention",
+          "non_uncertain_label_accuracy": 0.9692,
+          "overall_accuracy": 0.94685,
+          "threshold": 0.6,
+          "uncertain_precision": 0.9172226855713094,
+          "uncertain_prediction_rate": 0.2398,
+          "uncertain_recall": 0.8798,
+          "utilization_gap": 0.02385
+        },
+        "internal_accuracy": 0.91725,
+        "threshold": 0.6,
+        "uncertain_precision": 0.8858131487889274,
+        "uncertain_recall": 0.768
+      },
+      {
+        "full_development": {
+          "candidate_source": "reducer_v0_pre_abstention",
+          "false_abstention_count": 397,
+          "false_abstention_rate": 0.01985,
+          "missed_uncertain_count": 601,
+          "missed_uncertain_rate": 0.1202,
+          "name": "stump_reducer_v0_pre_abstention",
+          "non_uncertain_label_accuracy": 0.9692,
+          "overall_accuracy": 0.94685,
+          "threshold": 0.7,
+          "uncertain_precision": 0.9172226855713094,
+          "uncertain_prediction_rate": 0.2398,
+          "uncertain_recall": 0.8798,
+          "utilization_gap": 0.02385
+        },
+        "internal_accuracy": 0.91725,
+        "threshold": 0.7,
+        "uncertain_precision": 0.8858131487889274,
+        "uncertain_recall": 0.768
+      },
+      {
+        "full_development": {
+          "candidate_source": "reducer_v0_pre_abstention",
+          "false_abstention_count": 397,
+          "false_abstention_rate": 0.01985,
+          "missed_uncertain_count": 601,
+          "missed_uncertain_rate": 0.1202,
+          "name": "stump_reducer_v0_pre_abstention",
+          "non_uncertain_label_accuracy": 0.9692,
+          "overall_accuracy": 0.94685,
+          "threshold": 1.0,
+          "uncertain_precision": 0.9172226855713094,
+          "uncertain_prediction_rate": 0.2398,
+          "uncertain_recall": 0.8798,
+          "utilization_gap": 0.02385
+        },
+        "internal_accuracy": 0.91725,
+        "threshold": 1.0,
+        "uncertain_precision": 0.8858131487889274,
+        "uncertain_recall": 0.768
+      }
+    ],
+    "model_type": "decision_stump",
+    "selected_threshold": 0.0,
+    "stump": {
+      "direction": "ge",
+      "feature_index": 4,
+      "score": 0.9172499775886536,
+      "threshold": 1.0
+    }
+  },
+  {
+    "candidate_source": "mean_logit",
+    "consumed_confirmation_1": {
+      "candidate_source": "mean_logit",
+      "false_abstention_count": 15000,
+      "false_abstention_rate": 0.75,
+      "missed_uncertain_count": 0,
+      "missed_uncertain_rate": 0.0,
+      "name": "stump_mean_logit",
+      "non_uncertain_label_accuracy": 0.0,
+      "overall_accuracy": 0.25,
+      "threshold": 0.0,
+      "uncertain_precision": 0.25,
+      "uncertain_prediction_rate": 1.0,
+      "uncertain_recall": 1.0,
+      "utilization_gap": 0.7235
+    },
+    "development": {
+      "candidate_source": "mean_logit",
+      "false_abstention_count": 15000,
+      "false_abstention_rate": 0.75,
+      "missed_uncertain_count": 0,
+      "missed_uncertain_rate": 0.0,
+      "name": "stump_mean_logit",
+      "non_uncertain_label_accuracy": 0.0,
+      "overall_accuracy": 0.25,
+      "threshold": 0.0,
+      "uncertain_precision": 0.25,
+      "uncertain_prediction_rate": 1.0,
+      "uncertain_recall": 1.0,
+      "utilization_gap": 0.7207
+    },
+    "internal_frontier": [
+      {
+        "full_development": {
+          "candidate_source": "mean_logit",
+          "false_abstention_count": 15000,
+          "false_abstention_rate": 0.75,
+          "missed_uncertain_count": 0,
+          "missed_uncertain_rate": 0.0,
+          "name": "stump_mean_logit",
+          "non_uncertain_label_accuracy": 0.0,
+          "overall_accuracy": 0.25,
+          "threshold": 0.0,
+          "uncertain_precision": 0.25,
+          "uncertain_prediction_rate": 1.0,
+          "uncertain_recall": 1.0,
+          "utilization_gap": 0.7207
+        },
+        "internal_accuracy": 0.25,
+        "threshold": 0.0,
+        "uncertain_precision": 0.25,
+        "uncertain_recall": 1.0
+      },
+      {
+        "full_development": {
+          "candidate_source": "mean_logit",
+          "false_abstention_count": 397,
+          "false_abstention_rate": 0.01985,
+          "missed_uncertain_count": 601,
+          "missed_uncertain_rate": 0.1202,
+          "name": "stump_mean_logit",
+          "non_uncertain_label_accuracy": 0.9692666666666667,
+          "overall_accuracy": 0.9469,
+          "threshold": 0.3,
+          "uncertain_precision": 0.9172226855713094,
+          "uncertain_prediction_rate": 0.2398,
+          "uncertain_recall": 0.8798,
+          "utilization_gap": 0.0238
+        },
+        "internal_accuracy": 0.91725,
+        "threshold": 0.3,
+        "uncertain_precision": 0.8858131487889274,
+        "uncertain_recall": 0.768
+      },
+      {
+        "full_development": {
+          "candidate_source": "mean_logit",
+          "false_abstention_count": 397,
+          "false_abstention_rate": 0.01985,
+          "missed_uncertain_count": 601,
+          "missed_uncertain_rate": 0.1202,
+          "name": "stump_mean_logit",
+          "non_uncertain_label_accuracy": 0.9692666666666667,
+          "overall_accuracy": 0.9469,
+          "threshold": 0.4,
+          "uncertain_precision": 0.9172226855713094,
+          "uncertain_prediction_rate": 0.2398,
+          "uncertain_recall": 0.8798,
+          "utilization_gap": 0.0238
+        },
+        "internal_accuracy": 0.91725,
+        "threshold": 0.4,
+        "uncertain_precision": 0.8858131487889274,
+        "uncertain_recall": 0.768
+      },
+      {
+        "full_development": {
+          "candidate_source": "mean_logit",
+          "false_abstention_count": 397,
+          "false_abstention_rate": 0.01985,
+          "missed_uncertain_count": 601,
+          "missed_uncertain_rate": 0.1202,
+          "name": "stump_mean_logit",
+          "non_uncertain_label_accuracy": 0.9692666666666667,
+          "overall_accuracy": 0.9469,
+          "threshold": 0.5,
+          "uncertain_precision": 0.9172226855713094,
+          "uncertain_prediction_rate": 0.2398,
+          "uncertain_recall": 0.8798,
+          "utilization_gap": 0.0238
+        },
+        "internal_accuracy": 0.91725,
+        "threshold": 0.5,
+        "uncertain_precision": 0.8858131487889274,
+        "uncertain_recall": 0.768
+      },
+      {
+        "full_development": {
+          "candidate_source": "mean_logit",
+          "false_abstention_count": 397,
+          "false_abstention_rate": 0.01985,
+          "missed_uncertain_count": 601,
+          "missed_uncertain_rate": 0.1202,
+          "name": "stump_mean_logit",
+          "non_uncertain_label_accuracy": 0.9692666666666667,
+          "overall_accuracy": 0.9469,
+          "threshold": 0.6,
+          "uncertain_precision": 0.9172226855713094,
+          "uncertain_prediction_rate": 0.2398,
+          "uncertain_recall": 0.8798,
+          "utilization_gap": 0.0238
+        },
+        "internal_accuracy": 0.91725,
+        "threshold": 0.6,
+        "uncertain_precision": 0.8858131487889274,
+        "uncertain_recall": 0.768
+      },
+      {
+        "full_development": {
+          "candidate_source": "mean_logit",
+          "false_abstention_count": 397,
+          "false_abstention_rate": 0.01985,
+          "missed_uncertain_count": 601,
+          "missed_uncertain_rate": 0.1202,
+          "name": "stump_mean_logit",
+          "non_uncertain_label_accuracy": 0.9692666666666667,
+          "overall_accuracy": 0.9469,
+          "threshold": 0.7,
+          "uncertain_precision": 0.9172226855713094,
+          "uncertain_prediction_rate": 0.2398,
+          "uncertain_recall": 0.8798,
+          "utilization_gap": 0.0238
+        },
+        "internal_accuracy": 0.91725,
+        "threshold": 0.7,
+        "uncertain_precision": 0.8858131487889274,
+        "uncertain_recall": 0.768
+      },
+      {
+        "full_development": {
+          "candidate_source": "mean_logit",
+          "false_abstention_count": 397,
+          "false_abstention_rate": 0.01985,
+          "missed_uncertain_count": 601,
+          "missed_uncertain_rate": 0.1202,
+          "name": "stump_mean_logit",
+          "non_uncertain_label_accuracy": 0.9692666666666667,
+          "overall_accuracy": 0.9469,
+          "threshold": 1.0,
+          "uncertain_precision": 0.9172226855713094,
+          "uncertain_prediction_rate": 0.2398,
+          "uncertain_recall": 0.8798,
+          "utilization_gap": 0.0238
+        },
+        "internal_accuracy": 0.91725,
+        "threshold": 1.0,
+        "uncertain_precision": 0.8858131487889274,
+        "uncertain_recall": 0.768
+      }
+    ],
+    "model_type": "decision_stump",
+    "selected_threshold": 0.0,
+    "stump": {
+      "direction": "ge",
+      "feature_index": 4,
+      "score": 0.9172499775886536,
+      "threshold": 1.0
+    }
+  },
+  {
+    "candidate_source": "mean_probability",
+    "consumed_confirmation_1": {
+      "candidate_source": "mean_probability",
+      "false_abstention_count": 15000,
+      "false_abstention_rate": 0.75,
+      "missed_uncertain_count": 0,
+      "missed_uncertain_rate": 0.0,
+      "name": "stump_mean_probability",
+      "non_uncertain_label_accuracy": 0.0,
+      "overall_accuracy": 0.25,
+      "threshold": 0.0,
+      "uncertain_precision": 0.25,
+      "uncertain_prediction_rate": 1.0,
+      "uncertain_recall": 1.0,
+      "utilization_gap": 0.7235
+    },
+    "development": {
+      "candidate_source": "mean_probability",
+      "false_abstention_count": 15000,
+      "false_abstention_rate": 0.75,
+      "missed_uncertain_count": 0,
+      "missed_uncertain_rate": 0.0,
+      "name": "stump_mean_probability",
+      "non_uncertain_label_accuracy": 0.0,
+      "overall_accuracy": 0.25,
+      "threshold": 0.0,
+      "uncertain_precision": 0.25,
+      "uncertain_prediction_rate": 1.0,
+      "uncertain_recall": 1.0,
+      "utilization_gap": 0.7207
+    },
+    "internal_frontier": [
+      {
+        "full_development": {
+          "candidate_source": "mean_probability",
+          "false_abstention_count": 15000,
+          "false_abstention_rate": 0.75,
+          "missed_uncertain_count": 0,
+          "missed_uncertain_rate": 0.0,
+          "name": "stump_mean_probability",
+          "non_uncertain_label_accuracy": 0.0,
+          "overall_accuracy": 0.25,
+          "threshold": 0.0,
+          "uncertain_precision": 0.25,
+          "uncertain_prediction_rate": 1.0,
+          "uncertain_recall": 1.0,
+          "utilization_gap": 0.7207
+        },
+        "internal_accuracy": 0.25,
+        "threshold": 0.0,
+        "uncertain_precision": 0.25,
+        "uncertain_recall": 1.0
+      },
+      {
+        "full_development": {
+          "candidate_source": "mean_probability",
+          "false_abstention_count": 397,
+          "false_abstention_rate": 0.01985,
+          "missed_uncertain_count": 601,
+          "missed_uncertain_rate": 0.1202,
+          "name": "stump_mean_probability",
+          "non_uncertain_label_accuracy": 0.9691333333333333,
+          "overall_accuracy": 0.9468,
+          "threshold": 0.3,
+          "uncertain_precision": 0.9172226855713094,
+          "uncertain_prediction_rate": 0.2398,
+          "uncertain_recall": 0.8798,
+          "utilization_gap": 0.0239
+        },
+        "internal_accuracy": 0.91725,
+        "threshold": 0.3,
+        "uncertain_precision": 0.8858131487889274,
+        "uncertain_recall": 0.768
+      },
+      {
+        "full_development": {
+          "candidate_source": "mean_probability",
+          "false_abstention_count": 397,
+          "false_abstention_rate": 0.01985,
+          "missed_uncertain_count": 601,
+          "missed_uncertain_rate": 0.1202,
+          "name": "stump_mean_probability",
+          "non_uncertain_label_accuracy": 0.9691333333333333,
+          "overall_accuracy": 0.9468,
+          "threshold": 0.4,
+          "uncertain_precision": 0.9172226855713094,
+          "uncertain_prediction_rate": 0.2398,
+          "uncertain_recall": 0.8798,
+          "utilization_gap": 0.0239
+        },
+        "internal_accuracy": 0.91725,
+        "threshold": 0.4,
+        "uncertain_precision": 0.8858131487889274,
+        "uncertain_recall": 0.768
+      },
+      {
+        "full_development": {
+          "candidate_source": "mean_probability",
+          "false_abstention_count": 397,
+          "false_abstention_rate": 0.01985,
+          "missed_uncertain_count": 601,
+          "missed_uncertain_rate": 0.1202,
+          "name": "stump_mean_probability",
+          "non_uncertain_label_accuracy": 0.9691333333333333,
+          "overall_accuracy": 0.9468,
+          "threshold": 0.5,
+          "uncertain_precision": 0.9172226855713094,
+          "uncertain_prediction_rate": 0.2398,
+          "uncertain_recall": 0.8798,
+          "utilization_gap": 0.0239
+        },
+        "internal_accuracy": 0.91725,
+        "threshold": 0.5,
+        "uncertain_precision": 0.8858131487889274,
+        "uncertain_recall": 0.768
+      },
+      {
+        "full_development": {
+          "candidate_source": "mean_probability",
+          "false_abstention_count": 397,
+          "false_abstention_rate": 0.01985,
+          "missed_uncertain_count": 601,
+          "missed_uncertain_rate": 0.1202,
+          "name": "stump_mean_probability",
+          "non_uncertain_label_accuracy": 0.9691333333333333,
+          "overall_accuracy": 0.9468,
+          "threshold": 0.6,
+          "uncertain_precision": 0.9172226855713094,
+          "uncertain_prediction_rate": 0.2398,
+          "uncertain_recall": 0.8798,
+          "utilization_gap": 0.0239
+        },
+        "internal_accuracy": 0.91725,
+        "threshold": 0.6,
+        "uncertain_precision": 0.8858131487889274,
+        "uncertain_recall": 0.768
+      },
+      {
+        "full_development": {
+          "candidate_source": "mean_probability",
+          "false_abstention_count": 397,
+          "false_abstention_rate": 0.01985,
+          "missed_uncertain_count": 601,
+          "missed_uncertain_rate": 0.1202,
+          "name": "stump_mean_probability",
+          "non_uncertain_label_accuracy": 0.9691333333333333,
+          "overall_accuracy": 0.9468,
+          "threshold": 0.7,
+          "uncertain_precision": 0.9172226855713094,
+          "uncertain_prediction_rate": 0.2398,
+          "uncertain_recall": 0.8798,
+          "utilization_gap": 0.0239
+        },
+        "internal_accuracy": 0.91725,
+        "threshold": 0.7,
+        "uncertain_precision": 0.8858131487889274,
+        "uncertain_recall": 0.768
+      },
+      {
+        "full_development": {
+          "candidate_source": "mean_probability",
+          "false_abstention_count": 397,
+          "false_abstention_rate": 0.01985,
+          "missed_uncertain_count": 601,
+          "missed_uncertain_rate": 0.1202,
+          "name": "stump_mean_probability",
+          "non_uncertain_label_accuracy": 0.9691333333333333,
+          "overall_accuracy": 0.9468,
+          "threshold": 1.0,
+          "uncertain_precision": 0.9172226855713094,
+          "uncertain_prediction_rate": 0.2398,
+          "uncertain_recall": 0.8798,
+          "utilization_gap": 0.0239
+        },
+        "internal_accuracy": 0.91725,
+        "threshold": 1.0,
+        "uncertain_precision": 0.8858131487889274,
+        "uncertain_recall": 0.768
+      }
+    ],
+    "model_type": "decision_stump",
+    "selected_threshold": 0.0,
+    "stump": {
+      "direction": "ge",
+      "feature_index": 4,
+      "score": 0.9172499775886536,
+      "threshold": 1.0
+    }
+  }
+]

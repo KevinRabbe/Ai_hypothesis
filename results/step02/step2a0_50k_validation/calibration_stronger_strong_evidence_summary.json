@@ -1,0 +1,386 @@
+[
+  {
+    "aggregation_config": {
+      "eps": 1e-08,
+      "evidence_clip": 8.0,
+      "max_mean_invalid_mass": 0.5,
+      "max_mean_uncertainty": 0.5,
+      "min_primary_margin": 0.15,
+      "protected_conflict_mean_gap": 0.5,
+      "strong_evidence_threshold": 3.0,
+      "support_threshold": 0.5,
+      "top_k": 3
+    },
+    "all_wrong_rate": 0.05175,
+    "by_task": {
+      "A_PATTERN": {
+        "count": 4000,
+        "evidence_accuracy": 0.93125,
+        "majority_vote_accuracy": 0.93125,
+        "mean_logit_accuracy": 0.93125,
+        "mean_probability_accuracy": 0.93125,
+        "oracle_any_correct_coverage": 0.93125
+      },
+      "B_CHANGE": {
+        "count": 4000,
+        "evidence_accuracy": 0.97775,
+        "majority_vote_accuracy": 0.97775,
+        "mean_logit_accuracy": 0.97775,
+        "mean_probability_accuracy": 0.97775,
+        "oracle_any_correct_coverage": 0.97775
+      },
+      "C_CONFLICT": {
+        "count": 4000,
+        "evidence_accuracy": 0.959,
+        "majority_vote_accuracy": 0.959,
+        "mean_logit_accuracy": 0.959,
+        "mean_probability_accuracy": 0.959,
+        "oracle_any_correct_coverage": 0.959
+      },
+      "D_RELATION": {
+        "count": 4000,
+        "evidence_accuracy": 0.95,
+        "majority_vote_accuracy": 0.95275,
+        "mean_logit_accuracy": 0.95275,
+        "mean_probability_accuracy": 0.95275,
+        "oracle_any_correct_coverage": 0.95275
+      },
+      "E_RELEVANCE": {
+        "count": 4000,
+        "evidence_accuracy": 0.9205,
+        "majority_vote_accuracy": 0.9205,
+        "mean_logit_accuracy": 0.9205,
+        "mean_probability_accuracy": 0.9205,
+        "oracle_any_correct_coverage": 0.9205
+      }
+    },
+    "count": 20000,
+    "discovery_failure_rate": 0.05175,
+    "evidence_reducer_accuracy": 0.9477,
+    "evidence_utilization_gap": 0.0005500000000000504,
+    "execution_backend": "vmap",
+    "majority_failure_with_oracle_rate": 0.0,
+    "majority_harm_rate": 0.00055,
+    "majority_vote_accuracy": 0.94825,
+    "mean_disagreement_entropy": 0.0,
+    "mean_invalid_label_mass": 8.793308734893799e-05,
+    "mean_logit_accuracy": 0.94825,
+    "mean_population_uncertainty": 0.26244790925979616,
+    "mean_probability_accuracy": 0.94825,
+    "minority_rescue_opportunity_rate": 0.0,
+    "minority_rescue_rate": 0.0,
+    "minority_suppression_rate": 1.0,
+    "oracle_any_correct_coverage": 0.94825,
+    "population_width": 1,
+    "reducer_rescue_rate_total": 0.0,
+    "single_worker_accuracy": {
+      "max": 0.94825,
+      "mean": 0.94825,
+      "min": 0.94825,
+      "values": [
+        0.94825
+      ]
+    },
+    "strong_correct_minority_case_rate": 0.00845,
+    "unit_config": {
+      "attention_heads": 4,
+      "block_count": 2,
+      "d_model": 48,
+      "dropout": 0.1,
+      "feature_width": 16,
+      "feed_forward_width": 144,
+      "sequence_length": 32
+    },
+    "utilization_failure_rate": 0.00055
+  },
+  {
+    "aggregation_config": {
+      "eps": 1e-08,
+      "evidence_clip": 8.0,
+      "max_mean_invalid_mass": 0.5,
+      "max_mean_uncertainty": 0.5,
+      "min_primary_margin": 0.15,
+      "protected_conflict_mean_gap": 0.5,
+      "strong_evidence_threshold": 3.0,
+      "support_threshold": 0.5,
+      "top_k": 3
+    },
+    "all_wrong_rate": 0.038,
+    "by_task": {
+      "A_PATTERN": {
+        "count": 4000,
+        "evidence_accuracy": 0.935,
+        "majority_vote_accuracy": 0.9355,
+        "mean_logit_accuracy": 0.935,
+        "mean_probability_accuracy": 0.935,
+        "oracle_any_correct_coverage": 0.947
+      },
+      "B_CHANGE": {
+        "count": 4000,
+        "evidence_accuracy": 0.97875,
+        "majority_vote_accuracy": 0.9775,
+        "mean_logit_accuracy": 0.97875,
+        "mean_probability_accuracy": 0.97875,
+        "oracle_any_correct_coverage": 0.98525
+      },
+      "C_CONFLICT": {
+        "count": 4000,
+        "evidence_accuracy": 0.96025,
+        "majority_vote_accuracy": 0.9595,
+        "mean_logit_accuracy": 0.96025,
+        "mean_probability_accuracy": 0.96025,
+        "oracle_any_correct_coverage": 0.9655
+      },
+      "D_RELATION": {
+        "count": 4000,
+        "evidence_accuracy": 0.951,
+        "majority_vote_accuracy": 0.9515,
+        "mean_logit_accuracy": 0.95625,
+        "mean_probability_accuracy": 0.95625,
+        "oracle_any_correct_coverage": 0.96525
+      },
+      "E_RELEVANCE": {
+        "count": 4000,
+        "evidence_accuracy": 0.92675,
+        "majority_vote_accuracy": 0.919,
+        "mean_logit_accuracy": 0.92675,
+        "mean_probability_accuracy": 0.92675,
+        "oracle_any_correct_coverage": 0.947
+      }
+    },
+    "count": 20000,
+    "discovery_failure_rate": 0.038,
+    "evidence_reducer_accuracy": 0.95035,
+    "evidence_utilization_gap": 0.011649999999999938,
+    "execution_backend": "vmap",
+    "majority_failure_with_oracle_rate": 0.0134,
+    "majority_harm_rate": 0.0064,
+    "majority_vote_accuracy": 0.9486,
+    "mean_disagreement_entropy": 0.009749809876084328,
+    "mean_invalid_label_mass": 0.00015051354467868804,
+    "mean_logit_accuracy": 0.9514,
+    "mean_population_uncertainty": 0.2552866630077362,
+    "mean_probability_accuracy": 0.9514,
+    "minority_rescue_opportunity_rate": 0.0134,
+    "minority_rescue_rate": 0.6082089552238806,
+    "minority_suppression_rate": 0.9573170731707317,
+    "oracle_any_correct_coverage": 0.962,
+    "population_width": 2,
+    "reducer_rescue_rate_total": 0.00815,
+    "single_worker_accuracy": {
+      "max": 0.94835,
+      "mean": 0.9483,
+      "min": 0.94825,
+      "values": [
+        0.94825,
+        0.94835
+      ]
+    },
+    "strong_correct_minority_case_rate": 0.0082,
+    "unit_config": {
+      "attention_heads": 4,
+      "block_count": 2,
+      "d_model": 48,
+      "dropout": 0.1,
+      "feature_width": 16,
+      "feed_forward_width": 144,
+      "sequence_length": 32
+    },
+    "utilization_failure_rate": 0.01165
+  },
+  {
+    "aggregation_config": {
+      "eps": 1e-08,
+      "evidence_clip": 8.0,
+      "max_mean_invalid_mass": 0.5,
+      "max_mean_uncertainty": 0.5,
+      "min_primary_margin": 0.15,
+      "protected_conflict_mean_gap": 0.5,
+      "strong_evidence_threshold": 3.0,
+      "support_threshold": 0.5,
+      "top_k": 3
+    },
+    "all_wrong_rate": 0.03095,
+    "by_task": {
+      "A_PATTERN": {
+        "count": 4000,
+        "evidence_accuracy": 0.9365,
+        "majority_vote_accuracy": 0.939,
+        "mean_logit_accuracy": 0.9365,
+        "mean_probability_accuracy": 0.9365,
+        "oracle_any_correct_coverage": 0.957
+      },
+      "B_CHANGE": {
+        "count": 4000,
+        "evidence_accuracy": 0.98125,
+        "majority_vote_accuracy": 0.981,
+        "mean_logit_accuracy": 0.981,
+        "mean_probability_accuracy": 0.98125,
+        "oracle_any_correct_coverage": 0.987
+      },
+      "C_CONFLICT": {
+        "count": 4000,
+        "evidence_accuracy": 0.961,
+        "majority_vote_accuracy": 0.96125,
+        "mean_logit_accuracy": 0.961,
+        "mean_probability_accuracy": 0.961,
+        "oracle_any_correct_coverage": 0.9715
+      },
+      "D_RELATION": {
+        "count": 4000,
+        "evidence_accuracy": 0.953,
+        "majority_vote_accuracy": 0.95675,
+        "mean_logit_accuracy": 0.95675,
+        "mean_probability_accuracy": 0.95675,
+        "oracle_any_correct_coverage": 0.97625
+      },
+      "E_RELEVANCE": {
+        "count": 4000,
+        "evidence_accuracy": 0.92875,
+        "majority_vote_accuracy": 0.92625,
+        "mean_logit_accuracy": 0.928,
+        "mean_probability_accuracy": 0.92875,
+        "oracle_any_correct_coverage": 0.9535
+      }
+    },
+    "count": 20000,
+    "discovery_failure_rate": 0.03095,
+    "evidence_reducer_accuracy": 0.9521,
+    "evidence_utilization_gap": 0.01695000000000002,
+    "execution_backend": "vmap",
+    "majority_failure_with_oracle_rate": 0.0162,
+    "majority_harm_rate": 0.00355,
+    "majority_vote_accuracy": 0.95285,
+    "mean_disagreement_entropy": 0.014928207340836525,
+    "mean_invalid_label_mass": 0.00013410758078098297,
+    "mean_logit_accuracy": 0.95265,
+    "mean_population_uncertainty": 0.2557375644683838,
+    "mean_probability_accuracy": 0.95285,
+    "minority_rescue_opportunity_rate": 0.0162,
+    "minority_rescue_rate": 0.1728395061728395,
+    "minority_suppression_rate": 0.974169741697417,
+    "oracle_any_correct_coverage": 0.96905,
+    "population_width": 4,
+    "reducer_rescue_rate_total": 0.0028,
+    "single_worker_accuracy": {
+      "max": 0.9489,
+      "mean": 0.9486,
+      "min": 0.94825,
+      "values": [
+        0.94825,
+        0.94835,
+        0.9489,
+        0.9489
+      ]
+    },
+    "strong_correct_minority_case_rate": 0.01355,
+    "unit_config": {
+      "attention_heads": 4,
+      "block_count": 2,
+      "d_model": 48,
+      "dropout": 0.1,
+      "feature_width": 16,
+      "feed_forward_width": 144,
+      "sequence_length": 32
+    },
+    "utilization_failure_rate": 0.01695
+  },
+  {
+    "aggregation_config": {
+      "eps": 1e-08,
+      "evidence_clip": 8.0,
+      "max_mean_invalid_mass": 0.5,
+      "max_mean_uncertainty": 0.5,
+      "min_primary_margin": 0.15,
+      "protected_conflict_mean_gap": 0.5,
+      "strong_evidence_threshold": 3.0,
+      "support_threshold": 0.5,
+      "top_k": 3
+    },
+    "all_wrong_rate": 0.0293,
+    "by_task": {
+      "A_PATTERN": {
+        "count": 4000,
+        "evidence_accuracy": 0.93775,
+        "majority_vote_accuracy": 0.938,
+        "mean_logit_accuracy": 0.938,
+        "mean_probability_accuracy": 0.93775,
+        "oracle_any_correct_coverage": 0.959
+      },
+      "B_CHANGE": {
+        "count": 4000,
+        "evidence_accuracy": 0.98175,
+        "majority_vote_accuracy": 0.98125,
+        "mean_logit_accuracy": 0.982,
+        "mean_probability_accuracy": 0.98175,
+        "oracle_any_correct_coverage": 0.988
+      },
+      "C_CONFLICT": {
+        "count": 4000,
+        "evidence_accuracy": 0.9615,
+        "majority_vote_accuracy": 0.96075,
+        "mean_logit_accuracy": 0.962,
+        "mean_probability_accuracy": 0.9615,
+        "oracle_any_correct_coverage": 0.973
+      },
+      "D_RELATION": {
+        "count": 4000,
+        "evidence_accuracy": 0.95075,
+        "majority_vote_accuracy": 0.95475,
+        "mean_logit_accuracy": 0.95425,
+        "mean_probability_accuracy": 0.9535,
+        "oracle_any_correct_coverage": 0.978
+      },
+      "E_RELEVANCE": {
+        "count": 4000,
+        "evidence_accuracy": 0.92875,
+        "majority_vote_accuracy": 0.92775,
+        "mean_logit_accuracy": 0.9285,
+        "mean_probability_accuracy": 0.92875,
+        "oracle_any_correct_coverage": 0.9555
+      }
+    },
+    "count": 20000,
+    "discovery_failure_rate": 0.0293,
+    "evidence_reducer_accuracy": 0.9521,
+    "evidence_utilization_gap": 0.01860000000000006,
+    "execution_backend": "vmap",
+    "majority_failure_with_oracle_rate": 0.0182,
+    "majority_harm_rate": 0.0027,
+    "majority_vote_accuracy": 0.9525,
+    "mean_disagreement_entropy": 0.016816506361961366,
+    "mean_invalid_label_mass": 0.00015910582267679275,
+    "mean_logit_accuracy": 0.95295,
+    "mean_population_uncertainty": 0.25581396226882935,
+    "mean_probability_accuracy": 0.95265,
+    "minority_rescue_opportunity_rate": 0.0182,
+    "minority_rescue_rate": 0.12637362637362637,
+    "minority_suppression_rate": 0.9149560117302052,
+    "oracle_any_correct_coverage": 0.9707,
+    "population_width": 5,
+    "reducer_rescue_rate_total": 0.0023,
+    "single_worker_accuracy": {
+      "max": 0.9489,
+      "mean": 0.9484400000000001,
+      "min": 0.9478,
+      "values": [
+        0.94825,
+        0.94835,
+        0.9489,
+        0.9489,
+        0.9478
+      ]
+    },
+    "strong_correct_minority_case_rate": 0.01705,
+    "unit_config": {
+      "attention_heads": 4,
+      "block_count": 2,
+      "d_model": 48,
+      "dropout": 0.1,
+      "feature_width": 16,
+      "feed_forward_width": 144,
+      "sequence_length": 32
+    },
+    "utilization_failure_rate": 0.0186
+  }
+]
