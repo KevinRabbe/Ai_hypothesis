@@ -4,6 +4,8 @@ from .contracts import (
     AttemptResult,
     AttemptStatus,
     EvidenceContribution,
+    EvidenceDisposition,
+    EvidenceDispositionKind,
     KnowledgeDelta,
     LedgerEvent,
     ProjectedState,
@@ -12,6 +14,17 @@ from .contracts import (
     WorkItem,
     WorkPurpose,
 )
+from .control import ControlStep, RuntimeControlLoop, WorkerSelectorV0, WorkPreparation
+from .integration import (
+    IntegrationBackpressureConfig,
+    IntegrationBatch,
+    IntegrationDisposition,
+    IntegrationOverview,
+    IntegrationSnapshot,
+    IntegrationTracker,
+    PendingEvidence,
+)
+from .integration_work import prepare_bounded_integration_work
 from .ledger import SQLiteResearchLedger
 from .projector import ThreadStateProjector
 from .scheduler import SchedulerConfig, SchedulerSignals, SchedulerV0, SchedulableThread
@@ -21,10 +34,21 @@ __all__ = [
     "AttemptRequest",
     "AttemptResult",
     "AttemptStatus",
+    "ControlStep",
     "EvidenceContribution",
+    "EvidenceDisposition",
+    "EvidenceDispositionKind",
+    "IntegrationBackpressureConfig",
+    "IntegrationBatch",
+    "IntegrationDisposition",
+    "IntegrationOverview",
+    "IntegrationSnapshot",
+    "IntegrationTracker",
     "KnowledgeDelta",
     "LedgerEvent",
+    "PendingEvidence",
     "ProjectedState",
+    "RuntimeControlLoop",
     "SchedulerAction",
     "SchedulerConfig",
     "SchedulerDecision",
@@ -36,6 +60,9 @@ __all__ = [
     "WorkerAssignment",
     "WorkerBank",
     "WorkerRuntime",
+    "WorkerSelectorV0",
     "WorkItem",
+    "WorkPreparation",
     "WorkPurpose",
+    "prepare_bounded_integration_work",
 ]

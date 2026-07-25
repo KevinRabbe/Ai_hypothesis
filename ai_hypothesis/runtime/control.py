@@ -1,0 +1,228 @@
+"""Thin composition layer over the five durable population-runtime roles.
+
+This module is not a sixth autonomous subsystem. It wires ledger, projection,
+scheduling, worker selection, and bounded execution together while keeping domain
+signals and Work Item preparation injected and replaceable.
+"""
+
+from __future__ import annotations
+
+import uuid
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass, field, replace
+from typing import Any
+
+from .contracts import (
+    AttemptResult,
+    LedgerEvent,
+    ProjectedState,
+    SchedulerAction,
+    SchedulerDecision,
+    WorkItem,
+    WorkPurpose,
+)
+from .integration import IntegrationOverview, IntegrationTracker
+from .ledger import SQLiteResearchLedger
+from .projector import ThreadStateProjector
+from .scheduler import SchedulerSignals, SchedulerV0, SchedulableThread
+from .worker_runtime import WorkerAssignment, WorkerBank, WorkerRuntime
+
+
+SignalProvider = Callable[[ProjectedState], SchedulerSignals]
+
+
+@dataclass(frozen=True, slots=True)
+class WorkPreparation:
+    context: Mapping[str, Any] = field(default_factory=dict)
+    reference_ids: tuple[str, ...] = ()
+    parent_ids: tuple[str, ...] = ()
+    constraints: Mapping[str, Any] = field(default_factory=dict)
+    resource_budget: Mapping[str, Any] = field(default_factory=dict)
+
+    def validate(self) -> None:
+        for name, values in (("reference_ids", self.reference_ids), ("parent_ids", self.parent_ids)):
+            if any(not value for value in values):
+                raise ValueError(f"{name} must not contain empty IDs")
+
+
+ContextProvider = Callable[[ProjectedState, SchedulerDecision], WorkPreparation]
+
+
+@dataclass(frozen=True, slots=True)
+class ControlStep:
+    state: ProjectedState
+    decision: SchedulerDecision
+    assignments: tuple[WorkerAssignment, ...] = ()
+    results: tuple[AttemptResult, ...] = ()
+
+    @property
+    def assignment(self) -> WorkerAssignment | None:
+        return self.assignments[0] if self.assignments else None
+
+    @property
+    def result(self) -> AttemptResult | None:
+        return self.results[0] if self.results else None
+
+
+class WorkerSelectorV0:
+    def __init__(self, worker_ids: Sequence[str]) -> None:
+        self.worker_ids = tuple(worker_ids)
+        if not self.worker_ids:
+            raise ValueError("worker selector requires at least one worker")
+        if any(not worker_id or not worker_id.strip() for worker_id in self.worker_ids):
+            raise ValueError("worker IDs must be non-empty")
+        if len(set(self.worker_ids)) != len(self.worker_ids):
+            raise ValueError("worker IDs must be unique")
+        self._next_index = 0
+
+    @property
+    def population_width(self) -> int:
+        return len(self.worker_ids)
+
+    def choose(self, action: SchedulerAction, *, previous_worker_id: str | None) -> str:
+        return self.choose_many(action, previous_worker_id=previous_worker_id, count=1)[0]
+
+    def choose_many(self, action: SchedulerAction, *, previous_worker_id: str | None, count: int) -> tuple[str, ...]:
+        if count <= 0:
+            raise ValueError("worker selection count must be positive")
+        if action is SchedulerAction.CONTINUE and count == 1 and previous_worker_id in self.worker_ids:
+            assert previous_worker_id is not None
+            return (previous_worker_id,)
+
+        population_size = len(self.worker_ids)
+        start = self._next_index % population_size
+        rotated = [self.worker_ids[(start + offset) % population_size] for offset in range(population_size)]
+        if previous_worker_id in rotated and population_size > 1:
+            rotated.remove(previous_worker_id)
+            rotated.append(previous_worker_id)
+        selected = tuple(rotated[: min(count, population_size)])
+        self._next_index = (self._next_index + 1) % population_size
+        return selected
+
+
+class RuntimeControlLoop:
+    def __init__(
+        self,
+        *,
+        ledger: SQLiteResearchLedger,
+        scheduler: SchedulerV0,
+        worker_bank: WorkerBank,
+        worker_ids: Sequence[str],
+        projector: ThreadStateProjector | None = None,
+        worker_runtime: WorkerRuntime | None = None,
+        worker_selector: WorkerSelectorV0 | None = None,
+        integration_tracker: IntegrationTracker | None = None,
+    ) -> None:
+        self.ledger = ledger
+        self.scheduler = scheduler
+        self.worker_bank = worker_bank
+        self.projector = projector or ThreadStateProjector()
+        self.worker_runtime = worker_runtime or WorkerRuntime(ledger)
+        self.worker_selector = worker_selector or WorkerSelectorV0(worker_ids)
+        self.integration_tracker = integration_tracker
+
+    def create_thread(
+        self,
+        *,
+        objective: str,
+        purpose: WorkPurpose = WorkPurpose.EXPLORE,
+        reference_ids: Sequence[str] = (),
+        metadata: Mapping[str, Any] | None = None,
+        thread_id: str | None = None,
+    ) -> str:
+        resolved_id = thread_id or uuid.uuid4().hex
+        self.ledger.append_event(
+            event_type="THREAD_CREATED",
+            thread_id=resolved_id,
+            reference_ids=tuple(reference_ids),
+            payload={"objective": objective, "purpose": purpose.value, "status": "ACTIVE"},
+        )
+        if metadata:
+            self.ledger.append_event(event_type="THREAD_METADATA_UPDATED", thread_id=resolved_id, payload=dict(metadata))
+        return resolved_id
+
+    def run_once(
+        self,
+        *,
+        signal_provider: SignalProvider,
+        context_provider: ContextProvider,
+        integration_backpressure: bool | None = None,
+    ) -> ControlStep:
+        events = self.ledger.read_all_events()
+        states = self.projector.project_all(events)
+        if not states:
+            raise ValueError("runtime has no Work Threads")
+
+        integration_overview = self.integration_tracker.overview(events) if self.integration_tracker is not None else None
+        candidates = tuple(
+            SchedulableThread(state=state, signals=self._signals_for(state, signal_provider, integration_overview))
+            for state in states
+            if state.status != "COMPLETE"
+        )
+        resolved_backpressure = (
+            integration_overview.global_backpressured if integration_backpressure is None and integration_overview is not None
+            else False if integration_backpressure is None
+            else integration_backpressure
+        )
+        decision = self.scheduler.choose(
+            candidates,
+            integration_backpressure=resolved_backpressure,
+            max_width=self.worker_selector.population_width,
+        )
+        selected_state = next(state for state in states if state.thread_id == decision.thread_id)
+
+        if decision.action is SchedulerAction.PAUSE:
+            self.ledger.append_event(event_type="THREAD_PAUSED", thread_id=selected_state.thread_id, payload={"reason_codes": list(decision.reason_codes)})
+            return ControlStep(selected_state, decision)
+        if decision.action is SchedulerAction.COMPLETE:
+            self.ledger.append_event(event_type="THREAD_COMPLETED", thread_id=selected_state.thread_id, payload={"reason_codes": list(decision.reason_codes)})
+            return ControlStep(selected_state, decision)
+
+        preparation = context_provider(selected_state, decision)
+        preparation.validate()
+        selected_worker_ids = self.worker_selector.choose_many(
+            decision.action,
+            previous_worker_id=self._last_worker_id(events, selected_state.thread_id),
+            count=decision.width,
+        )
+        if len(selected_worker_ids) != decision.width:
+            raise RuntimeError("scheduler allocated more distinct workers than available")
+
+        assignments: list[WorkerAssignment] = []
+        for worker_id in selected_worker_ids:
+            item = WorkItem(
+                work_item_id=uuid.uuid4().hex,
+                thread_id=selected_state.thread_id,
+                objective=selected_state.objective,
+                purpose=decision.purpose or selected_state.purpose,
+                projection_revision=selected_state.revision,
+                reference_ids=preparation.reference_ids,
+                parent_ids=preparation.parent_ids,
+                context=dict(preparation.context),
+                constraints=dict(preparation.constraints),
+                resource_budget=dict(preparation.resource_budget),
+            )
+            item.validate()
+            assignments.append(WorkerAssignment(worker_id=worker_id, work_item=item))
+
+        decision = replace(decision, work_item_ids=tuple(a.work_item.work_item_id for a in assignments))
+        decision.validate()
+        results = self.worker_runtime.run_batch(tuple(assignments), self.worker_bank)
+        return ControlStep(selected_state, decision, assignments=tuple(assignments), results=results)
+
+    @staticmethod
+    def _signals_for(state: ProjectedState, signal_provider: SignalProvider, integration_overview: IntegrationOverview | None) -> SchedulerSignals:
+        signals = signal_provider(state)
+        if integration_overview is None:
+            return signals
+        pressure = integration_overview.pressure_for(state.thread_id)
+        return signals if pressure <= signals.integration_backlog else replace(signals, integration_backlog=pressure)
+
+    @staticmethod
+    def _last_worker_id(events: Sequence[LedgerEvent], thread_id: str) -> str | None:
+        for event in reversed(events):
+            if event.thread_id == thread_id and event.event_type == "ATTEMPT_STARTED":
+                worker_id = event.payload.get("worker_id")
+                if isinstance(worker_id, str) and worker_id:
+                    return worker_id
+        return None

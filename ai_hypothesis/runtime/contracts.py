@@ -40,6 +40,14 @@ class SchedulerAction(str, Enum):
     COMPLETE = "COMPLETE"
 
 
+class EvidenceDispositionKind(str, Enum):
+    INTEGRATED = "INTEGRATED"
+    DUPLICATE = "DUPLICATE"
+    IRRELEVANT = "IRRELEVANT"
+    INVALID = "INVALID"
+    LOCAL_ONLY = "LOCAL_ONLY"
+
+
 def _require_text(name: str, value: str) -> None:
     if not value or not value.strip():
         raise ValueError(f"{name} must be non-empty")
@@ -82,11 +90,7 @@ class WorkItem:
 
 @dataclass(frozen=True, slots=True)
 class EvidenceContribution:
-    """One structured evidence contribution produced by a bounded attempt.
-
-    ``data`` carries domain-specific evidence detail while the stable fields preserve
-    identity, provenance, scalar strength, and uncertainty for generic integration.
-    """
+    """One structured evidence contribution produced by a bounded attempt."""
 
     evidence_id: str
     kind: str
@@ -111,6 +115,23 @@ class EvidenceContribution:
 
 
 @dataclass(frozen=True, slots=True)
+class EvidenceDisposition:
+    """Explicit integration outcome for generated evidence."""
+
+    evidence_ids: tuple[str, ...]
+    disposition: EvidenceDispositionKind
+    reason: str | None = None
+
+    def validate(self) -> None:
+        if not self.evidence_ids:
+            raise ValueError("evidence disposition requires at least one evidence ID")
+        if any(not evidence_id or not evidence_id.strip() for evidence_id in self.evidence_ids):
+            raise ValueError("evidence IDs must be non-empty")
+        if self.reason is not None:
+            _require_text("reason", self.reason)
+
+
+@dataclass(frozen=True, slots=True)
 class AttemptResult:
     """Structured changes produced by one bounded worker attempt."""
 
@@ -122,6 +143,8 @@ class AttemptResult:
     observations: tuple[str, ...] = ()
     evidence: tuple[EvidenceContribution, ...] = ()
     evidence_refs: tuple[str, ...] = ()
+    knowledge_deltas: tuple[KnowledgeDelta, ...] = ()
+    evidence_dispositions: tuple[EvidenceDisposition, ...] = ()
     hypotheses_proposed: tuple[str, ...] = ()
     hypotheses_strengthened: tuple[str, ...] = ()
     hypotheses_weakened: tuple[str, ...] = ()
@@ -144,6 +167,10 @@ class AttemptResult:
             _require_text(name, value)
         for contribution in self.evidence:
             contribution.validate()
+        for delta in self.knowledge_deltas:
+            delta.validate()
+        for disposition in self.evidence_dispositions:
+            disposition.validate()
         if any(not value for value in self.evidence_refs):
             raise ValueError("evidence_refs must not contain empty IDs")
 
@@ -198,12 +225,13 @@ class ProjectedState:
 
 @dataclass(frozen=True, slots=True)
 class SchedulerDecision:
-    """A bounded allocation decision made from projected metadata."""
+    """A bounded allocation decision made from projected metadata and resources."""
 
     decision_id: str
     thread_id: str
     action: SchedulerAction
     purpose: WorkPurpose | None = None
+    width: int = 1
     work_item_ids: tuple[str, ...] = ()
     reason_codes: tuple[str, ...] = ()
     projection_revision: int = 0
@@ -211,7 +239,13 @@ class SchedulerDecision:
     def validate(self) -> None:
         _require_text("decision_id", self.decision_id)
         _require_text("thread_id", self.thread_id)
+        if self.width <= 0:
+            raise ValueError("scheduler decision width must be positive")
         _require_non_negative("projection_revision", self.projection_revision)
+        if any(not work_item_id for work_item_id in self.work_item_ids):
+            raise ValueError("work_item_ids must not contain empty IDs")
+        if self.work_item_ids and len(self.work_item_ids) != self.width:
+            raise ValueError("work_item_ids must match allocated scheduler width")
 
 
 @dataclass(frozen=True, slots=True)
