@@ -42,14 +42,44 @@ class WorkPreparation:
     parent_ids: tuple[str, ...] = ()
     constraints: Mapping[str, Any] = field(default_factory=dict)
     resource_budget: Mapping[str, Any] = field(default_factory=dict)
+    scope_region_ids: tuple[str, ...] = ()
 
     def validate(self) -> None:
-        for name, values in (("reference_ids", self.reference_ids), ("parent_ids", self.parent_ids)):
-            if any(not value for value in values):
+        for name, values in (
+            ("scope_region_ids", self.scope_region_ids),
+            ("reference_ids", self.reference_ids),
+            ("parent_ids", self.parent_ids),
+        ):
+            if any(not value or not value.strip() for value in values):
                 raise ValueError(f"{name} must not contain empty IDs")
+        if len(set(self.scope_region_ids)) != len(self.scope_region_ids):
+            raise ValueError("scope_region_ids must be unique inside one WorkPreparation")
 
 
-ContextProvider = Callable[[ProjectedState, SchedulerDecision], WorkPreparation]
+@dataclass(frozen=True, slots=True)
+class WorkPreparationBatch:
+    """Optional per-worker preparation for one scheduler allocation.
+
+    A single WorkPreparation remains the compact replication contract: it is reused
+    for every allocated worker. This batch form is used only when width should inspect
+    different source regions or receive otherwise different bounded context.
+    """
+
+    items: tuple[WorkPreparation, ...]
+
+    def validate(self, *, expected_width: int) -> None:
+        if expected_width <= 0:
+            raise ValueError("expected_width must be positive")
+        if len(self.items) != expected_width:
+            raise ValueError("WorkPreparationBatch size must match scheduler width")
+        for item in self.items:
+            item.validate()
+
+
+ContextProvider = Callable[
+    [ProjectedState, SchedulerDecision],
+    WorkPreparation | WorkPreparationBatch,
+]
 
 
 @dataclass(frozen=True, slots=True)
@@ -293,8 +323,8 @@ class RuntimeControlLoop:
             self.ledger.append_event(event_type="THREAD_COMPLETED", thread_id=selected_state.thread_id, payload={"reason_codes": list(decision.reason_codes)})
             return ControlStep(selected_state, decision)
 
-        preparation = context_provider(selected_state, decision)
-        preparation.validate()
+        raw_preparation = context_provider(selected_state, decision)
+        preparations = self._preparations_for_width(raw_preparation, decision.width)
         selected_worker_ids = self.worker_selector.choose_many(
             decision.action,
             previous_worker_id=self._last_worker_id(events, selected_state.thread_id),
@@ -304,7 +334,7 @@ class RuntimeControlLoop:
             raise RuntimeError("scheduler allocated more distinct workers than available")
 
         assignments: list[WorkerAssignment] = []
-        for worker_id in selected_worker_ids:
+        for worker_id, preparation in zip(selected_worker_ids, preparations, strict=True):
             item = WorkItem(
                 work_item_id=uuid.uuid4().hex,
                 thread_id=selected_state.thread_id,
@@ -316,6 +346,7 @@ class RuntimeControlLoop:
                 context=dict(preparation.context),
                 constraints=dict(preparation.constraints),
                 resource_budget=dict(preparation.resource_budget),
+                scope_region_ids=preparation.scope_region_ids,
             )
             item.validate()
             assignments.append(WorkerAssignment(worker_id=worker_id, work_item=item))
@@ -324,6 +355,21 @@ class RuntimeControlLoop:
         decision.validate()
         results = self.worker_runtime.run_batch(tuple(assignments), self.worker_bank)
         return ControlStep(selected_state, decision, assignments=tuple(assignments), results=results)
+
+    @staticmethod
+    def _preparations_for_width(
+        preparation: WorkPreparation | WorkPreparationBatch,
+        width: int,
+    ) -> tuple[WorkPreparation, ...]:
+        if width <= 0:
+            raise ValueError("scheduler width must be positive")
+        if isinstance(preparation, WorkPreparationBatch):
+            preparation.validate(expected_width=width)
+            return preparation.items
+        if not isinstance(preparation, WorkPreparation):
+            raise TypeError("context_provider must return WorkPreparation or WorkPreparationBatch")
+        preparation.validate()
+        return (preparation,) * width
 
     def _state_index(self) -> dict[str, ProjectedState]:
         return {

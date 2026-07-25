@@ -17,7 +17,13 @@ from .contracts import (
     WorkItem,
     WorkPurpose,
 )
-from .control import ControlStep, RuntimeControlLoop, WorkerSelectorV0, WorkPreparation
+from .control import (
+    ControlStep,
+    RuntimeControlLoop,
+    WorkerSelectorV0,
+    WorkPreparation,
+    WorkPreparationBatch,
+)
 from .followups import FollowupMaterializer, FollowupRequest, FollowupSnapshot
 from .graph_context import WorkGraphContextResolver
 from .integration import (
@@ -46,6 +52,7 @@ from .ledger import SQLiteResearchLedger
 from .projector import ThreadStateProjector
 from .scheduler import SchedulerConfig, SchedulerSignals, SchedulerV0, SchedulableThread
 from .scheduler_trace import TracingSchedulerV0
+from .scope_coverage import ScopeCoverageProjector, ScopeRegionCoverage, ThreadScopeCoverage
 from .worker_runtime import AttemptRequest, WorkerAssignment, WorkerBank, WorkerRuntime
 
 __all__ = [
@@ -88,7 +95,10 @@ __all__ = [
     "SchedulerSignals",
     "SchedulerV0",
     "SchedulableThread",
+    "ScopeCoverageProjector",
+    "ScopeRegionCoverage",
     "SQLiteResearchLedger",
+    "ThreadScopeCoverage",
     "ThreadStateProjector",
     "TracingSchedulerV0",
     "WorkerAssignment",
@@ -98,6 +108,7 @@ __all__ = [
     "WorkGraphContextResolver",
     "WorkItem",
     "WorkPreparation",
+    "WorkPreparationBatch",
     "WorkPurpose",
     "prepare_bounded_integration_work",
     "prepare_bounded_knowledge_work",
