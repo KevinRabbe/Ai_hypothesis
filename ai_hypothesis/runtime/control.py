@@ -156,17 +156,14 @@ class RuntimeControlLoop:
         integration_backpressure: bool | None = None,
     ) -> ControlStep:
         events = self.ledger.read_all_events()
-        thread_ids = self._thread_ids(events)
-        if not thread_ids:
+        states = self.projector.project_all(events)
+        if not states:
             raise ValueError("runtime has no Work Threads")
 
         integration_overview = (
             self.integration_tracker.overview(events)
             if self.integration_tracker is not None
             else None
-        )
-        states = tuple(
-            self.projector.project(events, thread_id=thread_id) for thread_id in thread_ids
         )
         candidates = tuple(
             SchedulableThread(
@@ -245,18 +242,6 @@ class RuntimeControlLoop:
         if pressure <= signals.integration_backlog:
             return signals
         return replace(signals, integration_backlog=pressure)
-
-    @staticmethod
-    def _thread_ids(events: Sequence[LedgerEvent]) -> tuple[str, ...]:
-        seen: set[str] = set()
-        ordered: list[str] = []
-        for event in events:
-            if event.event_type != "THREAD_CREATED" or event.thread_id is None:
-                continue
-            if event.thread_id not in seen:
-                ordered.append(event.thread_id)
-                seen.add(event.thread_id)
-        return tuple(ordered)
 
     @staticmethod
     def _last_worker_id(events: Sequence[LedgerEvent], thread_id: str) -> str | None:
