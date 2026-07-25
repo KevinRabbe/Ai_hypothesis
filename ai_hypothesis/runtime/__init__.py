@@ -46,6 +46,7 @@ from .ledger import SQLiteResearchLedger
 from .projector import ThreadStateProjector
 from .scheduler import SchedulerConfig, SchedulerSignals, SchedulerV0, SchedulableThread
 from .scheduler_trace import TracingSchedulerV0
+from .scope_coverage import ScopeCoverageProjector, ScopeRegionCoverage, ThreadScopeCoverage
 from .worker_runtime import AttemptRequest, WorkerAssignment, WorkerBank, WorkerRuntime
 
 __all__ = [
@@ -88,7 +89,10 @@ __all__ = [
     "SchedulerSignals",
     "SchedulerV0",
     "SchedulableThread",
+    "ScopeCoverageProjector",
+    "ScopeRegionCoverage",
     "SQLiteResearchLedger",
+    "ThreadScopeCoverage",
     "ThreadStateProjector",
     "TracingSchedulerV0",
     "WorkerAssignment",
