@@ -1,5 +1,6 @@
 """Stable semantic contracts and local runtime primitives."""
 
+from .allocation_outcomes import AllocationOutcome, AllocationOutcomeProjector, AttemptOutcome
 from .contracts import (
     AttemptResult,
     AttemptStatus,
@@ -48,6 +49,9 @@ from .scheduler_trace import TracingSchedulerV0
 from .worker_runtime import AttemptRequest, WorkerAssignment, WorkerBank, WorkerRuntime
 
 __all__ = [
+    "AllocationOutcome",
+    "AllocationOutcomeProjector",
+    "AttemptOutcome",
     "AttemptRequest",
     "AttemptResult",
     "AttemptStatus",
