@@ -14,7 +14,13 @@ from .contracts import (
     WorkItem,
     WorkPurpose,
 )
-from .control import ControlStep, RuntimeControlLoop, WorkerSelectorV0, WorkPreparation
+from .control import (
+    ControlConfig,
+    ControlStep,
+    RuntimeControlLoop,
+    WorkerSelectorV0,
+    WorkPreparation,
+)
 from .integration import (
     IntegrationBackpressureConfig,
     IntegrationBatch,
@@ -34,6 +40,7 @@ __all__ = [
     "AttemptRequest",
     "AttemptResult",
     "AttemptStatus",
+    "ControlConfig",
     "ControlStep",
     "EvidenceContribution",
     "EvidenceDisposition",
