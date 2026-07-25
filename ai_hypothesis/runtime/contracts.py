@@ -223,6 +223,10 @@ class ProjectedState:
     contradiction_ids: tuple[str, ...] = ()
     open_questions: tuple[str, ...] = ()
     dependency_thread_ids: tuple[str, ...] = ()
+    parent_thread_ids: tuple[str, ...] = ()
+    child_thread_ids: tuple[str, ...] = ()
+    merged_from_thread_ids: tuple[str, ...] = ()
+    merged_into_thread_id: str | None = None
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def validate(self) -> None:
@@ -230,6 +234,20 @@ class ProjectedState:
         _require_text("thread_id", self.thread_id)
         _require_text("objective", self.objective)
         _require_text("status", self.status)
+        for name, values in (
+            ("dependency_thread_ids", self.dependency_thread_ids),
+            ("parent_thread_ids", self.parent_thread_ids),
+            ("child_thread_ids", self.child_thread_ids),
+            ("merged_from_thread_ids", self.merged_from_thread_ids),
+        ):
+            if any(not value or not value.strip() for value in values):
+                raise ValueError(f"{name} must not contain empty IDs")
+            if self.thread_id in values:
+                raise ValueError(f"{name} must not contain the thread itself")
+        if self.merged_into_thread_id is not None:
+            _require_text("merged_into_thread_id", self.merged_into_thread_id)
+            if self.merged_into_thread_id == self.thread_id:
+                raise ValueError("thread cannot be merged into itself")
 
 
 @dataclass(frozen=True, slots=True)

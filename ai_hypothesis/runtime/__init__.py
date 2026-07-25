@@ -17,6 +17,8 @@ from .contracts import (
     WorkPurpose,
 )
 from .control import ControlStep, RuntimeControlLoop, WorkerSelectorV0, WorkPreparation
+from .followups import FollowupMaterializer, FollowupRequest, FollowupSnapshot
+from .graph_context import WorkGraphContextResolver
 from .integration import (
     IntegrationBackpressureConfig,
     IntegrationBatch,
@@ -33,10 +35,16 @@ from .knowledge import (
     KnowledgeStateProjector,
     KnowledgeStatus,
 )
+from .knowledge_verification import (
+    KnowledgeVerificationConfig,
+    KnowledgeVerificationOverview,
+    KnowledgeVerificationTracker,
+)
 from .knowledge_work import prepare_bounded_knowledge_work
 from .ledger import SQLiteResearchLedger
 from .projector import ThreadStateProjector
 from .scheduler import SchedulerConfig, SchedulerSignals, SchedulerV0, SchedulableThread
+from .scheduler_trace import TracingSchedulerV0
 from .worker_runtime import AttemptRequest, WorkerAssignment, WorkerBank, WorkerRuntime
 
 __all__ = [
@@ -47,6 +55,9 @@ __all__ = [
     "EvidenceContribution",
     "EvidenceDisposition",
     "EvidenceDispositionKind",
+    "FollowupMaterializer",
+    "FollowupRequest",
+    "FollowupSnapshot",
     "IntegrationBackpressureConfig",
     "IntegrationBatch",
     "IntegrationDisposition",
@@ -60,6 +71,9 @@ __all__ = [
     "KnowledgeSnapshot",
     "KnowledgeStateProjector",
     "KnowledgeStatus",
+    "KnowledgeVerificationConfig",
+    "KnowledgeVerificationOverview",
+    "KnowledgeVerificationTracker",
     "LedgerEvent",
     "PendingEvidence",
     "ProjectedState",
@@ -72,10 +86,12 @@ __all__ = [
     "SchedulableThread",
     "SQLiteResearchLedger",
     "ThreadStateProjector",
+    "TracingSchedulerV0",
     "WorkerAssignment",
     "WorkerBank",
     "WorkerRuntime",
     "WorkerSelectorV0",
+    "WorkGraphContextResolver",
     "WorkItem",
     "WorkPreparation",
     "WorkPurpose",
