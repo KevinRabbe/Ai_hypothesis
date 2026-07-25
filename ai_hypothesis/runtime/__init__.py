@@ -12,6 +12,7 @@ from .contracts import (
     WorkPurpose,
 )
 from .ledger import SQLiteResearchLedger
+from .projector import ThreadStateProjector
 
 __all__ = [
     "AttemptResult",
@@ -22,6 +23,7 @@ __all__ = [
     "SchedulerAction",
     "SchedulerDecision",
     "SQLiteResearchLedger",
+    "ThreadStateProjector",
     "WorkItem",
     "WorkPurpose",
 ]
