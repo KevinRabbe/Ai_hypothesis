@@ -52,11 +52,14 @@ class SchedulerSignals:
 @dataclass(frozen=True, slots=True)
 class SchedulerConfig:
     exploration_probability: float = 0.20
+    exploration_width: int = 2
     challenge_threshold: float = 0.65
     verification_threshold: float = 0.65
     stagnation_threshold: float = 0.05
 
     def validate(self) -> None:
+        if self.exploration_width <= 0:
+            raise ValueError("exploration_width must be positive")
         for name, value in (
             ("exploration_probability", self.exploration_probability),
             ("challenge_threshold", self.challenge_threshold),
@@ -95,7 +98,10 @@ class SchedulerV0:
         candidates: Sequence[SchedulableThread],
         *,
         integration_backpressure: bool = False,
+        max_width: int = 1,
     ) -> SchedulerDecision:
+        if max_width <= 0:
+            raise ValueError("max_width must be positive")
         active = [candidate for candidate in candidates if candidate.state.status != "COMPLETE"]
         if not active:
             raise ValueError("scheduler requires at least one non-complete thread")
@@ -126,12 +132,18 @@ class SchedulerV0:
             exploring=exploring,
             integration_backpressure=integration_backpressure,
         )
+        width = (
+            min(self.config.exploration_width, max_width)
+            if action is SchedulerAction.ADD_WIDTH
+            else 1
+        )
 
         decision = SchedulerDecision(
             decision_id=uuid.uuid4().hex,
             thread_id=selected.state.thread_id,
             action=action,
             purpose=purpose,
+            width=width,
             reason_codes=reason_codes,
             projection_revision=selected.state.revision,
         )
@@ -157,8 +169,6 @@ class SchedulerV0:
         self,
         candidates: Sequence[SchedulableThread],
     ) -> SchedulableThread:
-        # Structured exploration: randomize among threads in proportion to signals
-        # that indicate under-explored or unresolved work, rather than uniform random.
         weights = [
             0.01
             + candidate.signals.missing_coverage
