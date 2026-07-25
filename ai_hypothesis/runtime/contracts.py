@@ -8,6 +8,7 @@ to any one experiment result.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Mapping
@@ -49,6 +50,11 @@ def _require_non_negative(name: str, value: int) -> None:
         raise ValueError(f"{name} must be non-negative")
 
 
+def _require_finite(name: str, value: float) -> None:
+    if not math.isfinite(value):
+        raise ValueError(f"{name} must be finite")
+
+
 @dataclass(frozen=True, slots=True)
 class WorkItem:
     """One immutable bounded unit of work assigned by the scheduler."""
@@ -75,6 +81,36 @@ class WorkItem:
 
 
 @dataclass(frozen=True, slots=True)
+class EvidenceContribution:
+    """One structured evidence contribution produced by a bounded attempt.
+
+    ``data`` carries domain-specific evidence detail while the stable fields preserve
+    identity, provenance, scalar strength, and uncertainty for generic integration.
+    """
+
+    evidence_id: str
+    kind: str
+    summary: str
+    reference_ids: tuple[str, ...] = ()
+    strength: float | None = None
+    uncertainty: float | None = None
+    data: Mapping[str, Any] = field(default_factory=dict)
+
+    def validate(self) -> None:
+        _require_text("evidence_id", self.evidence_id)
+        _require_text("kind", self.kind)
+        _require_text("summary", self.summary)
+        if any(not value for value in self.reference_ids):
+            raise ValueError("reference_ids must not contain empty IDs")
+        if self.strength is not None:
+            _require_finite("strength", self.strength)
+        if self.uncertainty is not None:
+            _require_finite("uncertainty", self.uncertainty)
+            if not 0.0 <= self.uncertainty <= 1.0:
+                raise ValueError("uncertainty must be in [0, 1]")
+
+
+@dataclass(frozen=True, slots=True)
 class AttemptResult:
     """Structured changes produced by one bounded worker attempt."""
 
@@ -84,6 +120,7 @@ class AttemptResult:
     worker_id: str
     status: AttemptStatus
     observations: tuple[str, ...] = ()
+    evidence: tuple[EvidenceContribution, ...] = ()
     evidence_refs: tuple[str, ...] = ()
     hypotheses_proposed: tuple[str, ...] = ()
     hypotheses_strengthened: tuple[str, ...] = ()
@@ -105,6 +142,10 @@ class AttemptResult:
             ("worker_id", self.worker_id),
         ):
             _require_text(name, value)
+        for contribution in self.evidence:
+            contribution.validate()
+        if any(not value for value in self.evidence_refs):
+            raise ValueError("evidence_refs must not contain empty IDs")
 
 
 @dataclass(frozen=True, slots=True)
