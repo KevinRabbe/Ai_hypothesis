@@ -77,6 +77,7 @@ class WorkItem:
     purpose: WorkPurpose
     projection_revision: int
     scheduler_decision_id: str | None = None
+    scope_region_ids: tuple[str, ...] = ()
     reference_ids: tuple[str, ...] = ()
     parent_ids: tuple[str, ...] = ()
     context: Mapping[str, Any] = field(default_factory=dict)
@@ -90,9 +91,15 @@ class WorkItem:
         _require_non_negative("projection_revision", self.projection_revision)
         if self.scheduler_decision_id is not None:
             _require_text("scheduler_decision_id", self.scheduler_decision_id)
-        for name, values in (("reference_ids", self.reference_ids), ("parent_ids", self.parent_ids)):
-            if any(not value for value in values):
+        for name, values in (
+            ("scope_region_ids", self.scope_region_ids),
+            ("reference_ids", self.reference_ids),
+            ("parent_ids", self.parent_ids),
+        ):
+            if any(not value or not value.strip() for value in values):
                 raise ValueError(f"{name} must not contain empty IDs")
+        if len(set(self.scope_region_ids)) != len(self.scope_region_ids):
+            raise ValueError("scope_region_ids must be unique inside one Work Item")
 
 
 @dataclass(frozen=True, slots=True)
@@ -177,7 +184,12 @@ class AttemptResult:
     resource_usage: Mapping[str, Any] = field(default_factory=dict)
 
     def validate(self) -> None:
-        for name, value in (("attempt_id", self.attempt_id), ("work_item_id", self.work_item_id), ("thread_id", self.thread_id), ("worker_id", self.worker_id)):
+        for name, value in (
+            ("attempt_id", self.attempt_id),
+            ("work_item_id", self.work_item_id),
+            ("thread_id", self.thread_id),
+            ("worker_id", self.worker_id),
+        ):
             _require_text(name, value)
         for contribution in self.evidence:
             contribution.validate()
