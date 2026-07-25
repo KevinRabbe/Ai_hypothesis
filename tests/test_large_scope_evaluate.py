@@ -116,25 +116,23 @@ class LargeScopeEvaluationTests(unittest.TestCase):
             self.assertEqual(width_16.inspected_window_indices[:4], width_4.inspected_window_indices)
 
     def test_target_outside_prefix_remains_uninspected_even_with_strong_candidate(self) -> None:
-        sample = generate_large_scope_relevance(90, target_present=True)
-        assert sample.target_index is not None
-        order = inspection_prefix(sample, 16)
-        target_position = order.index(sample.target_index)
-        width = max(1, target_position)
-        if target_position == 0:
-            # Use another deterministic world where the target is not first.
-            sample = generate_large_scope_relevance(92, target_present=True)
-            assert sample.target_index is not None
-            order = inspection_prefix(sample, 16)
-            target_position = order.index(sample.target_index)
-            if target_position == 0:
-                self.skipTest("deterministic target happened to be first in both fixtures")
-            width = target_position
+        sample = None
+        target_position = 0
+        for seed in range(90, 130, 2):
+            candidate = generate_large_scope_relevance(seed, target_present=True)
+            assert candidate.target_index is not None
+            order = inspection_prefix(candidate, 16)
+            target_position = order.index(candidate.target_index)
+            if target_position > 0:
+                sample = candidate
+                break
+        self.assertIsNotNone(sample)
+        assert sample is not None
 
         result = evaluate_scope_sample(
             _FakeSelectedBank(relevant_batch_index=0),
             sample,
-            width=width,
+            width=target_position,
             mode=ScopeWorkerMode.SAME_WORKER,
         )
         self.assertFalse(result.target_inspected)
