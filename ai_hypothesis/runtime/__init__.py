@@ -1,4 +1,4 @@
-"""Stable semantic contracts for the population runtime."""
+"""Stable semantic contracts and local runtime primitives."""
 
 from .contracts import (
     AttemptResult,
@@ -11,6 +11,7 @@ from .contracts import (
     WorkItem,
     WorkPurpose,
 )
+from .ledger import SQLiteResearchLedger
 
 __all__ = [
     "AttemptResult",
@@ -20,6 +21,7 @@ __all__ = [
     "ProjectedState",
     "SchedulerAction",
     "SchedulerDecision",
+    "SQLiteResearchLedger",
     "WorkItem",
     "WorkPurpose",
 ]
