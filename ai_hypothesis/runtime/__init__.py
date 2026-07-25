@@ -18,6 +18,7 @@ from .evidence_projector import (
     EvidenceStateProjector,
     EvidenceStatus,
 )
+from .evidence_signals import EvidenceSignalConfig, EvidenceSignalProviderV0
 from .ledger import SQLiteResearchLedger
 from .projector import ThreadStateProjector
 from .scheduler import SchedulerConfig, SchedulerSignals, SchedulerV0, SchedulableThread
@@ -29,6 +30,8 @@ __all__ = [
     "AttemptStatus",
     "EvidenceContribution",
     "EvidenceProjection",
+    "EvidenceSignalConfig",
+    "EvidenceSignalProviderV0",
     "EvidenceState",
     "EvidenceStateProjector",
     "EvidenceStatus",
