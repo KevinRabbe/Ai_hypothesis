@@ -4,6 +4,7 @@ from .evaluate import (
     ScopeEvaluation,
     ScopeWorkerMode,
     WindowEvidence,
+    evaluate_scope_batch,
     evaluate_scope_sample,
     evaluate_scope_widths,
 )
@@ -36,6 +37,7 @@ __all__ = [
     "ScopeWorkerMode",
     "WindowEvidence",
     "diverse_worker_indices",
+    "evaluate_scope_batch",
     "evaluate_scope_sample",
     "evaluate_scope_widths",
     "generate_large_scope_dataset",
