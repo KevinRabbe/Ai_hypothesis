@@ -8,6 +8,7 @@ and later routing policies can be compared against the direct fixed-prefix bench
 from __future__ import annotations
 
 import math
+from collections import Counter
 from dataclasses import asdict, dataclass
 from typing import Sequence
 
@@ -226,8 +227,32 @@ class PersistentScopeEvaluationProjector:
             for event in thread_events
             if event.event_type == "SCHEDULER_DECISION_RECORDED"
         ]
+
+        decision_ids: list[str] = []
+        for event in decisions:
+            decision_id = event.payload.get("decision_id")
+            if not isinstance(decision_id, str) or not decision_id:
+                raise ValueError("persistent scheduler decision is missing decision_id")
+            if decision_id in decision_ids:
+                raise ValueError("persistent scheduler decision ID was recorded more than once")
+            allocated_width = event.payload.get("width")
+            if isinstance(allocated_width, bool) or not isinstance(allocated_width, int):
+                raise ValueError("persistent scheduler decision width must be an integer")
+            if allocated_width != step_width:
+                raise ValueError("persistent scheduler decision width changed inside one run")
+            decision_ids.append(decision_id)
+        decision_id_set = set(decision_ids)
+
+        attempts_per_decision: Counter[str] = Counter()
         worker_ids: list[str] = []
         for event in attempts:
+            decision_id = event.payload.get("scheduler_decision_id")
+            if not isinstance(decision_id, str) or not decision_id:
+                raise ValueError("scoped attempt is missing scheduler_decision_id")
+            if decision_id not in decision_id_set:
+                raise ValueError("scoped attempt references an unknown scheduler decision")
+            attempts_per_decision[decision_id] += 1
+
             worker_id = event.payload.get("worker_id")
             if not isinstance(worker_id, str) or not worker_id:
                 raise ValueError("scoped attempt is missing worker_id")
@@ -292,10 +317,7 @@ class PersistentScopeEvaluationProjector:
             )
             observation_sequences.append(event.sequence)
 
-        resolved_worker_bank_id = (
-            observed_worker_bank_id
-            or self.expected_worker_bank_id
-        )
+        resolved_worker_bank_id = observed_worker_bank_id or self.expected_worker_bank_id
         if resolved_worker_bank_id is None:
             raise ValueError("persistent scope evaluation has no worker-bank identity")
 
@@ -349,6 +371,14 @@ class PersistentScopeEvaluationProjector:
         if len(attempts) % step_width != 0:
             raise ValueError("persistent scope attempt count is not divisible by step_width")
         step_count = len(attempts) // step_width
+        if len(decisions) != step_count:
+            raise ValueError("persistent scheduler-decision count does not match step count")
+        if any(
+            attempts_per_decision.get(decision_id, 0) != step_width
+            for decision_id in decision_ids
+        ):
+            raise ValueError("persistent scheduler decision does not own exactly step_width attempts")
+
         return PersistentScopeEvaluation(
             thread_id=thread_id,
             split=self.sample.split,
