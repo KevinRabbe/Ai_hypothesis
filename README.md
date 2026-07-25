@@ -24,7 +24,7 @@ The long-term reference budget is approximately **1 billion total learned parame
 
 > At a fixed hardware and parameter budget, can a population of practical small learned workers produce more useful capability per unit of active compute than a conventional fixed dense model?
 
-The current immediate sub-question is narrower:
+The current immediate empirical sub-question is narrower:
 
 > When additional workers contain correct minority evidence that the population mean suppresses, can the runtime identify and use that evidence without trusting noisy minority outliers?
 
@@ -42,6 +42,7 @@ The current immediate sub-question is narrower:
 10. Established engineering facts should be reused rather than re-proven; experiments are reserved for architecture-specific uncertainty.
 11. Compiler optimization is a separate systems variable and must not be silently mixed into neural-architecture results.
 12. **Final architecture from day 1; minimal implementation from day 1.** Scale should improve or split implementations behind stable contracts rather than repeatedly redesigning the system.
+13. **Construction does not wait for empirical results.** Record uncertainty, freeze a provisional assumption behind a stable contract, continue independent construction, and run the deferred experiment when its result becomes decision-relevant.
 
 ## Population scaling and the information bottleneck
 
@@ -56,35 +57,35 @@ The project therefore distinguishes:
 
 The useful population limit may be reached when marginal workers generate useful information faster than the integration path can absorb it, even if additional neural compute remains available.
 
-This is a future scaling hypothesis, not a claim that the current 16-worker experiment is integration-bound. The present bottleneck remains evidence utilization.
+This is a future scaling hypothesis, not a claim that the current 16-worker experiment is integration-bound. The present empirical uncertainty remains evidence utilization.
 
 The intended scaling strategy is hierarchical: keep raw/local results close to their Work Threads, propagate only meaningful knowledge changes upward, and preserve references to the original evidence rather than broadcasting all information to all workers.
 
-## Research sequence
+## Research and construction proceed independently
 
-The project proceeds through narrow research gates. A gate exists only when its answer depends on this architecture rather than on an already established engineering fact.
+Research gates define the order in which empirical uncertainties should be resolved **when their answers are needed**. They are not construction blockers.
 
-The active milestone is **Step 2A: Population Evidence Utilization**.
+The research sequence remains:
 
-Current order:
+1. minority-evidence utilization;
+2. useful population-width region;
+3. fixed-budget worker organization;
+4. population versus dense baselines;
+5. adaptive allocation;
+6. knowledge-integration bandwidth when volume justifies measuring it;
+7. real workloads;
+8. larger-scale validation only after useful behavior exists.
 
-1. keep the 50K reference worker frozen;
-2. determine whether strong minority evidence can be rescued safely;
-3. find the useful population-width region while measuring unique evidence production and integration cost;
-4. compare 25K / 50K / 75K homogeneous populations under equal total budgets;
-5. compare the best population against dense baselines;
-6. build persistent Work Threads / Research Ledger only when the next experiment requires them;
-7. test adaptive allocation with deterministic scheduling plus structured exploration;
-8. measure knowledge-integration bandwidth when population evidence volume becomes large enough to stress it;
-9. measure compiler impact as a separate systems variable;
-10. move to real workloads;
-11. scale further only if a small-scale advantage survives and information integration remains tractable.
+Construction proceeds continuously in parallel. When an experiment is deferred, its exact question and provisional assumption are recorded, while implementation continues through stable interfaces. A later result may replace a reducer, policy, threshold, storage strategy, or scheduler heuristic without stopping unrelated work or changing the architecture.
+
+See [`docs/construction_policy.md`](docs/construction_policy.md) for the explicit non-blocking development rule.
 
 See:
 
 - [`docs/hypothesis.md`](docs/hypothesis.md)
 - [`docs/runtime_architecture.md`](docs/runtime_architecture.md)
 - [`docs/architecture_contracts.md`](docs/architecture_contracts.md)
+- [`docs/construction_policy.md`](docs/construction_policy.md)
 - [`docs/research_questions.md`](docs/research_questions.md)
 - [`docs/roadmap.md`](docs/roadmap.md)
 - [`experiments/step_02_population_scaling/README.md`](experiments/step_02_population_scaling/README.md)
@@ -104,6 +105,4 @@ The latest Step 2A validation checkpoint uses 16 independently trained 50K worke
 - 463 samples contained a true minority opportunity;
 - reducer-v0 rescued 19 of those opportunities.
 
-The population therefore already contains additional useful information. The active bottleneck is **turning that information into final capability without creating more errors by trusting noisy minority evidence**.
-
-That result is also an early version of the long-term integration problem: scaling the population is only useful if additional information survives aggregation and can be turned into shared knowledge.
+The population therefore already contains additional useful information. The minority-rescue diagnostic remains a deferred empirical test until its answer is needed for a reducer decision; it does **not** block construction of the stable runtime.
