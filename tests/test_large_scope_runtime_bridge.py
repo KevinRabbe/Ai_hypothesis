@@ -21,10 +21,13 @@ from ai_hypothesis.large_scope import (
 from ai_hypothesis.runtime import (
     AllocationOutcomeProjector,
     RuntimeControlLoop,
+    SchedulerAction,
+    SchedulerDecision,
     SchedulerSignals,
     ScopeCoverageProjector,
     SQLiteResearchLedger,
     TracingScheduler,
+    WorkPurpose,
 )
 from ai_hypothesis.step01.model import LABEL_TO_INDEX, NON_UNCERTAIN_LABELS, Step01Output
 
@@ -225,6 +228,29 @@ class LargeScopeRuntimeBridgeTests(unittest.TestCase):
         self.assertEqual(len(set(first)), sample.config.window_count)
         self.assertTrue(all(region.startswith("scope-") for region in first))
         self.assertTrue(all(str(sample.seed) not in region for region in first))
+
+    def test_worker_index_lookup_rejects_negative_and_out_of_range_indices(self) -> None:
+        runtime_bank = LargeScopeRuntimeWorkerBank(_DeterministicSelectedBank(population_width=4))
+        with self.assertRaisesRegex(IndexError, "outside"):
+            runtime_bank.worker_id_for_index(-1)
+        with self.assertRaisesRegex(IndexError, "outside"):
+            runtime_bank.worker_id_for_index(4)
+
+    def test_context_provider_normalizes_string_worker_mode(self) -> None:
+        sample = generate_large_scope_relevance(104)
+        provider = LargeScopeRuntimeContextProvider(sample, "same_worker")
+        preparation = provider(
+            object(),
+            SchedulerDecision(
+                decision_id="decision-1",
+                thread_id="thread-1",
+                action=SchedulerAction.CONTINUE,
+                purpose=WorkPurpose.EXPLORE,
+                width=1,
+                projection_revision=0,
+            ),
+        )
+        self.assertEqual(preparation.context["large_scope_mode"], "same_worker")
 
 
 if __name__ == "__main__":
