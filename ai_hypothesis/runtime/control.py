@@ -38,11 +38,11 @@ SignalProvider = Callable[[ProjectedState], SchedulerSignals]
 @dataclass(frozen=True, slots=True)
 class WorkPreparation:
     context: Mapping[str, Any] = field(default_factory=dict)
-    scope_region_ids: tuple[str, ...] = ()
     reference_ids: tuple[str, ...] = ()
     parent_ids: tuple[str, ...] = ()
     constraints: Mapping[str, Any] = field(default_factory=dict)
     resource_budget: Mapping[str, Any] = field(default_factory=dict)
+    scope_region_ids: tuple[str, ...] = ()
 
     def validate(self) -> None:
         for name, values in (
@@ -341,12 +341,12 @@ class RuntimeControlLoop:
                 objective=selected_state.objective,
                 purpose=decision.purpose or selected_state.purpose,
                 projection_revision=selected_state.revision,
-                scope_region_ids=preparation.scope_region_ids,
                 reference_ids=preparation.reference_ids,
                 parent_ids=preparation.parent_ids,
                 context=dict(preparation.context),
                 constraints=dict(preparation.constraints),
                 resource_budget=dict(preparation.resource_budget),
+                scope_region_ids=preparation.scope_region_ids,
             )
             item.validate()
             assignments.append(WorkerAssignment(worker_id=worker_id, work_item=item))
