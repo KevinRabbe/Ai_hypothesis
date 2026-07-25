@@ -38,10 +38,10 @@ class LoadedCheckpoint:
 class HomogeneousWorkerBank:
     """A population of independently weighted workers with one shared architecture.
 
-    The default ``vmap`` backend evaluates the same input batch across all workers
-    using stacked model state. A deterministic loop backend is retained as a
-    correctness/reference path and as a compatibility fallback for operations that
-    cannot be vectorized on a particular PyTorch/device combination.
+    The default ``vmap`` backend evaluates worker state through batched functional
+    calls. ``forward`` preserves the Step 2 same-input population experiment, while
+    ``forward_selected`` executes one selected worker per sample so the runtime can
+    batch different Work Items without changing worker architecture.
     """
 
     def __init__(
@@ -166,6 +166,24 @@ class HomogeneousWorkerBank:
             (features, mask),
         )
 
+    def _functional_single_forward(
+        self,
+        params: dict[str, torch.Tensor],
+        buffers: dict[str, torch.Tensor],
+        features: torch.Tensor,
+        mask: torch.Tensor,
+    ) -> Step01Output:
+        output = self._functional_forward(
+            params,
+            buffers,
+            features.unsqueeze(0),
+            mask.unsqueeze(0),
+        )
+        return Step01Output(
+            label_logits=output.label_logits.squeeze(0),
+            uncertainty_logits=output.uncertainty_logits.squeeze(0),
+        )
+
     def forward(self, features: torch.Tensor, mask: torch.Tensor) -> PopulationOutput:
         """Evaluate all workers against the same batch without mixing architectures."""
 
@@ -209,6 +227,63 @@ class HomogeneousWorkerBank:
                 ),
                 uncertainty_logits=torch.stack(
                     [output.uncertainty_logits for output in worker_outputs], dim=0
+                ),
+            )
+
+    def forward_selected(
+        self,
+        worker_indices: Sequence[int] | torch.Tensor,
+        features: torch.Tensor,
+        mask: torch.Tensor,
+    ) -> Step01Output:
+        """Execute one selected worker for each sample in a heterogeneous-work batch."""
+
+        self._validate_input(features, mask)
+        indices = torch.as_tensor(worker_indices, dtype=torch.long, device=self.device)
+        if indices.ndim != 1 or indices.shape[0] != features.shape[0]:
+            raise ValueError("worker_indices must contain one index per batch sample")
+        if bool(((indices < 0) | (indices >= self.population_width)).any()):
+            raise IndexError("worker index is outside the population")
+
+        features = features.to(self.device, non_blocking=True)
+        mask = mask.to(self.device, non_blocking=True)
+        selected_params = {
+            name: value.index_select(0, indices) for name, value in self.params.items()
+        }
+        selected_buffers = {
+            name: value.index_select(0, indices) for name, value in self.buffers.items()
+        }
+        self.template.eval()
+
+        with torch.inference_mode():
+            if self.execution_backend == "vmap":
+                return vmap(
+                    self._functional_single_forward,
+                    in_dims=(0, 0, 0, 0),
+                    randomness="error",
+                )(selected_params, selected_buffers, features, mask)
+
+            outputs: list[Step01Output] = []
+            for sample_index, worker_index in enumerate(indices.tolist()):
+                worker_params = {
+                    name: value[worker_index] for name, value in self.params.items()
+                }
+                worker_buffers = {
+                    name: value[worker_index] for name, value in self.buffers.items()
+                }
+                outputs.append(
+                    self._functional_forward(
+                        worker_params,
+                        worker_buffers,
+                        features[sample_index : sample_index + 1],
+                        mask[sample_index : sample_index + 1],
+                    )
+                )
+
+            return Step01Output(
+                label_logits=torch.cat([output.label_logits for output in outputs], dim=0),
+                uncertainty_logits=torch.cat(
+                    [output.uncertainty_logits for output in outputs], dim=0
                 ),
             )
 
