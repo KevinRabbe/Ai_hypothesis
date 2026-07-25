@@ -149,7 +149,6 @@ class SchedulerV0:
             + signals.dependency_impact
             + signals.recent_progress
             + signals.verification_need
-            + signals.integration_backlog
             + signals.starvation
             - signals.estimated_cost
         )
