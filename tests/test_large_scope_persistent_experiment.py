@@ -16,16 +16,29 @@ from ai_hypothesis.large_scope.relevance import (
 )
 from ai_hypothesis.runtime import SQLiteResearchLedger
 from ai_hypothesis.step01.model import LABEL_TO_INDEX, NON_UNCERTAIN_LABELS, Step01Output
+from ai_hypothesis.step02.evidence import AggregationConfig
 
 
 class _DeterministicSelectedBank:
-    def __init__(self, population_width: int = 16) -> None:
+    def __init__(
+        self,
+        population_width: int = 16,
+        *,
+        checkpoint_ids: tuple[str, ...] | None = None,
+    ) -> None:
         self._population_width = population_width
+        if checkpoint_ids is not None and len(checkpoint_ids) != population_width:
+            raise ValueError("checkpoint_ids must match population_width")
+        self._checkpoint_ids = checkpoint_ids
         self.calls: list[tuple[int, ...]] = []
 
     @property
     def population_width(self) -> int:
         return self._population_width
+
+    @property
+    def checkpoint_ids(self):
+        return self._checkpoint_ids
 
     def forward_selected(self, worker_indices, features, mask):
         del mask
@@ -93,6 +106,7 @@ class PersistentScopeExperimentTests(unittest.TestCase):
                 self.assertEqual(result.resolved_region_count, 8)
                 self.assertEqual(result.coverage_fraction, 0.5)
                 self.assertEqual(result.duplicate_evidence_count, 0)
+                self.assertTrue(result.worker_bank_id.startswith("worker-bank-sha256-"))
                 self.assert_window_evidence_equal(direct.window_evidence, result.window_evidence)
                 self.assertEqual(result.candidate_window_index, direct.candidate_window_index)
                 self.assertEqual(result.candidate_is_target, direct.candidate_is_target)
@@ -138,7 +152,11 @@ class PersistentScopeExperimentTests(unittest.TestCase):
 
     def test_recreated_experiment_resumes_worker_sequence_and_scope_from_ledger(self) -> None:
         sample = generate_large_scope_relevance(70)
-        direct_bank = _DeterministicSelectedBank(population_width=16)
+        checkpoint_ids = tuple(f"weights-sha256-worker-{index}" for index in range(16))
+        direct_bank = _DeterministicSelectedBank(
+            population_width=16,
+            checkpoint_ids=checkpoint_ids,
+        )
         direct = evaluate_scope_sample(
             direct_bank,
             sample,
@@ -148,7 +166,10 @@ class PersistentScopeExperimentTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as directory:
             with SQLiteResearchLedger(Path(directory) / "ledger.sqlite") as ledger:
-                first_bank = _DeterministicSelectedBank(population_width=16)
+                first_bank = _DeterministicSelectedBank(
+                    population_width=16,
+                    checkpoint_ids=checkpoint_ids,
+                )
                 first = PersistentScopeExperiment(
                     ledger=ledger,
                     sample=sample,
@@ -158,7 +179,10 @@ class PersistentScopeExperimentTests(unittest.TestCase):
                 )
                 first.run_steps(2)
 
-                second_bank = _DeterministicSelectedBank(population_width=16)
+                second_bank = _DeterministicSelectedBank(
+                    population_width=16,
+                    checkpoint_ids=checkpoint_ids,
+                )
                 resumed = PersistentScopeExperiment(
                     ledger=ledger,
                     sample=sample,
@@ -233,6 +257,81 @@ class PersistentScopeExperimentTests(unittest.TestCase):
                         bank=_DeterministicSelectedBank(),
                         mode=ScopeWorkerMode.DIVERSE_WORKERS,
                         step_width=2,
+                    )
+
+    def test_resume_rejects_different_weight_bank_even_at_same_population_width(self) -> None:
+        sample = generate_large_scope_relevance(80)
+        first_ids = tuple(f"weights-sha256-a-{index}" for index in range(4))
+        changed_ids = (*first_ids[:3], "weights-sha256-different")
+        with tempfile.TemporaryDirectory() as directory:
+            with SQLiteResearchLedger(Path(directory) / "ledger.sqlite") as ledger:
+                first = PersistentScopeExperiment(
+                    ledger=ledger,
+                    sample=sample,
+                    bank=_DeterministicSelectedBank(
+                        population_width=4,
+                        checkpoint_ids=first_ids,
+                    ),
+                    mode=ScopeWorkerMode.DIVERSE_WORKERS,
+                    step_width=2,
+                )
+                first.run_steps(1)
+                with self.assertRaisesRegex(ValueError, "worker_bank_id"):
+                    PersistentScopeExperiment(
+                        ledger=ledger,
+                        sample=sample,
+                        bank=_DeterministicSelectedBank(
+                            population_width=4,
+                            checkpoint_ids=changed_ids,
+                        ),
+                        mode=ScopeWorkerMode.DIVERSE_WORKERS,
+                        step_width=2,
+                    )
+
+    def test_resume_rejects_changed_step_width(self) -> None:
+        sample = generate_large_scope_relevance(82)
+        with tempfile.TemporaryDirectory() as directory:
+            with SQLiteResearchLedger(Path(directory) / "ledger.sqlite") as ledger:
+                first = PersistentScopeExperiment(
+                    ledger=ledger,
+                    sample=sample,
+                    bank=_DeterministicSelectedBank(),
+                    mode=ScopeWorkerMode.DIVERSE_WORKERS,
+                    step_width=2,
+                )
+                first.run_steps(1)
+                with self.assertRaisesRegex(ValueError, "step_width"):
+                    PersistentScopeExperiment(
+                        ledger=ledger,
+                        sample=sample,
+                        bank=_DeterministicSelectedBank(),
+                        mode=ScopeWorkerMode.DIVERSE_WORKERS,
+                        step_width=4,
+                    )
+
+    def test_resume_rejects_changed_evidence_configuration(self) -> None:
+        sample = generate_large_scope_relevance(84)
+        with tempfile.TemporaryDirectory() as directory:
+            with SQLiteResearchLedger(Path(directory) / "ledger.sqlite") as ledger:
+                first = PersistentScopeExperiment(
+                    ledger=ledger,
+                    sample=sample,
+                    bank=_DeterministicSelectedBank(),
+                    mode=ScopeWorkerMode.DIVERSE_WORKERS,
+                    step_width=2,
+                    evidence_config=AggregationConfig(),
+                )
+                first.run_steps(1)
+                with self.assertRaisesRegex(ValueError, "evidence_config"):
+                    PersistentScopeExperiment(
+                        ledger=ledger,
+                        sample=sample,
+                        bank=_DeterministicSelectedBank(),
+                        mode=ScopeWorkerMode.DIVERSE_WORKERS,
+                        step_width=2,
+                        evidence_config=AggregationConfig(
+                            strong_evidence_threshold=3.0,
+                        ),
                     )
 
 
