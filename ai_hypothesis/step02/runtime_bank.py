@@ -131,7 +131,8 @@ class Step02RuntimeWorkerBank:
                     "checkpoint_path": checkpoint.path,
                     "checkpoint_step": checkpoint.step,
                     "checkpoint_validation_score": checkpoint.validation_score,
-                    "execution_backend": self.bank.execution_backend,
+                    "selected_execution_backend": self.bank.selected_execution_backend,
+                    "population_execution_backend": self.bank.execution_backend,
                     "device": str(self.bank.device),
                 },
             )
@@ -147,7 +148,8 @@ class Step02RuntimeWorkerBank:
                     progress_made=True,
                     resource_usage={
                         "neural_worker_evaluations": 1,
-                        "execution_backend": self.bank.execution_backend,
+                        "selected_execution_backend": self.bank.selected_execution_backend,
+                        "population_execution_backend": self.bank.execution_backend,
                         "device": str(self.bank.device),
                     },
                 )
