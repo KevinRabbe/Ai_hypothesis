@@ -77,8 +77,24 @@ class WorkerRuntime:
             )
             raise
 
-        result.validate()
-        self._validate_result(result, assignment, attempt_id)
+        try:
+            result.validate()
+            self._validate_result(result, assignment, attempt_id)
+        except Exception as error:
+            self._ledger.append_event(
+                event_type="ATTEMPT_INVALID_RESULT",
+                thread_id=item.thread_id,
+                attempt_id=attempt_id,
+                parent_event_ids=(started.event_id,),
+                payload={
+                    "work_item_id": item.work_item_id,
+                    "worker_id": assignment.worker_id,
+                    "error_type": type(error).__name__,
+                    "error": str(error),
+                },
+            )
+            raise
+
         self._commit_result(result, parent_event_id=started.event_id)
         return result
 
@@ -164,9 +180,11 @@ class WorkerRuntime:
                 **common,
             )
 
-        terminal_type = (
-            "ATTEMPT_FAILED" if result.status is AttemptStatus.FAILED else "ATTEMPT_COMPLETED"
-        )
+        terminal_type = {
+            AttemptStatus.COMPLETED: "ATTEMPT_COMPLETED",
+            AttemptStatus.PARTIAL: "ATTEMPT_PARTIAL",
+            AttemptStatus.FAILED: "ATTEMPT_FAILED",
+        }[result.status]
         self._ledger.append_event(
             event_type=terminal_type,
             payload={
