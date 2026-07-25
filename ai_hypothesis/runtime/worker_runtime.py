@@ -101,6 +101,8 @@ class WorkerRuntime:
                 )
             raise error
 
+        valid_pairs: list[tuple[AttemptRequest, AttemptResult]] = []
+        validation_errors: list[Exception] = []
         for request, result in zip(requests, results, strict=True):
             try:
                 result.validate()
@@ -112,13 +114,20 @@ class WorkerRuntime:
                     "ATTEMPT_INVALID_RESULT",
                     error,
                 )
-                raise
+                validation_errors.append(error)
+            else:
+                valid_pairs.append((request, result))
 
-        for request, result in zip(requests, results, strict=True):
+        # Never discard useful completed work merely because a peer result in the
+        # same batch is malformed. Commit every valid result before surfacing error.
+        for request, result in valid_pairs:
             self._commit_result(
                 result,
                 parent_event_id=started_event_ids[request.attempt_id],
             )
+
+        if validation_errors:
+            raise validation_errors[0]
 
         return results
 
