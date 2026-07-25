@@ -36,6 +36,11 @@ from .integration import (
     IntegrationTracker,
     PendingEvidence,
 )
+from .integration_telemetry import (
+    IntegrationBandwidthWindow,
+    IntegrationTelemetryProjector,
+    IntegrationTelemetrySnapshot,
+)
 from .integration_work import prepare_bounded_integration_work
 from .knowledge import (
     KnowledgeRecord,
@@ -72,10 +77,13 @@ __all__ = [
     "FollowupRequest",
     "FollowupSnapshot",
     "IntegrationBackpressureConfig",
+    "IntegrationBandwidthWindow",
     "IntegrationBatch",
     "IntegrationDisposition",
     "IntegrationOverview",
     "IntegrationSnapshot",
+    "IntegrationTelemetryProjector",
+    "IntegrationTelemetrySnapshot",
     "IntegrationTracker",
     "KnowledgeAssessment",
     "KnowledgeAssessmentKind",
