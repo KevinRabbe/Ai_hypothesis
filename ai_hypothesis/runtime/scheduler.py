@@ -31,7 +31,18 @@ class SchedulerSignals:
     estimated_cost: float = 0.0
 
     def validate(self) -> None:
-        for name, value in self.__dict__.items():
+        for name, value in (
+            ("importance", self.importance),
+            ("uncertainty", self.uncertainty),
+            ("contradiction_severity", self.contradiction_severity),
+            ("missing_coverage", self.missing_coverage),
+            ("novelty", self.novelty),
+            ("dependency_impact", self.dependency_impact),
+            ("recent_progress", self.recent_progress),
+            ("verification_need", self.verification_need),
+            ("starvation", self.starvation),
+            ("estimated_cost", self.estimated_cost),
+        ):
             if not 0.0 <= value <= 1.0:
                 raise ValueError(f"{name} must be in [0, 1]")
 
