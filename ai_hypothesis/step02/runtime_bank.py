@@ -13,7 +13,11 @@ import torch
 from ai_hypothesis.runtime import AttemptResult, AttemptStatus, EvidenceContribution
 from ai_hypothesis.runtime.worker_runtime import AttemptRequest
 from ai_hypothesis.step01.model import NON_UNCERTAIN_LABELS, Step01Output
-from ai_hypothesis.step01.schema import TaskFamily
+from ai_hypothesis.step01.schema import (
+    FEATURE_WIDTH,
+    SEQUENCE_LENGTH,
+    TaskFamily,
+)
 from .evidence import AggregationConfig, build_evidence_matrix
 from .population import HomogeneousWorkerBank, PopulationOutput
 
@@ -223,9 +227,16 @@ class Step02RuntimeWorkerBank:
             raise TypeError("WorkItem context 'features' must be a torch.Tensor")
         if value.ndim == 3 and value.shape[0] == 1:
             value = value.squeeze(0)
-        if value.ndim != 2:
-            raise ValueError("WorkItem features must have shape [sequence, feature]")
-        return value.to(dtype=torch.float32)
+        expected_shape = (SEQUENCE_LENGTH, FEATURE_WIDTH)
+        if tuple(value.shape) != expected_shape:
+            raise ValueError(
+                f"WorkItem features must have shape {expected_shape}, "
+                f"got {tuple(value.shape)}"
+            )
+        value = value.to(dtype=torch.float32)
+        if not bool(torch.isfinite(value).all()):
+            raise ValueError("WorkItem features must contain only finite values")
+        return value
 
     @staticmethod
     def _mask_tensor(value: object) -> torch.Tensor:
@@ -233,9 +244,15 @@ class Step02RuntimeWorkerBank:
             raise TypeError("WorkItem context 'mask' must be a torch.Tensor")
         if value.ndim == 2 and value.shape[0] == 1:
             value = value.squeeze(0)
-        if value.ndim != 1:
-            raise ValueError("WorkItem mask must have shape [sequence]")
-        return value.to(dtype=torch.bool)
+        expected_shape = (SEQUENCE_LENGTH,)
+        if tuple(value.shape) != expected_shape:
+            raise ValueError(
+                f"WorkItem mask must have shape {expected_shape}, got {tuple(value.shape)}"
+            )
+        value = value.to(dtype=torch.bool)
+        if not bool(value.any()):
+            raise ValueError("WorkItem mask must contain at least one valid row")
+        return value
 
     @staticmethod
     def _task(value: object) -> TaskFamily:
