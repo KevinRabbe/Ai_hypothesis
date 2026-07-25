@@ -25,12 +25,25 @@ from .relevance import (
     inspection_prefix,
     same_worker_indices,
 )
+from .runtime_bridge import (
+    FixedScopeScheduler,
+    LargeScopeRuntimeContextProvider,
+    LargeScopeRuntimeWorkerBank,
+    PlannedScopeWorkerSelector,
+    large_scope_region_id,
+    large_scope_worker_id,
+    planned_scope_worker_selector,
+)
 
 __all__ = [
+    "FixedScopeScheduler",
     "LARGE_SCOPE_BENCHMARK_VERSION",
     "LARGE_SCOPE_SPLIT_SEED_RANGES",
     "LargeScopeRelevanceConfig",
     "LargeScopeRelevanceSample",
+    "LargeScopeRuntimeContextProvider",
+    "LargeScopeRuntimeWorkerBank",
+    "PlannedScopeWorkerSelector",
     "ScopeConditionSummary",
     "ScopeEvaluation",
     "ScopeMetricsAccumulator",
@@ -44,6 +57,9 @@ __all__ = [
     "generate_large_scope_relevance",
     "inspection_order",
     "inspection_prefix",
+    "large_scope_region_id",
+    "large_scope_worker_id",
+    "planned_scope_worker_selector",
     "same_worker_indices",
     "summarize_scope_evaluations",
 ]

@@ -51,7 +51,7 @@ from .knowledge_work import prepare_bounded_knowledge_work
 from .ledger import SQLiteResearchLedger
 from .projector import ThreadStateProjector
 from .scheduler import SchedulerConfig, SchedulerSignals, SchedulerV0, SchedulableThread
-from .scheduler_trace import TracingSchedulerV0
+from .scheduler_trace import TracingScheduler, TracingSchedulerV0
 from .scope_coverage import ScopeCoverageProjector, ScopeRegionCoverage, ThreadScopeCoverage
 from .worker_runtime import AttemptRequest, WorkerAssignment, WorkerBank, WorkerRuntime
 
@@ -100,6 +100,7 @@ __all__ = [
     "SQLiteResearchLedger",
     "ThreadScopeCoverage",
     "ThreadStateProjector",
+    "TracingScheduler",
     "TracingSchedulerV0",
     "WorkerAssignment",
     "WorkerBank",
