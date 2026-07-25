@@ -62,10 +62,21 @@ def large_scope_region_id(sample: LargeScopeRelevanceSample, window_index: int) 
     return f"scope-{digest}"
 
 
-def large_scope_worker_id(worker_index: int) -> str:
+def large_scope_worker_id(
+    worker_index: int,
+    *,
+    checkpoint_id: str | None = None,
+) -> str:
     if worker_index < 0:
         raise ValueError("worker_index must be non-negative")
-    return f"large-scope-worker-{worker_index}"
+    if checkpoint_id is None:
+        # Fallback for protocol-compatible fake/test banks that do not expose durable
+        # checkpoint identity. Real HomogeneousWorkerBank instances do expose it.
+        return f"large-scope-worker-{worker_index}"
+    if not isinstance(checkpoint_id, str) or not checkpoint_id.strip():
+        raise ValueError("checkpoint_id must be non-empty text")
+    digest = hashlib.sha256(checkpoint_id.encode("utf-8")).hexdigest()
+    return f"large-scope-worker-{digest}"
 
 
 @dataclass(frozen=True, slots=True)
@@ -199,8 +210,33 @@ class LargeScopeRuntimeWorkerBank:
         evidence_config.validate()
         self.bank = bank
         self.evidence_config = evidence_config
+
+        raw_checkpoint_ids = getattr(bank, "checkpoint_ids", None)
+        if raw_checkpoint_ids is None:
+            self.checkpoint_ids: tuple[str, ...] | None = None
+        else:
+            checkpoint_ids = tuple(raw_checkpoint_ids)
+            if len(checkpoint_ids) != bank.population_width:
+                raise ValueError("checkpoint identity count must match population width")
+            if any(
+                not isinstance(checkpoint_id, str) or not checkpoint_id.strip()
+                for checkpoint_id in checkpoint_ids
+            ):
+                raise ValueError("checkpoint identities must be non-empty strings")
+            if len(set(checkpoint_ids)) != len(checkpoint_ids):
+                raise ValueError("checkpoint identities must be unique")
+            self.checkpoint_ids = checkpoint_ids
+
         self.worker_ids = tuple(
-            large_scope_worker_id(index) for index in range(bank.population_width)
+            large_scope_worker_id(
+                index,
+                checkpoint_id=(
+                    self.checkpoint_ids[index]
+                    if self.checkpoint_ids is not None
+                    else None
+                ),
+            )
+            for index in range(bank.population_width)
         )
         self._worker_index = {
             worker_id: index for index, worker_id in enumerate(self.worker_ids)
@@ -252,17 +288,18 @@ class LargeScopeRuntimeWorkerBank:
             worker_indices.append(worker_index)
             features.append(feature_rows)
             masks.append(mask_rows)
-            metadata.append(
-                {
-                    "region_id": item.scope_region_ids[0],
-                    "split": split,
-                    "world_seed": world_seed,
-                    "window_index": window_index,
-                    "window_seed": window_seed,
-                    "mode": mode,
-                    "worker_index": worker_index,
-                }
-            )
+            meta: dict[str, object] = {
+                "region_id": item.scope_region_ids[0],
+                "split": split,
+                "world_seed": world_seed,
+                "window_index": window_index,
+                "window_seed": window_seed,
+                "mode": mode,
+                "worker_index": worker_index,
+            }
+            if self.checkpoint_ids is not None:
+                meta["checkpoint_id"] = self.checkpoint_ids[worker_index]
+            metadata.append(meta)
 
         feature_tensor = torch.tensor(features, dtype=torch.float32)
         mask_tensor = torch.tensor(masks, dtype=torch.bool)
