@@ -71,7 +71,7 @@ def large_scope_worker_id(worker_index: int) -> str:
 @dataclass(frozen=True, slots=True)
 class LargeScopeRuntimeContextProvider:
     sample: LargeScopeRelevanceSample
-    mode: ScopeWorkerMode
+    mode: ScopeWorkerMode | str
 
     def __call__(
         self,
@@ -79,6 +79,7 @@ class LargeScopeRuntimeContextProvider:
         decision: SchedulerDecision,
     ) -> WorkPreparation | WorkPreparationBatch:
         self.sample.validate()
+        mode = ScopeWorkerMode(self.mode)
         window_indices = inspection_prefix(self.sample, decision.width)
         items: list[WorkPreparation] = []
         for window_index in window_indices:
@@ -93,7 +94,7 @@ class LargeScopeRuntimeContextProvider:
                         "large_scope_world_seed": self.sample.seed,
                         "large_scope_window_index": window_index,
                         "large_scope_window_seed": self.sample.window_seeds[window_index],
-                        "large_scope_mode": self.mode.value,
+                        "large_scope_mode": mode.value,
                     },
                     reference_ids=(region_id,),
                     scope_region_ids=(region_id,),
@@ -206,10 +207,9 @@ class LargeScopeRuntimeWorkerBank:
         }
 
     def worker_id_for_index(self, worker_index: int) -> str:
-        try:
-            return self.worker_ids[worker_index]
-        except IndexError as error:
-            raise IndexError("worker index is outside the selected bank") from error
+        if not 0 <= worker_index < len(self.worker_ids):
+            raise IndexError("worker index is outside the selected bank")
+        return self.worker_ids[worker_index]
 
     def execute_batch(self, requests) -> tuple[AttemptResult, ...]:
         requests = tuple(requests)
