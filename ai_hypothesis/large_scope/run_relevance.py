@@ -5,7 +5,9 @@ from __future__ import annotations
 import argparse
 import json
 import time
+from collections.abc import Iterator
 from dataclasses import asdict
+from itertools import islice
 from pathlib import Path
 
 import torch
@@ -14,12 +16,13 @@ from ai_hypothesis.step01.schema import Difficulty
 from ai_hypothesis.step02.evidence import AggregationConfig
 from ai_hypothesis.step02.population import HomogeneousWorkerBank
 
-from .evaluate import ScopeWorkerMode, evaluate_scope_sample
+from .evaluate import ScopeWorkerMode, evaluate_scope_batch
 from .metrics import ScopeMetricsAccumulator
 from .relevance import (
     LARGE_SCOPE_BENCHMARK_VERSION,
     LARGE_SCOPE_SPLIT_SEED_RANGES,
     LargeScopeRelevanceConfig,
+    LargeScopeRelevanceSample,
     generate_large_scope_dataset,
 )
 
@@ -38,6 +41,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--allow-test-split", action="store_true")
     parser.add_argument("--world-count", type=int, default=1000)
+    parser.add_argument("--world-batch-size", type=int, default=64)
     parser.add_argument("--start-seed", type=int, default=0)
     parser.add_argument("--window-count", type=int, default=16)
     parser.add_argument("--widths", nargs="+", type=int, default=(1, 4, 16))
@@ -73,6 +77,8 @@ def main(argv: list[str] | None = None) -> int:
         )
     if args.world_count <= 0:
         raise SystemExit("--world-count must be positive")
+    if args.world_batch_size <= 0:
+        raise SystemExit("--world-batch-size must be positive")
     if args.start_seed < 0:
         raise SystemExit("--start-seed must be non-negative")
 
@@ -105,25 +111,26 @@ def main(argv: list[str] | None = None) -> int:
 
     evidence_config = AggregationConfig()
     accumulator = ScopeMetricsAccumulator()
-    _synchronize(bank)
-    started = time.perf_counter()
-    for sample in generate_large_scope_dataset(
+    dataset = generate_large_scope_dataset(
         args.split,
         args.world_count,
         config,
         start_seed=args.start_seed,
-    ):
+    )
+
+    _synchronize(bank)
+    started = time.perf_counter()
+    for samples in _world_batches(dataset, args.world_batch_size):
         for mode in modes:
             for width in widths:
-                accumulator.add(
-                    evaluate_scope_sample(
-                        bank,
-                        sample,
-                        width=width,
-                        mode=mode,
-                        evidence_config=evidence_config,
-                    )
-                )
+                for evaluation in evaluate_scope_batch(
+                    bank,
+                    samples,
+                    width=width,
+                    mode=mode,
+                    evidence_config=evidence_config,
+                ):
+                    accumulator.add(evaluation)
     _synchronize(bank)
     elapsed = time.perf_counter() - started
 
@@ -131,6 +138,7 @@ def main(argv: list[str] | None = None) -> int:
         "benchmark_version": LARGE_SCOPE_BENCHMARK_VERSION,
         "split": args.split,
         "world_count": args.world_count,
+        "world_batch_size": args.world_batch_size,
         "start_seed": args.start_seed,
         "config": {
             "window_count": config.window_count,
@@ -159,6 +167,19 @@ def main(argv: list[str] | None = None) -> int:
     )
     print(json.dumps(payload, indent=2, sort_keys=True))
     return 0
+
+
+def _world_batches(
+    samples: Iterator[LargeScopeRelevanceSample],
+    batch_size: int,
+) -> Iterator[tuple[LargeScopeRelevanceSample, ...]]:
+    if batch_size <= 0:
+        raise ValueError("batch_size must be positive")
+    while True:
+        batch = tuple(islice(samples, batch_size))
+        if not batch:
+            return
+        yield batch
 
 
 def _synchronize(bank: HomogeneousWorkerBank) -> None:
