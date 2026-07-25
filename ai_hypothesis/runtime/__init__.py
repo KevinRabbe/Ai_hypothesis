@@ -19,10 +19,12 @@ from .integration import (
     IntegrationBackpressureConfig,
     IntegrationBatch,
     IntegrationDisposition,
+    IntegrationOverview,
     IntegrationSnapshot,
     IntegrationTracker,
     PendingEvidence,
 )
+from .integration_work import prepare_bounded_integration_work
 from .ledger import SQLiteResearchLedger
 from .projector import ThreadStateProjector
 from .scheduler import SchedulerConfig, SchedulerSignals, SchedulerV0, SchedulableThread
@@ -39,6 +41,7 @@ __all__ = [
     "IntegrationBackpressureConfig",
     "IntegrationBatch",
     "IntegrationDisposition",
+    "IntegrationOverview",
     "IntegrationSnapshot",
     "IntegrationTracker",
     "KnowledgeDelta",
@@ -61,4 +64,5 @@ __all__ = [
     "WorkItem",
     "WorkPreparation",
     "WorkPurpose",
+    "prepare_bounded_integration_work",
 ]
