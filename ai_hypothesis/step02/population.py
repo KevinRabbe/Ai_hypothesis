@@ -38,10 +38,10 @@ class LoadedCheckpoint:
 class HomogeneousWorkerBank:
     """A population of independently weighted workers with one shared architecture.
 
-    The default ``vmap`` backend evaluates worker state through batched functional
-    calls. ``forward`` preserves the Step 2 same-input population experiment, while
-    ``forward_selected`` executes one selected worker per sample so the runtime can
-    batch different Work Items without changing worker architecture.
+    The default ``vmap`` backend evaluates the same input batch across all workers
+    using stacked model state. A deterministic loop backend is retained as a
+    correctness/reference path and as a compatibility fallback for operations that
+    cannot be vectorized on a particular PyTorch/device combination.
     """
 
     def __init__(
@@ -78,6 +78,12 @@ class HomogeneousWorkerBank:
     @property
     def unit_config(self) -> UnitConfig:
         return self.template.config
+
+    @property
+    def selected_execution_backend(self) -> str:
+        """Execution strategy used by ``forward_selected``."""
+
+        return "grouped"
 
     @classmethod
     def from_checkpoints(
@@ -152,6 +158,11 @@ class HomogeneousWorkerBank:
             raise ValueError("mask must have shape [batch, sequence]")
         if features.shape[:2] != mask.shape:
             raise ValueError("feature and mask batch/sequence dimensions must match")
+        if features.shape[1:] != (
+            self.unit_config.sequence_length,
+            self.unit_config.feature_width,
+        ):
+            raise ValueError("features do not match the homogeneous worker architecture")
 
     def _functional_forward(
         self,
@@ -164,24 +175,6 @@ class HomogeneousWorkerBank:
             self.template,
             (params, buffers),
             (features, mask),
-        )
-
-    def _functional_single_forward(
-        self,
-        params: dict[str, torch.Tensor],
-        buffers: dict[str, torch.Tensor],
-        features: torch.Tensor,
-        mask: torch.Tensor,
-    ) -> Step01Output:
-        output = self._functional_forward(
-            params,
-            buffers,
-            features.unsqueeze(0),
-            mask.unsqueeze(0),
-        )
-        return Step01Output(
-            label_logits=output.label_logits.squeeze(0),
-            uncertainty_logits=output.uncertainty_logits.squeeze(0),
         )
 
     def forward(self, features: torch.Tensor, mask: torch.Tensor) -> PopulationOutput:
@@ -236,55 +229,75 @@ class HomogeneousWorkerBank:
         features: torch.Tensor,
         mask: torch.Tensor,
     ) -> Step01Output:
-        """Execute one selected worker for each sample in a heterogeneous-work batch."""
+        """Evaluate one selected worker per sample without all-worker expansion.
+
+        Samples assigned to the same worker are grouped into one ordinary model
+        batch. Only selected checkpoints execute; the entire population is never
+        evaluated merely to obtain a few assigned worker results. A future fused
+        implementation can replace this internal strategy without changing callers.
+        """
 
         self._validate_input(features, mask)
-        indices = torch.as_tensor(worker_indices, dtype=torch.long, device=self.device)
-        if indices.ndim != 1 or indices.shape[0] != features.shape[0]:
-            raise ValueError("worker_indices must contain one index per batch sample")
-        if bool(((indices < 0) | (indices >= self.population_width)).any()):
-            raise IndexError("worker index is outside the population")
+        indices = torch.as_tensor(
+            worker_indices,
+            dtype=torch.long,
+            device=self.device,
+        )
+        if indices.ndim != 1:
+            raise ValueError("worker_indices must be one-dimensional")
+        if indices.shape[0] != features.shape[0]:
+            raise ValueError("worker_indices must contain one entry per sample")
+        if bool((indices < 0).any()) or bool((indices >= self.population_width).any()):
+            raise IndexError("worker index is outside the loaded population")
 
         features = features.to(self.device, non_blocking=True)
         mask = mask.to(self.device, non_blocking=True)
-        selected_params = {
-            name: value.index_select(0, indices) for name, value in self.params.items()
-        }
-        selected_buffers = {
-            name: value.index_select(0, indices) for name, value in self.buffers.items()
-        }
         self.template.eval()
+        batch_size = features.shape[0]
+        label_count = self.template.label_head.out_features
+        label_logits = torch.empty(
+            (batch_size, label_count),
+            device=self.device,
+            dtype=features.dtype,
+        )
+        uncertainty_logits = torch.empty(
+            (batch_size,),
+            device=self.device,
+            dtype=features.dtype,
+        )
 
         with torch.inference_mode():
-            if self.execution_backend == "vmap":
-                return vmap(
-                    self._functional_single_forward,
-                    in_dims=(0, 0, 0, 0),
-                    randomness="error",
-                )(selected_params, selected_buffers, features, mask)
-
-            outputs: list[Step01Output] = []
-            for sample_index, worker_index in enumerate(indices.tolist()):
+            for worker_index in torch.unique(indices, sorted=True).tolist():
+                sample_positions = torch.nonzero(
+                    indices == worker_index,
+                    as_tuple=False,
+                ).squeeze(1)
                 worker_params = {
                     name: value[worker_index] for name, value in self.params.items()
                 }
                 worker_buffers = {
                     name: value[worker_index] for name, value in self.buffers.items()
                 }
-                outputs.append(
-                    self._functional_forward(
-                        worker_params,
-                        worker_buffers,
-                        features[sample_index : sample_index + 1],
-                        mask[sample_index : sample_index + 1],
-                    )
+                output = self._functional_forward(
+                    worker_params,
+                    worker_buffers,
+                    features.index_select(0, sample_positions),
+                    mask.index_select(0, sample_positions),
+                )
+                label_logits.index_copy_(
+                    0,
+                    sample_positions,
+                    output.label_logits,
+                )
+                uncertainty_logits.index_copy_(
+                    0,
+                    sample_positions,
+                    output.uncertainty_logits,
                 )
 
-            return Step01Output(
-                label_logits=torch.cat([output.label_logits for output in outputs], dim=0),
-                uncertainty_logits=torch.cat(
-                    [output.uncertainty_logits for output in outputs], dim=0
-                ),
-            )
+        return Step01Output(
+            label_logits=label_logits,
+            uncertainty_logits=uncertainty_logits,
+        )
 
     __call__ = forward
