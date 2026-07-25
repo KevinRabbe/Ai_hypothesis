@@ -27,7 +27,6 @@ class IntegrationTelemetrySnapshot:
     disposition_counts: Mapping[str, int]
     redisposition_count: int
     unknown_disposition_reference_count: int
-    unknown_knowledge_reference_count: int
     mean_disposition_latency_sequences: float | None
     max_disposition_latency_sequences: int | None
     mean_backlog_age_sequences: float | None
@@ -207,14 +206,10 @@ class IntegrationTelemetryProjector:
         knowledge_delta_count = 0
         knowledge_referenced_ids: set[str] = set()
         knowledge_source_reference_count = 0
-        unknown_knowledge_reference_count = 0
         for event in knowledge_events:
             if thread_id is not None and event.thread_id != thread_id:
-                # Deltas targeting another thread do not count toward this thread's delta
-                # production, but their use of this thread's evidence still matters below.
-                pass
-            else:
-                knowledge_delta_count += 1
+                continue
+            knowledge_delta_count += 1
 
             raw_sources = event.payload.get("source_reference_ids")
             if isinstance(raw_sources, list) and all(
@@ -230,10 +225,9 @@ class IntegrationTelemetryProjector:
                 )
 
             for reference_id in source_ids:
-                if reference_id not in evidence_sequences:
-                    if thread_id is None:
-                        unknown_knowledge_reference_count += 1
-                    continue
+                # Knowledge deltas may also reference documents, prior knowledge, or other
+                # durable objects. Only references that resolve to known evidence belong in
+                # evidence-integration telemetry.
                 if reference_id not in selected_evidence:
                     continue
                 knowledge_source_reference_count += 1
@@ -251,7 +245,6 @@ class IntegrationTelemetryProjector:
             disposition_counts=disposition_counts,
             redisposition_count=redisposition_count,
             unknown_disposition_reference_count=unknown_disposition_reference_count,
-            unknown_knowledge_reference_count=unknown_knowledge_reference_count,
             mean_disposition_latency_sequences=(
                 sum(disposition_latencies) / len(disposition_latencies)
                 if disposition_latencies
