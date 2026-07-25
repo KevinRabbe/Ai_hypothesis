@@ -76,6 +76,7 @@ class WorkItem:
     objective: str
     purpose: WorkPurpose
     projection_revision: int
+    scheduler_decision_id: str | None = None
     reference_ids: tuple[str, ...] = ()
     parent_ids: tuple[str, ...] = ()
     context: Mapping[str, Any] = field(default_factory=dict)
@@ -87,6 +88,8 @@ class WorkItem:
         _require_text("thread_id", self.thread_id)
         _require_text("objective", self.objective)
         _require_non_negative("projection_revision", self.projection_revision)
+        if self.scheduler_decision_id is not None:
+            _require_text("scheduler_decision_id", self.scheduler_decision_id)
         for name, values in (("reference_ids", self.reference_ids), ("parent_ids", self.parent_ids)):
             if any(not value for value in values):
                 raise ValueError(f"{name} must not contain empty IDs")

@@ -43,13 +43,29 @@ class WorkerRuntime:
     def run_batch(self, assignments: Sequence[WorkerAssignment], worker_bank: WorkerBank) -> tuple[AttemptResult, ...]:
         if not assignments:
             return ()
+
+        scheduler_decisions = (
+            self._latest_scheduler_decisions()
+            if any(
+                assignment.work_item.scheduler_decision_id is None
+                for assignment in assignments
+            )
+            else {}
+        )
         requests: list[AttemptRequest] = []
         started_event_ids: dict[str, str] = {}
         for assignment in assignments:
             assignment.validate()
             request = AttemptRequest(uuid.uuid4().hex, assignment.worker_id, assignment.work_item)
             requests.append(request)
-            started_event_ids[request.attempt_id] = self._record_started(request)
+            item = assignment.work_item
+            decision_id = item.scheduler_decision_id or scheduler_decisions.get(
+                (item.thread_id, item.projection_revision)
+            )
+            started_event_ids[request.attempt_id] = self._record_started(
+                request,
+                scheduler_decision_id=decision_id,
+            )
 
         try:
             results = tuple(worker_bank.execute_batch(tuple(requests)))
@@ -112,7 +128,12 @@ class WorkerRuntime:
             raise validation_errors[0]
         return results
 
-    def _record_started(self, request: AttemptRequest) -> str:
+    def _record_started(
+        self,
+        request: AttemptRequest,
+        *,
+        scheduler_decision_id: str | None,
+    ) -> str:
         item = request.work_item
         event = self._ledger.append_event(
             event_type="ATTEMPT_STARTED",
@@ -124,6 +145,7 @@ class WorkerRuntime:
                 "worker_id": request.worker_id,
                 "purpose": item.purpose.value,
                 "projection_revision": item.projection_revision,
+                "scheduler_decision_id": scheduler_decision_id,
             },
         )
         return event.event_id
@@ -191,6 +213,22 @@ class WorkerRuntime:
                 raise ValueError("worker attempted to assess knowledge outside its Work Item authority")
             if not set(assessment.delta_ids) <= recorded_delta_ids:
                 raise ValueError("worker attempted to assess a nonexistent knowledge delta")
+
+    def _latest_scheduler_decisions(self) -> dict[tuple[str, int], str]:
+        decisions: dict[tuple[str, int], str] = {}
+        for event in self._ledger.read_all_events():
+            if event.event_type != "SCHEDULER_DECISION_RECORDED" or event.thread_id is None:
+                continue
+            decision_id = event.payload.get("decision_id")
+            revision = event.payload.get("projection_revision")
+            if (
+                isinstance(decision_id, str)
+                and decision_id
+                and isinstance(revision, int)
+                and revision >= 0
+            ):
+                decisions[(event.thread_id, revision)] = decision_id
+        return decisions
 
     def _recorded_generated_ids(self) -> tuple[set[str], set[str]]:
         evidence_ids: set[str] = set()
