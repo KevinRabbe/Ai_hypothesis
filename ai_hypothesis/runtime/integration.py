@@ -8,20 +8,15 @@ backpressure to Scheduler v0.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from enum import Enum
 from collections.abc import Sequence
+from dataclasses import dataclass
 
-from .contracts import KnowledgeDelta, LedgerEvent
+from .contracts import EvidenceDispositionKind, KnowledgeDelta, LedgerEvent
 from .ledger import SQLiteResearchLedger
 
-
-class IntegrationDisposition(str, Enum):
-    INTEGRATED = "INTEGRATED"
-    DUPLICATE = "DUPLICATE"
-    IRRELEVANT = "IRRELEVANT"
-    INVALID = "INVALID"
-    LOCAL_ONLY = "LOCAL_ONLY"
+# Backward-compatible runtime-facing name. The semantic enum lives in contracts so
+# integration workers can return it directly through AttemptResult.
+IntegrationDisposition = EvidenceDispositionKind
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,7 +60,7 @@ class IntegrationTracker:
     def record_disposition(
         self,
         evidence_ids: Sequence[str],
-        disposition: IntegrationDisposition,
+        disposition: EvidenceDispositionKind,
         *,
         reason: str | None = None,
         thread_id: str | None = None,
