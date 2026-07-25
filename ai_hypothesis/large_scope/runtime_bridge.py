@@ -238,6 +238,9 @@ class LargeScopeRuntimeWorkerBank:
             )
             for index in range(bank.population_width)
         )
+        self.worker_bank_id = "worker-bank-sha256-" + hashlib.sha256(
+            "\n".join(self.worker_ids).encode("utf-8")
+        ).hexdigest()
         self._worker_index = {
             worker_id: index for index, worker_id in enumerate(self.worker_ids)
         }
@@ -296,6 +299,7 @@ class LargeScopeRuntimeWorkerBank:
                 "window_seed": window_seed,
                 "mode": mode,
                 "worker_index": worker_index,
+                "worker_bank_id": self.worker_bank_id,
             }
             if self.checkpoint_ids is not None:
                 meta["checkpoint_id"] = self.checkpoint_ids[worker_index]
