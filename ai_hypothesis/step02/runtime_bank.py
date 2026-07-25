@@ -74,7 +74,13 @@ class Step02RuntimeWorkerBank:
                 mask = self._mask_tensor(item.context.get("mask"))
                 task = self._task(item.context.get("task"))
             except (KeyError, TypeError, ValueError) as error:
-                results[request_position] = self._invalid_request_result(request, error)
+                results[request_position] = self._failed_result(
+                    request,
+                    code="STEP02_WORK_ITEM_INVALID",
+                    followup="repair Step 2 Work Item context or worker assignment",
+                    error=error,
+                    neural_worker_evaluations=0,
+                )
                 continue
 
             valid_positions.append(request_position)
@@ -125,82 +131,117 @@ class Step02RuntimeWorkerBank:
 
         results: list[AttemptResult] = []
         for sample_index, request in enumerate(requests):
-            worker_index = worker_indices[sample_index]
-            checkpoint = self.bank.checkpoints[worker_index]
-            label_index = int(evidence.top_valid_label_indices[0, sample_index].item())
-            label = NON_UNCERTAIN_LABELS[label_index]
-            strength = float(evidence.evidence_scores[0, sample_index, label_index].item())
-            uncertainty = float(evidence.uncertainty_probability[0, sample_index].item())
-            reliability = float(evidence.reliability[0, sample_index].item())
-            invalid_mass = float(evidence.invalid_label_mass[0, sample_index].item())
-            top_margin = float(evidence.top_margin[0, sample_index].item())
-
-            contribution = EvidenceContribution(
-                evidence_id=f"{request.attempt_id}:local-evidence",
-                kind="STEP02_LOCAL_CLASS_EVIDENCE",
-                summary=f"{tasks[sample_index].value}: strongest valid label {label}",
-                reference_ids=request.work_item.reference_ids,
-                strength=strength,
-                uncertainty=uncertainty,
-                data={
-                    "task": tasks[sample_index].value,
-                    "top_label": label,
-                    "top_label_index": label_index,
-                    "reliability": reliability,
-                    "invalid_label_mass": invalid_mass,
-                    "top_margin": top_margin,
-                    "label_logits": [
-                        float(value) for value in output.label_logits[sample_index].tolist()
-                    ],
-                    "uncertainty_logit": float(
-                        output.uncertainty_logits[sample_index].item()
-                    ),
-                    "label_probabilities": [
-                        float(value)
-                        for value in evidence.label_probabilities_all[0, sample_index].tolist()
-                    ],
-                    "valid_label_probabilities": [
-                        float(value)
-                        for value in evidence.valid_label_probabilities[0, sample_index].tolist()
-                    ],
-                    "evidence_scores": [
-                        float(value)
-                        for value in evidence.evidence_scores[0, sample_index].tolist()
-                    ],
-                    "worker_index": worker_index,
-                    "checkpoint_path": checkpoint.path,
-                    "checkpoint_step": checkpoint.step,
-                    "checkpoint_validation_score": checkpoint.validation_score,
-                    "selected_execution_backend": self.bank.selected_execution_backend,
-                    "population_execution_backend": self.bank.execution_backend,
-                    "device": str(self.bank.device),
-                },
-            )
-            contribution.validate()
-            results.append(
-                AttemptResult(
-                    attempt_id=request.attempt_id,
-                    work_item_id=request.work_item.work_item_id,
-                    thread_id=request.work_item.thread_id,
-                    worker_id=request.worker_id,
-                    status=AttemptStatus.COMPLETED,
-                    evidence=(contribution,),
-                    progress_made=True,
-                    resource_usage={
-                        "neural_worker_evaluations": 1,
-                        "selected_execution_backend": self.bank.selected_execution_backend,
-                        "population_execution_backend": self.bank.execution_backend,
-                        "device": str(self.bank.device),
-                    },
+            try:
+                result = self._successful_result(
+                    request,
+                    worker_index=worker_indices[sample_index],
+                    task=tasks[sample_index],
+                    sample_index=sample_index,
+                    output=output,
+                    evidence=evidence,
                 )
-            )
+            except (IndexError, RuntimeError, TypeError, ValueError) as error:
+                result = self._failed_result(
+                    request,
+                    code="STEP02_WORKER_OUTPUT_INVALID",
+                    followup="inspect the selected worker checkpoint and numerical output",
+                    error=error,
+                    neural_worker_evaluations=1,
+                )
+            results.append(result)
 
         return tuple(results)
 
-    @staticmethod
-    def _invalid_request_result(
+    def _successful_result(
+        self,
         request: AttemptRequest,
+        *,
+        worker_index: int,
+        task: TaskFamily,
+        sample_index: int,
+        output: Step01Output,
+        evidence,
+    ) -> AttemptResult:
+        sample_logits = output.label_logits[sample_index]
+        sample_uncertainty_logit = output.uncertainty_logits[sample_index]
+        if not bool(torch.isfinite(sample_logits).all()):
+            raise ValueError("worker label logits must contain only finite values")
+        if not bool(torch.isfinite(sample_uncertainty_logit)):
+            raise ValueError("worker uncertainty logit must be finite")
+
+        checkpoint = self.bank.checkpoints[worker_index]
+        label_index = int(evidence.top_valid_label_indices[0, sample_index].item())
+        label = NON_UNCERTAIN_LABELS[label_index]
+        strength = float(evidence.evidence_scores[0, sample_index, label_index].item())
+        uncertainty = float(evidence.uncertainty_probability[0, sample_index].item())
+        reliability = float(evidence.reliability[0, sample_index].item())
+        invalid_mass = float(evidence.invalid_label_mass[0, sample_index].item())
+        top_margin = float(evidence.top_margin[0, sample_index].item())
+
+        contribution = EvidenceContribution(
+            evidence_id=f"{request.attempt_id}:local-evidence",
+            kind="STEP02_LOCAL_CLASS_EVIDENCE",
+            summary=f"{task.value}: strongest valid label {label}",
+            reference_ids=request.work_item.reference_ids,
+            strength=strength,
+            uncertainty=uncertainty,
+            data={
+                "task": task.value,
+                "top_label": label,
+                "top_label_index": label_index,
+                "reliability": reliability,
+                "invalid_label_mass": invalid_mass,
+                "top_margin": top_margin,
+                "label_logits": [float(value) for value in sample_logits.tolist()],
+                "uncertainty_logit": float(sample_uncertainty_logit.item()),
+                "label_probabilities": [
+                    float(value)
+                    for value in evidence.label_probabilities_all[0, sample_index].tolist()
+                ],
+                "valid_label_probabilities": [
+                    float(value)
+                    for value in evidence.valid_label_probabilities[0, sample_index].tolist()
+                ],
+                "evidence_scores": [
+                    float(value)
+                    for value in evidence.evidence_scores[0, sample_index].tolist()
+                ],
+                "worker_index": worker_index,
+                "checkpoint_path": checkpoint.path,
+                "checkpoint_step": checkpoint.step,
+                "checkpoint_validation_score": checkpoint.validation_score,
+                "selected_execution_backend": self.bank.selected_execution_backend,
+                "population_execution_backend": self.bank.execution_backend,
+                "device": str(self.bank.device),
+            },
+        )
+        contribution.validate()
+        result = AttemptResult(
+            attempt_id=request.attempt_id,
+            work_item_id=request.work_item.work_item_id,
+            thread_id=request.work_item.thread_id,
+            worker_id=request.worker_id,
+            status=AttemptStatus.COMPLETED,
+            evidence=(contribution,),
+            progress_made=True,
+            resource_usage={
+                "neural_worker_evaluations": 1,
+                "selected_execution_backend": self.bank.selected_execution_backend,
+                "population_execution_backend": self.bank.execution_backend,
+                "device": str(self.bank.device),
+            },
+        )
+        result.validate()
+        return result
+
+    @staticmethod
+    def _failed_result(
+        request: AttemptRequest,
+        *,
+        code: str,
+        followup: str,
         error: Exception,
+        neural_worker_evaluations: int,
     ) -> AttemptResult:
         result = AttemptResult(
             attempt_id=request.attempt_id,
@@ -208,14 +249,13 @@ class Step02RuntimeWorkerBank:
             thread_id=request.work_item.thread_id,
             worker_id=request.worker_id,
             status=AttemptStatus.FAILED,
-            observations=(
-                f"STEP02_WORK_ITEM_INVALID: {type(error).__name__}: {error}",
-            ),
-            requested_followups=("repair Step 2 Work Item context or worker assignment",),
+            observations=(f"{code}: {type(error).__name__}: {error}",),
+            requested_followups=(followup,),
             progress_made=False,
             resource_usage={
-                "neural_worker_evaluations": 0,
-                "validation_error_type": type(error).__name__,
+                "neural_worker_evaluations": neural_worker_evaluations,
+                "failure_code": code,
+                "error_type": type(error).__name__,
             },
         )
         result.validate()
