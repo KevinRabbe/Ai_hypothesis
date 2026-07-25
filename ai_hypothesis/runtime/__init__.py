@@ -3,6 +3,7 @@
 from .contracts import (
     AttemptResult,
     AttemptStatus,
+    EvidenceContribution,
     KnowledgeDelta,
     LedgerEvent,
     ProjectedState,
@@ -20,6 +21,7 @@ __all__ = [
     "AttemptRequest",
     "AttemptResult",
     "AttemptStatus",
+    "EvidenceContribution",
     "KnowledgeDelta",
     "LedgerEvent",
     "ProjectedState",
