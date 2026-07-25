@@ -188,7 +188,7 @@ class SQLiteResearchLedger:
         limit: int = 1000,
         thread_id: str | None = None,
     ) -> tuple[LedgerEvent, ...]:
-        """Read ordered events after a checkpoint, optionally scoped to one thread."""
+        """Read one ordered page after a checkpoint, optionally scoped to one thread."""
 
         if after_sequence < 0:
             raise ValueError("after_sequence must be non-negative")
@@ -210,6 +210,36 @@ class SQLiteResearchLedger:
         with self._lock:
             rows = self._connection.execute(sql, params).fetchall()
         return tuple(_row_to_event(row) for row in rows)
+
+    def read_all_events(
+        self,
+        *,
+        after_sequence: int = 0,
+        thread_id: str | None = None,
+        page_size: int = 1000,
+    ) -> tuple[LedgerEvent, ...]:
+        """Replay all matching events through bounded pages without silent truncation."""
+
+        if after_sequence < 0:
+            raise ValueError("after_sequence must be non-negative")
+        if page_size <= 0:
+            raise ValueError("page_size must be positive")
+
+        checkpoint = after_sequence
+        events: list[LedgerEvent] = []
+        while True:
+            page = self.read_events(
+                after_sequence=checkpoint,
+                limit=page_size,
+                thread_id=thread_id,
+            )
+            if not page:
+                break
+            events.extend(page)
+            checkpoint = page[-1].sequence
+            if len(page) < page_size:
+                break
+        return tuple(events)
 
     def latest_sequence(self) -> int:
         with self._lock:
