@@ -217,6 +217,31 @@ class WorkerRuntime:
                 **common,
             )
 
+        for delta in result.knowledge_deltas:
+            self._ledger.append_event(
+                event_type="KNOWLEDGE_DELTA_RECORDED",
+                thread_id=delta.thread_id or result.thread_id,
+                attempt_id=result.attempt_id,
+                reference_ids=(delta.delta_id, *delta.reference_ids),
+                parent_event_ids=(parent_event_id, *delta.causal_event_ids),
+                payload={
+                    "delta_id": delta.delta_id,
+                    "kind": delta.kind,
+                    "summary": delta.summary,
+                },
+            )
+
+        for disposition in result.evidence_dispositions:
+            payload = {"disposition": disposition.disposition.value}
+            if disposition.reason is not None:
+                payload["reason"] = disposition.reason
+            self._ledger.append_event(
+                event_type="INTEGRATION_DISPOSITION_RECORDED",
+                reference_ids=disposition.evidence_ids,
+                payload=payload,
+                **common,
+            )
+
         for event_type, references in (
             ("HYPOTHESIS_PROPOSED", result.hypotheses_proposed),
             ("HYPOTHESIS_STRENGTHENED", result.hypotheses_strengthened),
