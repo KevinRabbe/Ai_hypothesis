@@ -103,10 +103,11 @@ class EvidenceSignalProviderV0:
             1.0,
         )
         contradiction_severity = max(disagreement, explicit_contradiction)
-        novelty = min(
-            len(coverage_units) / max(len(active), 1),
-            1.0,
-        ) if active else 1.0
+        novelty = (
+            min(len(coverage_units) / max(len(active), 1), 1.0)
+            if active
+            else 1.0
+        )
         dependency_impact = min(
             len(state.dependency_thread_ids) / self.config.dependency_target,
             1.0,
@@ -200,7 +201,8 @@ def _label_disagreement(evidence: tuple[EvidenceState, ...]) -> float:
     if len(labels) < 2:
         return 0.0
     largest_group = max(Counter(labels).values())
-    return 1.0 - largest_group / len(labels)
+    minority_fraction = 1.0 - largest_group / len(labels)
+    return min(2.0 * minority_fraction, 1.0)
 
 
 def _unverified_strong_signal(
