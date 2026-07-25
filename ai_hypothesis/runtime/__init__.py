@@ -17,9 +17,11 @@ from .contracts import (
 from .control import ControlStep, RuntimeControlLoop, WorkerSelectorV0, WorkPreparation
 from .integration import (
     IntegrationBackpressureConfig,
+    IntegrationBatch,
     IntegrationDisposition,
     IntegrationSnapshot,
     IntegrationTracker,
+    PendingEvidence,
 )
 from .ledger import SQLiteResearchLedger
 from .projector import ThreadStateProjector
@@ -35,11 +37,13 @@ __all__ = [
     "EvidenceDisposition",
     "EvidenceDispositionKind",
     "IntegrationBackpressureConfig",
+    "IntegrationBatch",
     "IntegrationDisposition",
     "IntegrationSnapshot",
     "IntegrationTracker",
     "KnowledgeDelta",
     "LedgerEvent",
+    "PendingEvidence",
     "ProjectedState",
     "RuntimeControlLoop",
     "SchedulerAction",
