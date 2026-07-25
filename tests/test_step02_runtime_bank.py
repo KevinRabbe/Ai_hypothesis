@@ -26,6 +26,12 @@ from ai_hypothesis.step02.runtime_bank import Step02RuntimeWorkerBank
 
 class _FakeSelectedBank:
     population_width = 2
+    checkpoints = (
+        LoadedCheckpoint("checkpoint-alpha.pt", 10, 0.71),
+        LoadedCheckpoint("checkpoint-beta.pt", 20, 0.73),
+    )
+    execution_backend = "fake-selected"
+    device = torch.device("cpu")
 
     def forward_selected(
         self,
@@ -102,6 +108,32 @@ class Step02RuntimeWorkerBankTests(unittest.TestCase):
         torch.testing.assert_close(actual.label_logits, expected_logits)
         torch.testing.assert_close(actual.uncertainty_logits, expected_uncertainty)
 
+    def test_forward_selected_rejects_wrong_architecture_shape(self) -> None:
+        config = UnitConfig(
+            d_model=8,
+            block_count=1,
+            attention_heads=1,
+            feed_forward_width=16,
+            dropout=0.0,
+        )
+        workers = [Step01Unit(config).eval()]
+        params, buffers = stack_module_state(workers)
+        bank = HomogeneousWorkerBank(
+            template=workers[0],
+            params=params,
+            buffers=buffers,
+            checkpoints=(LoadedCheckpoint("worker-0", None, None),),
+            device=torch.device("cpu"),
+            execution_backend="loop",
+        )
+
+        with self.assertRaisesRegex(ValueError, "do not match"):
+            bank.forward_selected(
+                [0],
+                torch.zeros((1, SEQUENCE_LENGTH, FEATURE_WIDTH - 1)),
+                torch.ones((1, SEQUENCE_LENGTH), dtype=torch.bool),
+            )
+
     def test_adapter_emits_structured_local_evidence_without_voting(self) -> None:
         adapter = Step02RuntimeWorkerBank(
             _FakeSelectedBank(),  # type: ignore[arg-type]
@@ -119,6 +151,20 @@ class Step02RuntimeWorkerBankTests(unittest.TestCase):
         self.assertGreater(results[0].evidence[0].strength or 0.0, 0.0)
         self.assertLess(results[0].evidence[0].uncertainty or 1.0, 0.1)
         self.assertEqual(results[0].evidence[0].reference_ids, ("source:thread-a",))
+        self.assertEqual(results[0].evidence[0].data["worker_index"], 0)
+        self.assertEqual(
+            results[1].evidence[0].data["checkpoint_path"],
+            "checkpoint-beta.pt",
+        )
+        self.assertEqual(
+            results[1].evidence[0].data["checkpoint_step"],
+            20,
+        )
+        self.assertEqual(
+            results[0].resource_usage["execution_backend"],
+            "fake-selected",
+        )
+        self.assertEqual(len(results[0].evidence[0].data["label_logits"]), 11)
 
     def test_runtime_persists_generated_evidence_as_addressable_state(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -155,6 +201,10 @@ class Step02RuntimeWorkerBankTests(unittest.TestCase):
                 self.assertEqual(len(evidence_events), 1)
                 self.assertEqual(evidence_events[0].payload["evidence_id"], evidence_id)
                 self.assertEqual(evidence_events[0].payload["data"]["top_label"], "SIGNAL")
+                self.assertEqual(
+                    evidence_events[0].payload["data"]["checkpoint_path"],
+                    "checkpoint-alpha.pt",
+                )
 
                 state = ThreadStateProjector().project(
                     ledger.read_events(), thread_id="thread-a"
