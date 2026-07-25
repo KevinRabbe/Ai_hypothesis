@@ -5,8 +5,10 @@ from __future__ import annotations
 import unittest
 
 from ai_hypothesis.large_scope import (
+    LARGE_SCOPE_SPLIT_SEED_RANGES,
     LargeScopeRelevanceConfig,
     diverse_worker_indices,
+    generate_large_scope_dataset,
     generate_large_scope_relevance,
     inspection_order,
     inspection_prefix,
@@ -23,10 +25,32 @@ class LargeScopeRelevanceTests(unittest.TestCase):
 
         self.assertEqual(first, second)
         self.assertTrue(first.target_present)
+        self.assertEqual(first.split, "development")
         self.assertEqual(len(first.windows), 16)
         self.assertEqual(len(set(first.window_seeds)), 16)
-        self.assertTrue(all(seed >= 3_000_000_000 for seed in first.window_seeds))
+        range_start, range_limit = LARGE_SCOPE_SPLIT_SEED_RANGES["development"]
+        self.assertTrue(
+            all(range_start <= seed < range_limit for seed in first.window_seeds)
+        )
         self.assertTrue(all(window.task is TaskFamily.RELEVANCE for window in first.windows))
+
+    def test_large_scope_splits_use_disjoint_local_window_seed_ranges(self) -> None:
+        samples = {
+            split: generate_large_scope_relevance(10, split=split)
+            for split in LARGE_SCOPE_SPLIT_SEED_RANGES
+        }
+        seed_sets = {split: set(sample.window_seeds) for split, sample in samples.items()}
+        self.assertTrue(seed_sets["development"].isdisjoint(seed_sets["confirmation"]))
+        self.assertTrue(seed_sets["development"].isdisjoint(seed_sets["test"]))
+        self.assertTrue(seed_sets["confirmation"].isdisjoint(seed_sets["test"]))
+
+    def test_dataset_stream_is_seed_ordered_and_balanced_by_parity(self) -> None:
+        samples = tuple(generate_large_scope_dataset("development", 4, start_seed=20))
+        self.assertEqual(tuple(sample.seed for sample in samples), (20, 21, 22, 23))
+        self.assertEqual(
+            tuple(sample.target_present for sample in samples),
+            (True, False, True, False),
+        )
 
     def test_positive_world_contains_exactly_one_relevant_window(self) -> None:
         sample = generate_large_scope_relevance(
@@ -59,7 +83,11 @@ class LargeScopeRelevanceTests(unittest.TestCase):
 
     def test_inspection_widths_are_nested_prefixes_without_duplicates(self) -> None:
         sample = generate_large_scope_relevance(24)
-        order = inspection_order(sample.seed, sample.config.window_count)
+        order = inspection_order(
+            sample.seed,
+            sample.config.window_count,
+            split=sample.split,
+        )
         width_1 = inspection_prefix(sample, 1)
         width_4 = inspection_prefix(sample, 4)
         width_16 = inspection_prefix(sample, 16)
