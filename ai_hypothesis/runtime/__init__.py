@@ -13,6 +13,7 @@ from .contracts import (
 )
 from .ledger import SQLiteResearchLedger
 from .projector import ThreadStateProjector
+from .scheduler import SchedulerConfig, SchedulerSignals, SchedulerV0, SchedulableThread
 
 __all__ = [
     "AttemptResult",
@@ -21,7 +22,11 @@ __all__ = [
     "LedgerEvent",
     "ProjectedState",
     "SchedulerAction",
+    "SchedulerConfig",
     "SchedulerDecision",
+    "SchedulerSignals",
+    "SchedulerV0",
+    "SchedulableThread",
     "SQLiteResearchLedger",
     "ThreadStateProjector",
     "WorkItem",
