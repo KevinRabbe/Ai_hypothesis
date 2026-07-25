@@ -9,7 +9,6 @@ from pathlib import Path
 from ai_hypothesis.runtime import (
     AttemptResult,
     AttemptStatus,
-    ControlConfig,
     RuntimeControlLoop,
     SchedulerAction,
     SchedulerConfig,
@@ -47,11 +46,13 @@ class WidthExecutionTests(unittest.TestCase):
                 loop = RuntimeControlLoop(
                     ledger=ledger,
                     scheduler=SchedulerV0(
-                        SchedulerConfig(exploration_probability=1.0)
+                        SchedulerConfig(
+                            exploration_probability=1.0,
+                            exploration_width=2,
+                        )
                     ),
                     worker_bank=bank,
                     worker_ids=("worker-a", "worker-b", "worker-c"),
-                    config=ControlConfig(add_width_count=2),
                 )
                 loop.create_thread(
                     thread_id="thread-1",
@@ -69,6 +70,7 @@ class WidthExecutionTests(unittest.TestCase):
                 )
 
                 self.assertEqual(step.decision.action, SchedulerAction.ADD_WIDTH)
+                self.assertEqual(step.decision.width, 2)
                 self.assertEqual(len(step.assignments), 2)
                 self.assertEqual(len(step.results), 2)
                 self.assertEqual(len(step.decision.work_item_ids), 2)
@@ -82,18 +84,20 @@ class WidthExecutionTests(unittest.TestCase):
                 self.assertEqual(len({a.worker_id for a in step.assignments}), 2)
                 self.assertEqual(bank.batches, [("worker-a", "worker-b")])
 
-    def test_width_is_capped_by_available_distinct_workers(self) -> None:
+    def test_scheduler_caps_width_by_available_distinct_workers(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             with SQLiteResearchLedger(Path(directory) / "ledger.sqlite") as ledger:
                 bank = _RecordingBank()
                 loop = RuntimeControlLoop(
                     ledger=ledger,
                     scheduler=SchedulerV0(
-                        SchedulerConfig(exploration_probability=1.0)
+                        SchedulerConfig(
+                            exploration_probability=1.0,
+                            exploration_width=10,
+                        )
                     ),
                     worker_bank=bank,
                     worker_ids=("worker-a", "worker-b"),
-                    config=ControlConfig(add_width_count=10),
                 )
                 loop.create_thread(thread_id="thread-1", objective="Explore")
 
@@ -106,6 +110,7 @@ class WidthExecutionTests(unittest.TestCase):
                     context_provider=lambda _state, _decision: WorkPreparation(),
                 )
 
+                self.assertEqual(step.decision.width, 2)
                 self.assertEqual(len(step.assignments), 2)
                 self.assertEqual(len({a.worker_id for a in step.assignments}), 2)
 
