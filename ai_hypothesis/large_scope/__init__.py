@@ -1,5 +1,6 @@
 """Large-scope benchmarks built from frozen local Worker v1 semantics."""
 
+from .coverage_planner import CoverageAwareScopePlanner, CoverageScopePlan
 from .evaluate import (
     ScopeEvaluation,
     ScopeWorkerMode,
@@ -36,6 +37,8 @@ from .runtime_bridge import (
 )
 
 __all__ = [
+    "CoverageAwareScopePlanner",
+    "CoverageScopePlan",
     "FixedScopeScheduler",
     "LARGE_SCOPE_BENCHMARK_VERSION",
     "LARGE_SCOPE_SPLIT_SEED_RANGES",
