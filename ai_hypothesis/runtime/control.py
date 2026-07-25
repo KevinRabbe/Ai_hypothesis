@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from .contracts import (
@@ -82,8 +82,6 @@ class WorkerSelectorV0:
         *,
         previous_worker_id: str | None,
     ) -> str:
-        # Continuing productive depth may reuse the current worker. Width, challenge,
-        # verification, synthesis, or explicit rotation prefer an independent weight.
         if action is SchedulerAction.CONTINUE and previous_worker_id in self.worker_ids:
             assert previous_worker_id is not None
             return previous_worker_id
@@ -166,7 +164,7 @@ class RuntimeControlLoop:
             self.projector.project(events, thread_id=thread_id) for thread_id in thread_ids
         )
         candidates = tuple(
-            SchedulableThread(state=state, signals=signal_provider(state))
+            SchedulableThread(state=state, signals=self._signals_for(state, signal_provider))
             for state in states
             if state.status != "COMPLETE"
         )
@@ -225,6 +223,19 @@ class RuntimeControlLoop:
         assignment = WorkerAssignment(worker_id=worker_id, work_item=item)
         result = self.worker_runtime.run_attempt(assignment, self.worker_bank)
         return ControlStep(selected_state, decision, assignment, result)
+
+    def _signals_for(
+        self,
+        state: ProjectedState,
+        signal_provider: SignalProvider,
+    ) -> SchedulerSignals:
+        signals = signal_provider(state)
+        if self.integration_tracker is None:
+            return signals
+        pressure = self.integration_tracker.pressure(thread_id=state.thread_id)
+        if pressure <= signals.integration_backlog:
+            return signals
+        return replace(signals, integration_backlog=pressure)
 
     @staticmethod
     def _thread_ids(events: Sequence[LedgerEvent]) -> tuple[str, ...]:
