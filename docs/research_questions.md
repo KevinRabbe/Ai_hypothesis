@@ -2,171 +2,79 @@
 
 ## Primary question
 
-At a fixed hardware and parameter budget, what is the smallest learned neural processing unit that still produces useful signal beyond deterministic logic, and can dynamically allocating populations of such units improve capability or resource efficiency compared with a conventional fixed dense model?
+At a fixed hardware and parameter budget, can a population of practical small learned workers produce more useful capability per unit of active compute than a conventional fixed dense model?
 
-## RQ1 — Minimum useful unit
+The project does **not** treat established engineering capabilities as research questions. Batching, multi-device execution, information tiling, coordinate/source tracking, deterministic routing, compiler fusion, and CPU/GPU task placement are implementation tools whose costs are profiled when used. Experiments are reserved for uncertainties whose answers depend on this population architecture.
 
-How does useful signal change as the identical unit architecture is progressively reduced in parameter count?
+## Closed exploration — worker shrinking
 
-Measure:
+The project has already pushed the worker architecture into the small-parameter regime. Further shrinking is not a goal by itself.
 
-- task accuracy;
-- precision and recall;
-- invalid or unusable outputs;
-- consistency;
-- useful information extracted;
-- noise rate;
-- inference latency;
-- memory use;
-- batch throughput.
+For the current phase:
 
-Key boundary:
+- ~50K is the frozen reference Worker v1 used by Step 2A;
+- ~25K / ~50K / ~75K remain useful worker-size candidates for later equal-budget organization comparisons;
+- smaller sizes are revisited only if population results provide a concrete reason.
 
-> At what size does further shrinking stop producing a useful learned transformation?
+The relevant worker question is practical capability, not minimum parameter count: useful output, latency, throughput, memory, and total system cost must all remain acceptable.
 
-## RQ2 — Learned value versus deterministic logic
+## RQ1 — Evidence utilization and minority rescue — ACTIVE
 
-For which transformations does a learned unit outperform or complement ordinary deterministic algorithms?
+When additional workers contain correct evidence that population mean evidence suppresses, can the runtime identify and use that evidence without trusting noisy minority outliers?
 
-A neural unit is not justified when a deterministic implementation is more reliable, cheaper, and equally capable.
+Measure separately:
 
-## RQ3 — Population scaling
+- whether the correct alternative is present in the population;
+- whether inference-visible evidence proposes it as a candidate;
+- whether a gate can distinguish useful minority candidates from harmful outliers;
+- rescued errors;
+- harmed correct decisions;
+- net accuracy/capability gain;
+- evidence provenance retention.
 
-For a viable unit size, how does system quality change as more identical units are allocated?
+The current 16-worker checkpoint already establishes a substantial oracle-any-correct gap, so this question comes before further population expansion.
 
-Test widths such as:
+## RQ2 — Useful population-width region
+
+With Worker v1 and an evidence-utilization mechanism held fixed, how does useful output change as population width increases?
+
+Candidate widths include:
 
 - 1;
 - 4;
 - 16;
 - 64;
-- 256;
-- larger widths when hardware and results justify them.
-
-The objective is not majority voting. Measure whether additional units increase evidence coverage, unique findings, ambiguity resolution, or error detection.
-
-## RQ4 — Correlation and diversity
-
-How similar should independently weighted units be?
-
-Too much functional correlation may create many copies of the same failure mode. Too little correlation may produce incompatible or noisy outputs.
-
-Measure functional diversity under controlled changes to:
-
-- initialization;
-- sample order;
-- dropout or masking;
-- optimization trajectory.
-
-All compared units should retain the same architecture and overall training distribution.
-
-## RQ5 — Adaptive worker allocation
-
-Can the runtime begin with a small worker allocation and add workers only when more learned processing is useful?
-
-Possible triggers include:
-
-- low signal quality;
-- unresolved contradiction;
-- missing discriminating evidence;
-- high local information density;
-- high disagreement;
-- boundary uncertainty;
-- failure of a prior prediction.
-
-Compare adaptive allocation against fixed-width execution under equal end-to-end resource budgets.
-
-## RQ6 — Information partitioning
-
-Can large information spaces be divided across tiny units without losing important cross-boundary relationships?
-
-Study:
-
-- overlapping partitions;
-- semantic boundaries;
-- cross-boundary reprocessing;
-- source pointers;
-- targeted zoom-in on uncertain regions.
-
-Candidate modalities include text, images, logs, and structured state.
-
-## RQ7 — Hierarchical recombination
-
-How can thousands of local outputs be recursively reduced without recreating a single-context bottleneck?
-
-The aggregation system must preserve access to original evidence so compressed representations can be challenged and expanded.
-
-## RQ8 — Evidence preservation
-
-How should the runtime preserve rare but decisive evidence?
-
-A minority of workers may observe critical evidence that most workers never received.
+- 256 only when smaller widths justify it.
 
 Measure:
 
-- unique finding recall;
-- evidence provenance retention;
-- contradiction preservation;
-- failure rate from premature aggregation or averaging.
+- final task quality;
+- oracle-any-correct coverage;
+- unique findings;
+- minority/rare evidence opportunities;
+- functional correlation and shared failure modes;
+- latency and throughput;
+- end-to-end coordination cost.
 
-## RQ9 — Coordination overhead
+Worker diversity is measured here as a population property rather than treated as a separate research program.
 
-At what granularity do routing, weight gathering, data movement, synchronization, and aggregation become more expensive than the neural computation saved?
+## RQ3 — Fixed-budget worker organization
 
-End-to-end measurements must include:
+Under an equal total learned-parameter and hardware budget, which homogeneous worker size gives the best system-level result?
 
-- neural execution;
-- routing;
-- batching;
-- memory transfers;
-- aggregation;
-- scheduling;
-- idle time.
+Initial candidates:
 
-A configuration fails if organization overhead dominates useful compute.
+- ~25K workers;
+- ~50K workers;
+- ~75K workers.
 
-## RQ10 — GPU batch efficiency
+Compare populations with as closely matched total parameter budgets as practical. The objective is to find the practical organization sweet spot, not the smallest individual worker.
 
-Can large numbers of identical small units be executed as efficient batched matrix operations rather than thousands of tiny launches?
+## RQ4 — Population versus dense baseline
 
-Measure utilization and throughput as unit size and batch width change.
+Under normalized training data, parameter budget, hardware, runtime budget, and evaluation data, does the best population organization outperform a conventional dense baseline on any meaningful capability/resource frontier?
 
-## RQ11 — CPU/GPU scheduling
-
-Which operations belong on CPU versus GPU for consumer hardware?
-
-Initial hypothesis:
-
-CPU:
-
-- scheduling;
-- deterministic logic;
-- evidence graphs;
-- queues;
-- partitioning;
-- aggregation;
-- resource control.
-
-GPU:
-
-- batched learned transformations;
-- training forward/backward passes;
-- large parallel worker batches.
-
-The allocation should be decided by profiling, not by fixed assumptions.
-
-## RQ12 — Fixed-budget comparison
-
-Under equal or carefully normalized parameter, training-data, hardware, and runtime budgets, how do different organizations compare?
-
-Example comparison:
-
-- one dense network;
-- few larger units;
-- medium population;
-- large population of smaller units.
-
-Metrics:
+Measure:
 
 - final task quality;
 - useful information extracted;
@@ -175,26 +83,73 @@ Metrics:
 - throughput;
 - RAM and VRAM;
 - active learned parameters;
-- coordination overhead;
-- compute efficiency.
+- end-to-end coordination overhead;
+- compute and energy efficiency where measurable.
 
-## RQ13 — Scaling toward 1B total parameters
+This is the decisive test of the central hypothesis.
 
-If a smaller experiment demonstrates a measurable advantage, does that advantage persist as the total learned parameter population grows toward approximately 1 billion parameters?
+## RQ5 — Compiler effect — SEPARATE VARIABLE
 
-Scaling is a separate hypothesis and must be retested rather than assumed.
+How much does compilation/execution planning improve the already-defined population architecture?
 
-## RQ14 — Workload dependence
+Compare the same workers, workload, population policy, and hardware under execution modes such as:
 
-Which workloads benefit from this architecture?
+- ordinary eager/runtime orchestration;
+- batching/vectorization;
+- compiled/fused execution;
+- compiled memory/scheduling improvements where available.
 
-Likely candidates to test include workloads where information is divisible and only some regions deserve expensive processing:
+Compiler gains must not be attributed to the neural architecture itself.
 
-- large document analysis;
+## RQ6 — Adaptive worker allocation
+
+Once a useful fixed-width population exists, can the runtime begin with a small allocation and add workers only when additional learned processing is likely to help?
+
+Candidate triggers include:
+
+- unresolved contradiction;
+- missing discriminating evidence;
+- low signal quality;
+- disagreement;
+- local information density;
+- failure of an earlier processing round.
+
+Compare adaptive execution against fixed-width execution under equal end-to-end budgets.
+
+## RQ7 — Real-workload usefulness
+
+Which real workloads actually benefit from the architecture?
+
+Candidates include:
+
+- large-document analysis;
 - image-region understanding;
 - logs and event streams;
 - codebase analysis;
 - anomaly discovery;
 - multi-stage planning.
 
-The architecture does not need to outperform dense models on every task to be useful.
+Information partitioning, coordinates/source pointers, overlap, zoom-in, and hierarchical reduction are not treated as discoveries by themselves. They are implementation techniques. What must be measured is whether the complete population system preserves decisive cross-region evidence and provides a useful capability/resource advantage on the workload.
+
+## RQ8 — Scaling after advantage
+
+Only if a smaller system demonstrates a reproducible advantage: does that advantage survive as total learned capacity and workload scale increase?
+
+Scaling toward approximately 1B total learned parameters is a later hypothesis, not an assumption and not a current milestone.
+
+## Measurements that apply across questions
+
+These are required instrumentation, not separate research questions:
+
+- neural execution time;
+- routing and aggregation time;
+- batching efficiency;
+- memory transfers;
+- synchronization/idle time;
+- CPU/GPU utilization;
+- RAM/VRAM;
+- communication volume inside the local machine;
+- compiler mode;
+- evidence provenance and loss.
+
+A configuration fails when organization overhead or latency makes the workers impractical even if raw accuracy improves.
