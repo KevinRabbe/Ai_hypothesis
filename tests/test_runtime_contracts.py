@@ -65,6 +65,7 @@ class RuntimeContractTests(unittest.TestCase):
         state = ProjectedState(
             revision=12,
             thread_id="thread-1",
+            objective="Verify H2",
             status="ACTIVE",
             purpose=WorkPurpose.VERIFY,
             reference_ids=("claim-2", "evidence-4"),
@@ -72,6 +73,7 @@ class RuntimeContractTests(unittest.TestCase):
         )
         state.validate()
         self.assertEqual(state.revision, 12)
+        self.assertEqual(state.objective, "Verify H2")
 
     def test_scheduler_decision_does_not_require_global_history(self) -> None:
         decision = SchedulerDecision(
