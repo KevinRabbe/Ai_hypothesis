@@ -155,7 +155,7 @@ class RuntimeControlLoop:
         context_provider: ContextProvider,
         integration_backpressure: bool | None = None,
     ) -> ControlStep:
-        events = self.ledger.read_events()
+        events = self.ledger.read_all_events()
         thread_ids = self._thread_ids(events)
         if not thread_ids:
             raise ValueError("runtime has no Work Threads")
