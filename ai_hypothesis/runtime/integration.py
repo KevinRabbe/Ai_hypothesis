@@ -97,10 +97,15 @@ class IntegrationTracker:
             },
         )
 
-    def snapshot(self) -> IntegrationSnapshot:
-        return self.project(self.ledger.read_events())
+    def snapshot(self, *, thread_id: str | None = None) -> IntegrationSnapshot:
+        return self.project(self.ledger.read_events(), thread_id=thread_id)
 
-    def project(self, events: Sequence[LedgerEvent]) -> IntegrationSnapshot:
+    def project(
+        self,
+        events: Sequence[LedgerEvent],
+        *,
+        thread_id: str | None = None,
+    ) -> IntegrationSnapshot:
         evidence_sequences: dict[str, int] = {}
         dispositioned: set[str] = set()
         knowledge_delta_count = 0
@@ -115,13 +120,16 @@ class IntegrationTracker:
             revision = event.sequence
 
             if event.event_type == "EVIDENCE_ADDED":
+                if thread_id is not None and event.thread_id != thread_id:
+                    continue
                 evidence_id = event.payload.get("evidence_id")
                 if isinstance(evidence_id, str) and evidence_id:
                     evidence_sequences.setdefault(evidence_id, event.sequence)
             elif event.event_type == "INTEGRATION_DISPOSITION_RECORDED":
                 dispositioned.update(event.reference_ids)
             elif event.event_type == "KNOWLEDGE_DELTA_RECORDED":
-                knowledge_delta_count += 1
+                if thread_id is None or event.thread_id == thread_id:
+                    knowledge_delta_count += 1
 
         backlog = tuple(
             evidence_id
@@ -145,6 +153,18 @@ class IntegrationTracker:
             oldest_backlog_age_sequences=age,
         )
 
+    def pressure(self, *, thread_id: str | None = None) -> float:
+        snapshot = self.snapshot(thread_id=thread_id)
+        count_pressure = self._ratio(
+            snapshot.backlog_count,
+            self.config.max_backlog_count,
+        )
+        age_pressure = self._ratio(
+            snapshot.oldest_backlog_age_sequences,
+            self.config.max_backlog_age_sequences,
+        )
+        return max(count_pressure, age_pressure)
+
     def is_backpressured(self) -> bool:
         snapshot = self.snapshot()
         return (
@@ -152,3 +172,11 @@ class IntegrationTracker:
             or snapshot.oldest_backlog_age_sequences
             > self.config.max_backlog_age_sequences
         )
+
+    @staticmethod
+    def _ratio(value: int, limit: int) -> float:
+        if value <= 0:
+            return 0.0
+        if limit <= 0:
+            return 1.0
+        return min(1.0, value / float(limit))
