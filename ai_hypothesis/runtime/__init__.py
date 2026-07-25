@@ -14,10 +14,10 @@ from .contracts import (
 from .ledger import SQLiteResearchLedger
 from .projector import ThreadStateProjector
 from .scheduler import SchedulerConfig, SchedulerSignals, SchedulerV0, SchedulableThread
-from .worker_runtime import AttemptExecutor, WorkerAssignment, WorkerRuntime
+from .worker_runtime import AttemptRequest, WorkerAssignment, WorkerBank, WorkerRuntime
 
 __all__ = [
-    "AttemptExecutor",
+    "AttemptRequest",
     "AttemptResult",
     "AttemptStatus",
     "KnowledgeDelta",
@@ -32,6 +32,7 @@ __all__ = [
     "SQLiteResearchLedger",
     "ThreadStateProjector",
     "WorkerAssignment",
+    "WorkerBank",
     "WorkerRuntime",
     "WorkItem",
     "WorkPurpose",
