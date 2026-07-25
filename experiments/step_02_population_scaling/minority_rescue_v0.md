@@ -59,14 +59,17 @@ Fit a tiny logistic gate on the development half of validation data. The gate re
 
 The diagnostic target is whether switching from the current primary label to the proposed minority candidate would correct the sample.
 
-The target is used only during validation calibration. It is not part of inference.
+The target is used only during validation fitting/threshold selection. It is not part of inference. Because the fit uses class weighting, the sigmoid output is treated as a **decision/ranking score**, not as a calibrated probability. The operating threshold is selected separately on development data under the explicit harm budget.
 
 ## Data separation
 
 Only answerable validation samples are used for the label-selection diagnostic.
 
-- even answerable row indices: development/calibration;
-- odd answerable row indices: untouched confirmation.
+- answerable rows are deterministically shuffled with a fixed split seed;
+- one half is development/fitting/threshold-selection data;
+- the complementary half is untouched confirmation data.
+
+The benchmark cycles task and difficulty deterministically by dataset row, so a simple even/odd split is intentionally avoided to prevent systematic task/difficulty composition differences between development and confirmation.
 
 The threshold is selected on development data under an explicit total-harm budget and then applied once to confirmation data.
 
@@ -107,7 +110,7 @@ The population contains useful alternatives, but current inference-visible evide
 
 ### Outcome 3 — confirmation improves under a small harm budget
 
-Promote the calibrated rescue mechanism to a reducer-v1 candidate and compare it against mean-logit, mean-probability, majority, and reducer-v0 controls.
+Promote the threshold-calibrated rescue mechanism to a reducer-v1 candidate and compare it against mean-logit, mean-probability, majority, and reducer-v0 controls.
 
 ### Outcome 4 — development improves but confirmation does not
 
