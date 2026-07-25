@@ -33,6 +33,7 @@ from .knowledge import (
     KnowledgeStateProjector,
     KnowledgeStatus,
 )
+from .knowledge_work import prepare_bounded_knowledge_work
 from .ledger import SQLiteResearchLedger
 from .projector import ThreadStateProjector
 from .scheduler import SchedulerConfig, SchedulerSignals, SchedulerV0, SchedulableThread
@@ -79,4 +80,5 @@ __all__ = [
     "WorkPreparation",
     "WorkPurpose",
     "prepare_bounded_integration_work",
+    "prepare_bounded_knowledge_work",
 ]
