@@ -56,6 +56,8 @@ A deferred experiment should record at least:
 - what future decision would make the result relevant;
 - which implementation may change if the assumption is falsified.
 
+The canonical list is [`deferred_experiments.md`](deferred_experiments.md).
+
 The minority-rescue diagnostic is one example: its implementation remains available and reproducible, but its GPU run does not block construction of the population runtime because the runtime contracts do not depend on whether that specific rescue gate succeeds.
 
 ## No speculative overbuilding
