@@ -27,6 +27,7 @@ class SchedulerSignals:
     dependency_impact: float = 0.0
     recent_progress: float = 0.0
     verification_need: float = 0.0
+    integration_backlog: float = 0.0
     starvation: float = 0.0
     estimated_cost: float = 0.0
 
@@ -40,6 +41,7 @@ class SchedulerSignals:
             ("dependency_impact", self.dependency_impact),
             ("recent_progress", self.recent_progress),
             ("verification_need", self.verification_need),
+            ("integration_backlog", self.integration_backlog),
             ("starvation", self.starvation),
             ("estimated_cost", self.estimated_cost),
         ):
@@ -106,11 +108,19 @@ class SchedulerV0:
             and self._rng.random() < self.config.exploration_probability
         )
 
-        selected = (
-            self._choose_exploration(active)
-            if exploring
-            else max(active, key=self._priority_score)
-        )
+        if integration_backpressure:
+            selected = max(
+                active,
+                key=lambda candidate: (
+                    candidate.signals.integration_backlog,
+                    self._priority_score(candidate),
+                ),
+            )
+        elif exploring:
+            selected = self._choose_exploration(active)
+        else:
+            selected = max(active, key=self._priority_score)
+
         action, purpose, reason_codes = self._choose_action(
             selected,
             exploring=exploring,
@@ -139,6 +149,7 @@ class SchedulerV0:
             + signals.dependency_impact
             + signals.recent_progress
             + signals.verification_need
+            + signals.integration_backlog
             + signals.starvation
             - signals.estimated_cost
         )
