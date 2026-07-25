@@ -31,6 +31,17 @@ class LargeScopeCliTests(unittest.TestCase):
                 ]
             )
 
+    def test_invalid_world_batch_size_fails_before_checkpoint_loading(self) -> None:
+        with self.assertRaisesRegex(SystemExit, "--world-batch-size must be positive"):
+            main(
+                [
+                    "--checkpoints",
+                    "does-not-need-to-exist.pt",
+                    "--world-batch-size",
+                    "0",
+                ]
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
