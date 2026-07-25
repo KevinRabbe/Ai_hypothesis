@@ -14,6 +14,12 @@ from .metrics import (
     ScopeMetricsAccumulator,
     summarize_scope_evaluations,
 )
+from .persistent_experiment import (
+    PersistentScopeEvaluation,
+    PersistentScopeEvaluationProjector,
+    PersistentScopeExperiment,
+    PersistentScopeWorkerSelector,
+)
 from .relevance import (
     LARGE_SCOPE_BENCHMARK_VERSION,
     LARGE_SCOPE_SPLIT_SEED_RANGES,
@@ -46,6 +52,10 @@ __all__ = [
     "LargeScopeRelevanceSample",
     "LargeScopeRuntimeContextProvider",
     "LargeScopeRuntimeWorkerBank",
+    "PersistentScopeEvaluation",
+    "PersistentScopeEvaluationProjector",
+    "PersistentScopeExperiment",
+    "PersistentScopeWorkerSelector",
     "PlannedScopeWorkerSelector",
     "ScopeConditionSummary",
     "ScopeEvaluation",

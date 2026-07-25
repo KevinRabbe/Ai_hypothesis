@@ -93,6 +93,55 @@ class Step02PopulationTests(unittest.TestCase):
 
             self.assertEqual(tuple(output.label_logits.shape), (2, 2, 11))
             self.assertEqual(tuple(output.uncertainty_logits.shape), (2, 2))
+            self.assertEqual(len(bank.checkpoint_ids), 2)
+            self.assertNotEqual(bank.checkpoint_ids[0], bank.checkpoint_ids[1])
+            self.assertTrue(
+                all(identity.startswith("weights-sha256-") for identity in bank.checkpoint_ids)
+            )
+
+    def test_worker_identity_depends_on_weights_not_checkpoint_path(self) -> None:
+        config = UnitConfig(
+            d_model=32,
+            block_count=1,
+            attention_heads=4,
+            feed_forward_width=64,
+            dropout=0.0,
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            first_path = root / "first-name.pt"
+            second_path = root / "other-name.pt"
+            self._write_checkpoint(first_path, config, seed=9)
+            self._write_checkpoint(second_path, config, seed=9)
+
+            first = HomogeneousWorkerBank.from_checkpoints(
+                [first_path], device="cpu", execution_backend="loop"
+            )
+            second = HomogeneousWorkerBank.from_checkpoints(
+                [second_path], device="cpu", execution_backend="loop"
+            )
+            self.assertEqual(first.checkpoint_ids, second.checkpoint_ids)
+
+    def test_worker_bank_rejects_duplicate_weight_identities(self) -> None:
+        config = UnitConfig(
+            d_model=32,
+            block_count=1,
+            attention_heads=4,
+            feed_forward_width=64,
+            dropout=0.0,
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            paths = [root / "copy-a.pt", root / "copy-b.pt"]
+            self._write_checkpoint(paths[0], config, seed=11)
+            self._write_checkpoint(paths[1], config, seed=11)
+
+            with self.assertRaisesRegex(ValueError, "duplicate worker weight identities"):
+                HomogeneousWorkerBank.from_checkpoints(
+                    paths,
+                    device="cpu",
+                    execution_backend="loop",
+                )
 
     def test_worker_bank_rejects_mixed_architectures(self) -> None:
         config_a = UnitConfig(

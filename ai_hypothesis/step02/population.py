@@ -6,7 +6,10 @@ learned weights, but mixed worker shapes are rejected before execution.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import hashlib
+import json
+from collections.abc import Mapping
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import NamedTuple, Sequence
 
@@ -33,6 +36,7 @@ class LoadedCheckpoint:
     path: str
     step: int | None
     validation_score: float | None
+    checkpoint_id: str | None = None
 
 
 class HomogeneousWorkerBank:
@@ -59,17 +63,48 @@ class HomogeneousWorkerBank:
         if not checkpoints:
             raise ValueError("worker bank must contain at least one checkpoint")
 
-        self.template = template
-        self.params = params
-        self.buffers = buffers
-        self.checkpoints = checkpoints
-        self.device = device
-        self.execution_backend = execution_backend
-
         worker_counts = {value.shape[0] for value in params.values()}
         worker_counts.update(value.shape[0] for value in buffers.values())
         if worker_counts and worker_counts != {len(checkpoints)}:
             raise ValueError("stacked worker state has inconsistent population width")
+
+        resolved_checkpoints: list[LoadedCheckpoint] = []
+        for worker_index, checkpoint in enumerate(checkpoints):
+            checkpoint_id = checkpoint.checkpoint_id
+            if checkpoint_id is None:
+                worker_state = {
+                    name: value[worker_index]
+                    for name, value in params.items()
+                }
+                worker_state.update(
+                    {
+                        name: value[worker_index]
+                        for name, value in buffers.items()
+                    }
+                )
+                checkpoint_id = _worker_state_id(worker_state, template.config)
+            elif not checkpoint_id.strip():
+                raise ValueError("checkpoint_id must be non-empty when supplied")
+            resolved_checkpoints.append(
+                replace(checkpoint, checkpoint_id=checkpoint_id)
+            )
+
+        checkpoint_ids = tuple(
+            checkpoint.checkpoint_id for checkpoint in resolved_checkpoints
+        )
+        if any(checkpoint_id is None for checkpoint_id in checkpoint_ids):
+            raise RuntimeError("worker checkpoint identity resolution failed")
+        if len(set(checkpoint_ids)) != len(checkpoint_ids):
+            raise ValueError(
+                "duplicate worker weight identities are not allowed in one population"
+            )
+
+        self.template = template
+        self.params = params
+        self.buffers = buffers
+        self.checkpoints = tuple(resolved_checkpoints)
+        self.device = device
+        self.execution_backend = execution_backend
 
     @property
     def population_width(self) -> int:
@@ -78,6 +113,15 @@ class HomogeneousWorkerBank:
     @property
     def unit_config(self) -> UnitConfig:
         return self.template.config
+
+    @property
+    def checkpoint_ids(self) -> tuple[str, ...]:
+        identities = tuple(
+            checkpoint.checkpoint_id for checkpoint in self.checkpoints
+        )
+        if any(identity is None for identity in identities):
+            raise RuntimeError("worker bank contains unresolved checkpoint identity")
+        return tuple(str(identity) for identity in identities)
 
     @classmethod
     def from_checkpoints(
@@ -130,6 +174,7 @@ class HomogeneousWorkerBank:
                         if validation_score is not None
                         else None
                     ),
+                    checkpoint_id=_worker_state_id(model.state_dict(), config),
                 )
             )
 
@@ -288,3 +333,34 @@ class HomogeneousWorkerBank:
             )
 
     __call__ = forward
+
+
+def _worker_state_id(
+    state: Mapping[str, torch.Tensor],
+    config: UnitConfig,
+) -> str:
+    """Hash exact learned state plus structural config into stable worker identity."""
+
+    digest = hashlib.sha256()
+    digest.update(
+        json.dumps(
+            asdict(config),
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        ).encode("utf-8")
+    )
+    for name in sorted(state):
+        tensor = state[name]
+        if not isinstance(tensor, torch.Tensor):
+            raise ValueError("worker state must contain only tensors")
+        if tensor.layout is not torch.strided:
+            raise ValueError("worker state identity requires dense strided tensors")
+        dense = tensor.detach().contiguous().reshape(-1)
+        raw = dense.view(torch.uint8).cpu().numpy().tobytes()
+        digest.update(name.encode("utf-8"))
+        digest.update(str(tensor.dtype).encode("ascii"))
+        digest.update(str(tuple(tensor.shape)).encode("ascii"))
+        digest.update(len(raw).to_bytes(8, "big"))
+        digest.update(raw)
+    return f"weights-sha256-{digest.hexdigest()}"
