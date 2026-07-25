@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, replace
 from enum import Enum
+from typing import Any
 
 from .contracts import KnowledgeAssessmentKind, LedgerEvent
 
@@ -42,6 +43,22 @@ class KnowledgeRecord:
     def is_active(self) -> bool:
         return self.status is not KnowledgeStatus.RETRACTED
 
+    def to_context_record(self) -> dict[str, Any]:
+        return {
+            "delta_id": self.delta_id,
+            "kind": self.kind,
+            "summary": self.summary,
+            "source_reference_ids": list(self.source_reference_ids),
+            "causal_event_ids": list(self.causal_event_ids),
+            "thread_id": self.thread_id,
+            "created_event_id": self.created_event_id,
+            "created_sequence": self.created_sequence,
+            "status": self.status.value,
+            "assessment_reason": self.assessment_reason,
+            "assessment_event_id": self.assessment_event_id,
+            "assessment_sequence": self.assessment_sequence,
+        }
+
 
 @dataclass(frozen=True, slots=True)
 class KnowledgeSnapshot:
@@ -53,6 +70,38 @@ class KnowledgeSnapshot:
             if record.delta_id == delta_id:
                 return record
         return None
+
+    def select(
+        self,
+        delta_ids: Sequence[str],
+        *,
+        limit: int,
+    ) -> tuple[KnowledgeRecord, ...]:
+        """Return only explicitly requested knowledge, hard-capped by ``limit``.
+
+        Relevance is deliberately not inferred here. Callers choose IDs; this helper
+        only enforces bounded context and stable identity.
+        """
+
+        if limit <= 0:
+            raise ValueError("limit must be positive")
+        index = {record.delta_id: record for record in self.records}
+        selected: list[KnowledgeRecord] = []
+        seen: set[str] = set()
+        for delta_id in delta_ids:
+            if not delta_id or not delta_id.strip():
+                raise ValueError("delta IDs must be non-empty")
+            if delta_id in seen:
+                continue
+            try:
+                record = index[delta_id]
+            except KeyError as error:
+                raise ValueError(f"unknown knowledge delta {delta_id!r}") from error
+            selected.append(record)
+            seen.add(delta_id)
+            if len(selected) >= limit:
+                break
+        return tuple(selected)
 
     @property
     def active_records(self) -> tuple[KnowledgeRecord, ...]:
