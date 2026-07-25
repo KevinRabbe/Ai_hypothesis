@@ -8,7 +8,7 @@ result; this projector does not promote anything to accepted knowledge by policy
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from enum import Enum
 from typing import Any
 
@@ -47,11 +47,7 @@ class VerificationAttempt:
     result_evidence_ids: tuple[str, ...] = ()
     verifier_worker_id: str | None = None
     notes: str | None = None
-    data: Mapping[str, Any] = None  # type: ignore[assignment]
-
-    def __post_init__(self) -> None:
-        if self.data is None:
-            object.__setattr__(self, "data", {})
+    data: Mapping[str, Any] = field(default_factory=dict)
 
     def validate(self) -> None:
         for name, value in (
@@ -256,7 +252,7 @@ class VerificationStateProjector:
                 result_evidence_ids=result_ids,
                 verifier_worker_id=verifier_worker_id,
                 notes=notes,
-                data=dict(data),
+                data={**current.data, **dict(data)},
             )
 
         projected = tuple(attempts.values())
