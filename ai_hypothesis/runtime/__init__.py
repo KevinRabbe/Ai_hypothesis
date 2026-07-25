@@ -13,6 +13,12 @@ from .contracts import (
     WorkPurpose,
 )
 from .control import ControlStep, RuntimeControlLoop, WorkerSelectorV0, WorkPreparation
+from .integration import (
+    IntegrationBackpressureConfig,
+    IntegrationDisposition,
+    IntegrationSnapshot,
+    IntegrationTracker,
+)
 from .ledger import SQLiteResearchLedger
 from .projector import ThreadStateProjector
 from .scheduler import SchedulerConfig, SchedulerSignals, SchedulerV0, SchedulableThread
@@ -24,6 +30,10 @@ __all__ = [
     "AttemptStatus",
     "ControlStep",
     "EvidenceContribution",
+    "IntegrationBackpressureConfig",
+    "IntegrationDisposition",
+    "IntegrationSnapshot",
+    "IntegrationTracker",
     "KnowledgeDelta",
     "LedgerEvent",
     "ProjectedState",
