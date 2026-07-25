@@ -21,6 +21,7 @@ from .contracts import (
     WorkItem,
     WorkPurpose,
 )
+from .integration import IntegrationTracker
 from .ledger import SQLiteResearchLedger
 from .projector import ThreadStateProjector
 from .scheduler import SchedulerSignals, SchedulerV0, SchedulableThread
@@ -111,6 +112,7 @@ class RuntimeControlLoop:
         projector: ThreadStateProjector | None = None,
         worker_runtime: WorkerRuntime | None = None,
         worker_selector: WorkerSelectorV0 | None = None,
+        integration_tracker: IntegrationTracker | None = None,
     ) -> None:
         self.ledger = ledger
         self.scheduler = scheduler
@@ -118,6 +120,7 @@ class RuntimeControlLoop:
         self.projector = projector or ThreadStateProjector()
         self.worker_runtime = worker_runtime or WorkerRuntime(ledger)
         self.worker_selector = worker_selector or WorkerSelectorV0(worker_ids)
+        self.integration_tracker = integration_tracker
 
     def create_thread(
         self,
@@ -152,7 +155,7 @@ class RuntimeControlLoop:
         *,
         signal_provider: SignalProvider,
         context_provider: ContextProvider,
-        integration_backpressure: bool = False,
+        integration_backpressure: bool | None = None,
     ) -> ControlStep:
         events = self.ledger.read_events()
         thread_ids = self._thread_ids(events)
@@ -167,9 +170,18 @@ class RuntimeControlLoop:
             for state in states
             if state.status != "COMPLETE"
         )
+        if integration_backpressure is None:
+            resolved_backpressure = (
+                self.integration_tracker.is_backpressured()
+                if self.integration_tracker is not None
+                else False
+            )
+        else:
+            resolved_backpressure = integration_backpressure
+
         decision = self.scheduler.choose(
             candidates,
-            integration_backpressure=integration_backpressure,
+            integration_backpressure=resolved_backpressure,
         )
         selected_state = next(
             state for state in states if state.thread_id == decision.thread_id
