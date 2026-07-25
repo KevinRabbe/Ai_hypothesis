@@ -63,12 +63,21 @@ class WorkerRuntime:
                 self._record_execution_error(request, started_event_ids[request.attempt_id], "ATTEMPT_INVALID_RESULT", error)
             raise error
 
+        recorded_delta_ids = (
+            self._recorded_knowledge_delta_ids()
+            if any(result.knowledge_assessments for result in results)
+            else None
+        )
         valid_pairs: list[tuple[AttemptRequest, AttemptResult]] = []
         validation_errors: list[Exception] = []
         for request, result in zip(requests, results, strict=True):
             try:
                 result.validate()
-                self._validate_result(result, request)
+                self._validate_result(
+                    result,
+                    request,
+                    recorded_delta_ids=recorded_delta_ids,
+                )
             except Exception as error:
                 self._record_execution_error(request, started_event_ids[request.attempt_id], "ATTEMPT_INVALID_RESULT", error)
                 validation_errors.append(error)
@@ -112,7 +121,13 @@ class WorkerRuntime:
             },
         )
 
-    def _validate_result(self, result: AttemptResult, request: AttemptRequest) -> None:
+    def _validate_result(
+        self,
+        result: AttemptResult,
+        request: AttemptRequest,
+        *,
+        recorded_delta_ids: set[str] | None,
+    ) -> None:
         item = request.work_item
         if result.attempt_id != request.attempt_id:
             raise ValueError("worker bank returned a mismatched attempt_id")
@@ -142,6 +157,18 @@ class WorkerRuntime:
             unauthorized = set(assessment.delta_ids) - set(item.reference_ids)
             if unauthorized:
                 raise ValueError("worker attempted to assess knowledge outside its Work Item authority")
+            if recorded_delta_ids is None or not set(assessment.delta_ids) <= recorded_delta_ids:
+                raise ValueError("worker attempted to assess a nonexistent knowledge delta")
+
+    def _recorded_knowledge_delta_ids(self) -> set[str]:
+        delta_ids: set[str] = set()
+        for event in self._ledger.read_all_events():
+            if event.event_type != "KNOWLEDGE_DELTA_RECORDED":
+                continue
+            delta_id = event.payload.get("delta_id")
+            if isinstance(delta_id, str) and delta_id:
+                delta_ids.add(delta_id)
+        return delta_ids
 
     def _commit_result(self, result: AttemptResult, *, parent_event_id: str) -> None:
         common = {"thread_id": result.thread_id, "attempt_id": result.attempt_id, "parent_event_ids": (parent_event_id,)}
