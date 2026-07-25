@@ -40,7 +40,12 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--backend", choices=("vmap", "loop"), default="vmap")
     parser.add_argument("--count", type=int, default=20_000)
     parser.add_argument("--batch-size", type=int, default=256)
-    parser.add_argument("--seed", type=int, default=1)
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=1,
+        help="Deterministic development/confirmation split seed.",
+    )
     parser.add_argument("--aggregation-config", default=None)
     parser.add_argument("--max-harm-rate", type=float, default=0.001)
     parser.add_argument("--fit-steps", type=int, default=600)
@@ -67,6 +72,33 @@ def _load_aggregation_config(path: str | None) -> AggregationConfig:
     config = AggregationConfig(**payload)
     config.validate()
     return config
+
+
+def _development_confirmation_masks(
+    count: int,
+    *,
+    seed: int,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Return reproducible random half-split masks over answerable validation rows.
+
+    The benchmark cycles task/difficulty pairs deterministically by row index, so an
+    even/odd split can systematically separate task/difficulty compositions. A fixed
+    random permutation keeps the validation-only leakage boundary while avoiding that
+    structural partition.
+    """
+
+    if count < 2:
+        raise ValueError("at least two answerable rows are required for splitting")
+
+    generator = torch.Generator()
+    generator.manual_seed(seed)
+    order = torch.randperm(count, generator=generator)
+    development_count = count // 2
+
+    development_mask = torch.zeros(count, dtype=torch.bool)
+    development_mask[order[:development_count]] = True
+    confirmation_mask = ~development_mask
+    return development_mask, confirmation_mask
 
 
 def _candidate_summary(
@@ -177,9 +209,10 @@ def main() -> None:
         aggregation_config,
     )
 
-    row_indices = torch.arange(features.shape[0])
-    development_mask = (row_indices % 2) == 0
-    confirmation_mask = ~development_mask
+    development_mask, confirmation_mask = _development_confirmation_masks(
+        features.shape[0],
+        seed=args.seed,
+    )
     improvement_targets = (~primary_correct & candidate_correct).to(torch.float32)
 
     gate = fit_rescue_gate(
@@ -229,8 +262,9 @@ def main() -> None:
         "backend": args.backend,
         "count_requested": args.count,
         "answerable_count": int(features.shape[0]),
-        "development_rule": "answerable row index even",
-        "confirmation_rule": "answerable row index odd",
+        "split_seed": args.seed,
+        "development_rule": "seeded random half of answerable validation rows",
+        "confirmation_rule": "complementary seeded random half of answerable validation rows",
         "aggregation_config": asdict(aggregation_config),
         "feature_names": list(MINORITY_RESCUE_FEATURE_NAMES),
         "gate": asdict(gate),
