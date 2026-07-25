@@ -127,7 +127,7 @@ class LargeScopeRuntimeBridgeTests(unittest.TestCase):
                     data["not_relevant_evidence"], row.not_relevant_evidence, places=6
                 )
                 self.assertAlmostEqual(
-                    data["uncertainty"], row.uncertainty_probability, places=6
+                    event.payload["uncertainty"], row.uncertainty_probability, places=6
                 )
                 self.assertAlmostEqual(
                     data["invalid_label_mass"], row.invalid_label_mass, places=6
