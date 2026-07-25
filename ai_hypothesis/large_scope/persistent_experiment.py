@@ -8,7 +8,7 @@ and later routing policies can be compared against the direct fixed-prefix bench
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import Sequence
 
 from ai_hypothesis.runtime import (
@@ -24,8 +24,17 @@ from ai_hypothesis.step02.evidence import AggregationConfig
 
 from .coverage_planner import CoverageAwareScopePlanner
 from .evaluate import ScopeWorkerMode, SelectedWorkerBank, WindowEvidence
-from .relevance import LARGE_SCOPE_BENCHMARK_VERSION, LargeScopeRelevanceSample, diverse_worker_indices, same_worker_indices
-from .runtime_bridge import FixedScopeScheduler, LargeScopeRuntimeWorkerBank, large_scope_region_id
+from .relevance import (
+    LARGE_SCOPE_BENCHMARK_VERSION,
+    LargeScopeRelevanceSample,
+    diverse_worker_indices,
+    same_worker_indices,
+)
+from .runtime_bridge import (
+    FixedScopeScheduler,
+    LargeScopeRuntimeWorkerBank,
+    large_scope_region_id,
+)
 
 
 _RUNTIME_EVIDENCE_KIND = "LARGE_SCOPE_RELEVANCE_WINDOW"
@@ -135,6 +144,7 @@ class PersistentScopeEvaluation:
     split: str
     seed: int
     mode: ScopeWorkerMode
+    worker_bank_id: str
     step_width: int
     step_count: int
     attempt_count: int
@@ -175,11 +185,17 @@ class PersistentScopeEvaluationProjector:
         sample: LargeScopeRelevanceSample,
         mode: ScopeWorkerMode | str,
         *,
+        expected_worker_bank_id: str | None = None,
         coverage_projector: ScopeCoverageProjector | None = None,
     ) -> None:
         sample.validate()
+        if expected_worker_bank_id is not None and (
+            not expected_worker_bank_id or not expected_worker_bank_id.strip()
+        ):
+            raise ValueError("expected_worker_bank_id must be non-empty when supplied")
         self.sample = sample
         self.mode = ScopeWorkerMode(mode)
+        self.expected_worker_bank_id = expected_worker_bank_id
         self.coverage_projector = coverage_projector or ScopeCoverageProjector()
         self._expected_region_ids = tuple(
             large_scope_region_id(sample, index)
@@ -220,6 +236,7 @@ class PersistentScopeEvaluationProjector:
 
         rows: list[WindowEvidence] = []
         observation_sequences: list[int] = []
+        observed_worker_bank_id: str | None = None
         for event in thread_events:
             if event.event_type != "EVIDENCE_ADDED":
                 continue
@@ -234,6 +251,16 @@ class PersistentScopeEvaluationProjector:
                 raise ValueError("large-scope evidence belongs to a different benchmark world")
             if data.get("mode") != self.mode.value:
                 raise ValueError("large-scope evidence worker mode mismatch")
+            worker_bank_id = _required_text(data, "worker_bank_id")
+            if observed_worker_bank_id is None:
+                observed_worker_bank_id = worker_bank_id
+            elif observed_worker_bank_id != worker_bank_id:
+                raise ValueError("persistent evidence contains multiple worker-bank identities")
+            if (
+                self.expected_worker_bank_id is not None
+                and worker_bank_id != self.expected_worker_bank_id
+            ):
+                raise ValueError("persistent evidence worker-bank identity mismatch")
 
             window_index = _required_non_negative_int(data, "window_index")
             worker_index = _required_non_negative_int(data, "worker_index")
@@ -264,6 +291,13 @@ class PersistentScopeEvaluationProjector:
                 )
             )
             observation_sequences.append(event.sequence)
+
+        resolved_worker_bank_id = (
+            observed_worker_bank_id
+            or self.expected_worker_bank_id
+        )
+        if resolved_worker_bank_id is None:
+            raise ValueError("persistent scope evaluation has no worker-bank identity")
 
         coverage = self.coverage_projector.for_thread(events, thread_id)
         resolved = set(coverage.resolved_region_ids)
@@ -320,6 +354,7 @@ class PersistentScopeEvaluationProjector:
             split=self.sample.split,
             seed=self.sample.seed,
             mode=self.mode,
+            worker_bank_id=resolved_worker_bank_id,
             step_width=step_width,
             step_count=step_count,
             attempt_count=len(attempts),
@@ -368,12 +403,14 @@ class PersistentScopeExperiment:
             raise ValueError("step_width cannot exceed large-scope window_count")
         if not thread_id or not thread_id.strip():
             raise ValueError("thread_id must be non-empty")
+        evidence_config.validate()
 
         self.ledger = ledger
         self.sample = sample
         self.mode = ScopeWorkerMode(mode)
         self.step_width = step_width
         self.thread_id = thread_id
+        self.evidence_config = evidence_config
         self.runtime_bank = LargeScopeRuntimeWorkerBank(bank, evidence_config)
         self.worker_selector = PersistentScopeWorkerSelector(
             self.runtime_bank,
@@ -415,6 +452,7 @@ class PersistentScopeExperiment:
         return PersistentScopeEvaluationProjector(
             self.sample,
             self.mode,
+            expected_worker_bank_id=self.runtime_bank.worker_bank_id,
         ).project(
             self.ledger.read_all_events(),
             thread_id=self.thread_id,
@@ -440,6 +478,10 @@ class PersistentScopeExperiment:
             "large_scope_world_seed": self.sample.seed,
             "large_scope_mode": self.mode.value,
             "large_scope_window_count": self.sample.config.window_count,
+            "large_scope_step_width": self.step_width,
+            "large_scope_worker_bank_id": self.runtime_bank.worker_bank_id,
+            "large_scope_population_width": self.runtime_bank.bank.population_width,
+            "large_scope_evidence_config": asdict(self.evidence_config),
         }
         existing = by_id.get(self.thread_id)
         if existing is None:
