@@ -75,12 +75,10 @@ class ControlStep:
 
     @property
     def assignment(self) -> WorkerAssignment | None:
-        """Compatibility view for ordinary single-assignment control steps."""
         return self.assignments[0] if self.assignments else None
 
     @property
     def result(self) -> AttemptResult | None:
-        """Compatibility view for ordinary single-result control steps."""
         return self.results[0] if self.results else None
 
 
@@ -126,15 +124,18 @@ class WorkerSelectorV0:
             assert previous_worker_id is not None
             return (previous_worker_id,)
 
-        ordered = list(self.worker_ids)
-        if previous_worker_id in ordered and len(ordered) > 1:
-            ordered.remove(previous_worker_id)
-            ordered.append(previous_worker_id)
+        population_size = len(self.worker_ids)
+        start = self._next_index % population_size
+        rotated = [
+            self.worker_ids[(start + offset) % population_size]
+            for offset in range(population_size)
+        ]
+        if previous_worker_id in rotated and population_size > 1:
+            rotated.remove(previous_worker_id)
+            rotated.append(previous_worker_id)
 
-        start = self._next_index % len(ordered)
-        rotated = ordered[start:] + ordered[:start]
-        selected = tuple(rotated[: min(count, len(rotated))])
-        self._next_index = (self._next_index + len(selected)) % len(ordered)
+        selected = tuple(rotated[: min(count, population_size)])
+        self._next_index = (self._next_index + 1) % population_size
         return selected
 
 
