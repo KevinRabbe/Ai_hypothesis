@@ -19,10 +19,12 @@ from ai_hypothesis.large_scope import (
     planned_scope_worker_selector,
 )
 from ai_hypothesis.runtime import (
+    AllocationOutcomeProjector,
     RuntimeControlLoop,
     SchedulerSignals,
     ScopeCoverageProjector,
     SQLiteResearchLedger,
+    TracingScheduler,
 )
 from ai_hypothesis.step01.model import LABEL_TO_INDEX, NON_UNCERTAIN_LABELS, Step01Output
 
@@ -63,9 +65,10 @@ class LargeScopeRuntimeBridgeTests(unittest.TestCase):
         )
         directory = tempfile.TemporaryDirectory()
         ledger = SQLiteResearchLedger(Path(directory.name) / "ledger.sqlite")
+        scheduler = TracingScheduler(ledger, FixedScopeScheduler(width))
         loop = RuntimeControlLoop(
             ledger=ledger,
-            scheduler=FixedScopeScheduler(width),
+            scheduler=scheduler,
             worker_bank=runtime_bank,
             worker_ids=runtime_bank.worker_ids,
             worker_selector=selector,
@@ -77,7 +80,7 @@ class LargeScopeRuntimeBridgeTests(unittest.TestCase):
         )
         return directory, ledger, selected_bank, step
 
-    def test_diverse_runtime_matches_direct_windows_workers_and_evidence(self) -> None:
+    def test_diverse_runtime_matches_direct_windows_workers_evidence_and_provenance(self) -> None:
         sample = generate_large_scope_relevance(42, target_present=True)
         width = 4
         direct_bank = _DeterministicSelectedBank()
@@ -110,9 +113,21 @@ class LargeScopeRuntimeBridgeTests(unittest.TestCase):
                 ),
             )
 
+            events = ledger.read_all_events()
+            started_events = [
+                event for event in events if event.event_type == "ATTEMPT_STARTED"
+            ]
+            self.assertEqual(len(started_events), width)
+            self.assertTrue(
+                all(
+                    event.payload["scheduler_decision_id"] == step.decision.decision_id
+                    for event in started_events
+                )
+            )
+
             evidence_events = [
                 event
-                for event in ledger.read_all_events()
+                for event in events
                 if event.event_type == "EVIDENCE_ADDED"
                 and event.payload.get("kind") == "LARGE_SCOPE_RELEVANCE_WINDOW"
             ]
@@ -134,9 +149,7 @@ class LargeScopeRuntimeBridgeTests(unittest.TestCase):
                 )
                 self.assertAlmostEqual(data["top_margin"], row.top_margin, places=6)
 
-            coverage = ScopeCoverageProjector().for_thread(
-                ledger.read_all_events(), "scope-thread"
-            )
+            coverage = ScopeCoverageProjector().for_thread(events, "scope-thread")
             self.assertEqual(
                 coverage.resolved_region_ids,
                 tuple(
@@ -144,6 +157,16 @@ class LargeScopeRuntimeBridgeTests(unittest.TestCase):
                     for window_index in direct.inspected_window_indices
                 ),
             )
+
+            allocation = AllocationOutcomeProjector().for_decision(
+                events, step.decision.decision_id
+            )
+            self.assertIsNotNone(allocation)
+            assert allocation is not None
+            self.assertEqual(allocation.attempt_count, width)
+            self.assertEqual(allocation.evidence_count, width)
+            self.assertEqual(allocation.thread_id, "scope-thread")
+            self.assertEqual(allocation.allocated_width, width)
         finally:
             ledger.close()
             directory.cleanup()
