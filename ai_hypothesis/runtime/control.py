@@ -32,20 +32,7 @@ SignalProvider = Callable[[ProjectedState], SchedulerSignals]
 
 
 @dataclass(frozen=True, slots=True)
-class ControlConfig:
-    """Provisional execution widths behind stable scheduler/runtime contracts."""
-
-    add_width_count: int = 2
-
-    def validate(self) -> None:
-        if self.add_width_count <= 0:
-            raise ValueError("add_width_count must be positive")
-
-
-@dataclass(frozen=True, slots=True)
 class WorkPreparation:
-    """Bounded data selected for one Work Item from potentially large global state."""
-
     context: Mapping[str, Any] = field(default_factory=dict)
     reference_ids: tuple[str, ...] = ()
     parent_ids: tuple[str, ...] = ()
@@ -53,10 +40,7 @@ class WorkPreparation:
     resource_budget: Mapping[str, Any] = field(default_factory=dict)
 
     def validate(self) -> None:
-        for name, values in (
-            ("reference_ids", self.reference_ids),
-            ("parent_ids", self.parent_ids),
-        ):
+        for name, values in (("reference_ids", self.reference_ids), ("parent_ids", self.parent_ids)):
             if any(not value for value in values):
                 raise ValueError(f"{name} must not contain empty IDs")
 
@@ -66,8 +50,6 @@ ContextProvider = Callable[[ProjectedState, SchedulerDecision], WorkPreparation]
 
 @dataclass(frozen=True, slots=True)
 class ControlStep:
-    """Observable result of one bounded scheduler/execution cycle."""
-
     state: ProjectedState
     decision: SchedulerDecision
     assignments: tuple[WorkerAssignment, ...] = ()
@@ -83,8 +65,6 @@ class ControlStep:
 
 
 class WorkerSelectorV0:
-    """Minimal worker-selection policy owned by the scheduler/control layer."""
-
     def __init__(self, worker_ids: Sequence[str]) -> None:
         self.worker_ids = tuple(worker_ids)
         if not self.worker_ids:
@@ -95,53 +75,32 @@ class WorkerSelectorV0:
             raise ValueError("worker IDs must be unique")
         self._next_index = 0
 
-    def choose(
-        self,
-        action: SchedulerAction,
-        *,
-        previous_worker_id: str | None,
-    ) -> str:
-        return self.choose_many(
-            action,
-            previous_worker_id=previous_worker_id,
-            count=1,
-        )[0]
+    @property
+    def population_width(self) -> int:
+        return len(self.worker_ids)
 
-    def choose_many(
-        self,
-        action: SchedulerAction,
-        *,
-        previous_worker_id: str | None,
-        count: int,
-    ) -> tuple[str, ...]:
+    def choose(self, action: SchedulerAction, *, previous_worker_id: str | None) -> str:
+        return self.choose_many(action, previous_worker_id=previous_worker_id, count=1)[0]
+
+    def choose_many(self, action: SchedulerAction, *, previous_worker_id: str | None, count: int) -> tuple[str, ...]:
         if count <= 0:
             raise ValueError("worker selection count must be positive")
-        if (
-            action is SchedulerAction.CONTINUE
-            and count == 1
-            and previous_worker_id in self.worker_ids
-        ):
+        if action is SchedulerAction.CONTINUE and count == 1 and previous_worker_id in self.worker_ids:
             assert previous_worker_id is not None
             return (previous_worker_id,)
 
         population_size = len(self.worker_ids)
         start = self._next_index % population_size
-        rotated = [
-            self.worker_ids[(start + offset) % population_size]
-            for offset in range(population_size)
-        ]
+        rotated = [self.worker_ids[(start + offset) % population_size] for offset in range(population_size)]
         if previous_worker_id in rotated and population_size > 1:
             rotated.remove(previous_worker_id)
             rotated.append(previous_worker_id)
-
         selected = tuple(rotated[: min(count, population_size)])
         self._next_index = (self._next_index + 1) % population_size
         return selected
 
 
 class RuntimeControlLoop:
-    """Run one bounded control step over persistent Work Threads."""
-
     def __init__(
         self,
         *,
@@ -153,7 +112,6 @@ class RuntimeControlLoop:
         worker_runtime: WorkerRuntime | None = None,
         worker_selector: WorkerSelectorV0 | None = None,
         integration_tracker: IntegrationTracker | None = None,
-        config: ControlConfig | None = None,
     ) -> None:
         self.ledger = ledger
         self.scheduler = scheduler
@@ -162,8 +120,6 @@ class RuntimeControlLoop:
         self.worker_runtime = worker_runtime or WorkerRuntime(ledger)
         self.worker_selector = worker_selector or WorkerSelectorV0(worker_ids)
         self.integration_tracker = integration_tracker
-        self.config = config or ControlConfig()
-        self.config.validate()
 
     def create_thread(
         self,
@@ -179,18 +135,10 @@ class RuntimeControlLoop:
             event_type="THREAD_CREATED",
             thread_id=resolved_id,
             reference_ids=tuple(reference_ids),
-            payload={
-                "objective": objective,
-                "purpose": purpose.value,
-                "status": "ACTIVE",
-            },
+            payload={"objective": objective, "purpose": purpose.value, "status": "ACTIVE"},
         )
         if metadata:
-            self.ledger.append_event(
-                event_type="THREAD_METADATA_UPDATED",
-                thread_id=resolved_id,
-                payload=dict(metadata),
-            )
+            self.ledger.append_event(event_type="THREAD_METADATA_UPDATED", thread_id=resolved_id, payload=dict(metadata))
         return resolved_id
 
     def run_once(
@@ -205,64 +153,40 @@ class RuntimeControlLoop:
         if not states:
             raise ValueError("runtime has no Work Threads")
 
-        integration_overview = (
-            self.integration_tracker.overview(events)
-            if self.integration_tracker is not None
-            else None
-        )
+        integration_overview = self.integration_tracker.overview(events) if self.integration_tracker is not None else None
         candidates = tuple(
-            SchedulableThread(
-                state=state,
-                signals=self._signals_for(state, signal_provider, integration_overview),
-            )
+            SchedulableThread(state=state, signals=self._signals_for(state, signal_provider, integration_overview))
             for state in states
             if state.status != "COMPLETE"
         )
-        if integration_backpressure is None:
-            resolved_backpressure = (
-                integration_overview.global_backpressured
-                if integration_overview is not None
-                else False
-            )
-        else:
-            resolved_backpressure = integration_backpressure
-
+        resolved_backpressure = (
+            integration_overview.global_backpressured if integration_backpressure is None and integration_overview is not None
+            else False if integration_backpressure is None
+            else integration_backpressure
+        )
         decision = self.scheduler.choose(
             candidates,
             integration_backpressure=resolved_backpressure,
+            max_width=self.worker_selector.population_width,
         )
-        selected_state = next(
-            state for state in states if state.thread_id == decision.thread_id
-        )
+        selected_state = next(state for state in states if state.thread_id == decision.thread_id)
 
         if decision.action is SchedulerAction.PAUSE:
-            self.ledger.append_event(
-                event_type="THREAD_PAUSED",
-                thread_id=selected_state.thread_id,
-                payload={"reason_codes": list(decision.reason_codes)},
-            )
+            self.ledger.append_event(event_type="THREAD_PAUSED", thread_id=selected_state.thread_id, payload={"reason_codes": list(decision.reason_codes)})
             return ControlStep(selected_state, decision)
         if decision.action is SchedulerAction.COMPLETE:
-            self.ledger.append_event(
-                event_type="THREAD_COMPLETED",
-                thread_id=selected_state.thread_id,
-                payload={"reason_codes": list(decision.reason_codes)},
-            )
+            self.ledger.append_event(event_type="THREAD_COMPLETED", thread_id=selected_state.thread_id, payload={"reason_codes": list(decision.reason_codes)})
             return ControlStep(selected_state, decision)
 
         preparation = context_provider(selected_state, decision)
         preparation.validate()
-        previous_worker_id = self._last_worker_id(events, selected_state.thread_id)
-        requested_width = (
-            self.config.add_width_count
-            if decision.action is SchedulerAction.ADD_WIDTH
-            else 1
-        )
         selected_worker_ids = self.worker_selector.choose_many(
             decision.action,
-            previous_worker_id=previous_worker_id,
-            count=requested_width,
+            previous_worker_id=self._last_worker_id(events, selected_state.thread_id),
+            count=decision.width,
         )
+        if len(selected_worker_ids) != decision.width:
+            raise RuntimeError("scheduler allocated more distinct workers than available")
 
         assignments: list[WorkerAssignment] = []
         for worker_id in selected_worker_ids:
@@ -281,40 +205,24 @@ class RuntimeControlLoop:
             item.validate()
             assignments.append(WorkerAssignment(worker_id=worker_id, work_item=item))
 
-        decision = replace(
-            decision,
-            work_item_ids=tuple(
-                assignment.work_item.work_item_id for assignment in assignments
-            ),
-        )
+        decision = replace(decision, work_item_ids=tuple(a.work_item.work_item_id for a in assignments))
+        decision.validate()
         results = self.worker_runtime.run_batch(tuple(assignments), self.worker_bank)
-        return ControlStep(
-            selected_state,
-            decision,
-            assignments=tuple(assignments),
-            results=results,
-        )
+        return ControlStep(selected_state, decision, assignments=tuple(assignments), results=results)
 
     @staticmethod
-    def _signals_for(
-        state: ProjectedState,
-        signal_provider: SignalProvider,
-        integration_overview: IntegrationOverview | None,
-    ) -> SchedulerSignals:
+    def _signals_for(state: ProjectedState, signal_provider: SignalProvider, integration_overview: IntegrationOverview | None) -> SchedulerSignals:
         signals = signal_provider(state)
         if integration_overview is None:
             return signals
         pressure = integration_overview.pressure_for(state.thread_id)
-        if pressure <= signals.integration_backlog:
-            return signals
-        return replace(signals, integration_backlog=pressure)
+        return signals if pressure <= signals.integration_backlog else replace(signals, integration_backlog=pressure)
 
     @staticmethod
     def _last_worker_id(events: Sequence[LedgerEvent], thread_id: str) -> str | None:
         for event in reversed(events):
-            if event.thread_id != thread_id or event.event_type != "ATTEMPT_STARTED":
-                continue
-            worker_id = event.payload.get("worker_id")
-            if isinstance(worker_id, str) and worker_id:
-                return worker_id
+            if event.thread_id == thread_id and event.event_type == "ATTEMPT_STARTED":
+                worker_id = event.payload.get("worker_id")
+                if isinstance(worker_id, str) and worker_id:
+                    return worker_id
         return None
