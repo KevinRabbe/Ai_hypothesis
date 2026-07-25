@@ -257,16 +257,12 @@ def _verification_need(
         }:
             need = 1.0
             continue
-        if summary.status is EvidenceVerificationStatus.PENDING:
-            continue
         strength = max(state.strength or 0.0, 0.0)
         strength_signal = min(strength / threshold, 1.0)
+        covered_attempts = summary.confirmed_count + summary.pending_count
         if summary.status is EvidenceVerificationStatus.UNVERIFIED:
             need = max(need, strength_signal)
-        elif (
-            summary.status is EvidenceVerificationStatus.CONFIRMED
-            and summary.confirmed_count < redundancy_target
-        ):
+        elif covered_attempts < redundancy_target:
             need = max(need, strength_signal)
     return need
 
