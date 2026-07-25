@@ -38,9 +38,10 @@ class LoadedCheckpoint:
 class HomogeneousWorkerBank:
     """A population of independently weighted workers with one shared architecture.
 
-    ``forward`` preserves the same-input population experiment. ``forward_selected``
-    executes only the workers assigned to heterogeneous Work Items and groups samples
-    assigned to the same checkpoint into ordinary model batches.
+    The default ``vmap`` backend evaluates the same input batch across all workers
+    using stacked model state. A deterministic loop backend is retained as a
+    correctness/reference path and as a compatibility fallback for operations that
+    cannot be vectorized on a particular PyTorch/device combination.
     """
 
     def __init__(
@@ -77,6 +78,12 @@ class HomogeneousWorkerBank:
     @property
     def unit_config(self) -> UnitConfig:
         return self.template.config
+
+    @property
+    def selected_execution_backend(self) -> str:
+        """Execution strategy used by ``forward_selected``."""
+
+        return "grouped"
 
     @classmethod
     def from_checkpoints(
