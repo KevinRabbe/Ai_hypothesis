@@ -17,7 +17,13 @@ from .contracts import (
     WorkItem,
     WorkPurpose,
 )
-from .control import ControlStep, RuntimeControlLoop, WorkerSelectorV0, WorkPreparation
+from .control import (
+    ControlStep,
+    RuntimeControlLoop,
+    WorkerSelectorV0,
+    WorkPreparation,
+    WorkPreparationBatch,
+)
 from .followups import FollowupMaterializer, FollowupRequest, FollowupSnapshot
 from .graph_context import WorkGraphContextResolver
 from .integration import (
@@ -102,6 +108,7 @@ __all__ = [
     "WorkGraphContextResolver",
     "WorkItem",
     "WorkPreparation",
+    "WorkPreparationBatch",
     "WorkPurpose",
     "prepare_bounded_integration_work",
     "prepare_bounded_knowledge_work",
