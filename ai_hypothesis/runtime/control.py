@@ -2,18 +2,19 @@
 
 This module is not a sixth autonomous subsystem. It wires ledger, projection,
 scheduling, worker selection, and bounded execution together while keeping domain
-signals and Work Item context preparation injected and replaceable.
+signals and Work Item preparation injected and replaceable.
 """
 
 from __future__ import annotations
 
 import uuid
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from .contracts import (
     AttemptResult,
+    LedgerEvent,
     ProjectedState,
     SchedulerAction,
     SchedulerDecision,
@@ -27,7 +28,28 @@ from .worker_runtime import WorkerAssignment, WorkerBank, WorkerRuntime
 
 
 SignalProvider = Callable[[ProjectedState], SchedulerSignals]
-ContextProvider = Callable[[ProjectedState, SchedulerDecision], Mapping[str, Any]]
+
+
+@dataclass(frozen=True, slots=True)
+class WorkPreparation:
+    """Bounded data selected for one Work Item from potentially large global state."""
+
+    context: Mapping[str, Any] = field(default_factory=dict)
+    reference_ids: tuple[str, ...] = ()
+    parent_ids: tuple[str, ...] = ()
+    constraints: Mapping[str, Any] = field(default_factory=dict)
+    resource_budget: Mapping[str, Any] = field(default_factory=dict)
+
+    def validate(self) -> None:
+        for name, values in (
+            ("reference_ids", self.reference_ids),
+            ("parent_ids", self.parent_ids),
+        ):
+            if any(not value for value in values):
+                raise ValueError(f"{name} must not contain empty IDs")
+
+
+ContextProvider = Callable[[ProjectedState, SchedulerDecision], WorkPreparation]
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,7 +84,8 @@ class WorkerSelectorV0:
         # Continuing productive depth may reuse the current worker. Width, challenge,
         # verification, synthesis, or explicit rotation prefer an independent weight.
         if action is SchedulerAction.CONTINUE and previous_worker_id in self.worker_ids:
-            return previous_worker_id  # type: ignore[return-value]
+            assert previous_worker_id is not None
+            return previous_worker_id
 
         candidates = self.worker_ids
         if previous_worker_id in self.worker_ids and len(self.worker_ids) > 1:
@@ -172,15 +195,19 @@ class RuntimeControlLoop:
             decision.action,
             previous_worker_id=previous_worker_id,
         )
+        preparation = context_provider(selected_state, decision)
+        preparation.validate()
         item = WorkItem(
             work_item_id=uuid.uuid4().hex,
             thread_id=selected_state.thread_id,
             objective=selected_state.objective,
             purpose=decision.purpose or selected_state.purpose,
             projection_revision=selected_state.revision,
-            reference_ids=selected_state.reference_ids,
-            parent_ids=selected_state.dependency_thread_ids,
-            context=dict(context_provider(selected_state, decision)),
+            reference_ids=preparation.reference_ids,
+            parent_ids=preparation.parent_ids,
+            context=dict(preparation.context),
+            constraints=dict(preparation.constraints),
+            resource_budget=dict(preparation.resource_budget),
         )
         item.validate()
         assignment = WorkerAssignment(worker_id=worker_id, work_item=item)
@@ -188,7 +215,7 @@ class RuntimeControlLoop:
         return ControlStep(selected_state, decision, assignment, result)
 
     @staticmethod
-    def _thread_ids(events: Sequence[Any]) -> tuple[str, ...]:
+    def _thread_ids(events: Sequence[LedgerEvent]) -> tuple[str, ...]:
         seen: set[str] = set()
         ordered: list[str] = []
         for event in events:
@@ -200,7 +227,7 @@ class RuntimeControlLoop:
         return tuple(ordered)
 
     @staticmethod
-    def _last_worker_id(events: Sequence[Any], thread_id: str) -> str | None:
+    def _last_worker_id(events: Sequence[LedgerEvent], thread_id: str) -> str | None:
         for event in reversed(events):
             if event.thread_id != thread_id or event.event_type != "ATTEMPT_STARTED":
                 continue
