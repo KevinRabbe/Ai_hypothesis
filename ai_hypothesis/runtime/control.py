@@ -22,6 +22,10 @@ from .contracts import (
     WorkPurpose,
 )
 from .integration import IntegrationOverview, IntegrationTracker
+from .knowledge_verification import (
+    KnowledgeVerificationOverview,
+    KnowledgeVerificationTracker,
+)
 from .ledger import SQLiteResearchLedger
 from .projector import ThreadStateProjector
 from .scheduler import SchedulerSignals, SchedulerV0, SchedulableThread
@@ -112,6 +116,7 @@ class RuntimeControlLoop:
         worker_runtime: WorkerRuntime | None = None,
         worker_selector: WorkerSelectorV0 | None = None,
         integration_tracker: IntegrationTracker | None = None,
+        verification_tracker: KnowledgeVerificationTracker | None = None,
     ) -> None:
         self.ledger = ledger
         self.scheduler = scheduler
@@ -120,6 +125,7 @@ class RuntimeControlLoop:
         self.worker_runtime = worker_runtime or WorkerRuntime(ledger)
         self.worker_selector = worker_selector or WorkerSelectorV0(worker_ids)
         self.integration_tracker = integration_tracker
+        self.verification_tracker = verification_tracker
 
     def create_thread(
         self,
@@ -130,7 +136,14 @@ class RuntimeControlLoop:
         metadata: Mapping[str, Any] | None = None,
         thread_id: str | None = None,
     ) -> str:
+        if not objective or not objective.strip():
+            raise ValueError("objective must be non-empty")
         resolved_id = thread_id or uuid.uuid4().hex
+        if not resolved_id or not resolved_id.strip():
+            raise ValueError("thread_id must be non-empty")
+        if resolved_id in self._state_index():
+            raise ValueError(f"Work Thread {resolved_id!r} already exists")
+
         self.ledger.append_event(
             event_type="THREAD_CREATED",
             thread_id=resolved_id,
@@ -140,6 +153,93 @@ class RuntimeControlLoop:
         if metadata:
             self.ledger.append_event(event_type="THREAD_METADATA_UPDATED", thread_id=resolved_id, payload=dict(metadata))
         return resolved_id
+
+    def fork_thread(
+        self,
+        parent_thread_id: str,
+        *,
+        objective: str,
+        purpose: WorkPurpose = WorkPurpose.EXPLORE,
+        reference_ids: Sequence[str] = (),
+        metadata: Mapping[str, Any] | None = None,
+        child_thread_id: str | None = None,
+    ) -> str:
+        states = self._state_index()
+        parent = self._require_state(states, parent_thread_id)
+        if parent.status == "COMPLETE" or parent.merged_into_thread_id is not None:
+            raise ValueError("cannot fork a completed or merged Work Thread")
+        child_id = child_thread_id or uuid.uuid4().hex
+        if child_id in states:
+            raise ValueError(f"Work Thread {child_id!r} already exists")
+
+        self.create_thread(
+            objective=objective,
+            purpose=purpose,
+            reference_ids=reference_ids,
+            metadata=metadata,
+            thread_id=child_id,
+        )
+        self.ledger.append_event(
+            event_type="THREAD_FORKED",
+            thread_id=parent_thread_id,
+            reference_ids=(child_id,),
+            payload={"child_thread_id": child_id},
+        )
+        return child_id
+
+    def add_dependency(self, thread_id: str, dependency_thread_id: str) -> None:
+        states = self._state_index()
+        state = self._require_state(states, thread_id)
+        self._require_state(states, dependency_thread_id)
+        if thread_id == dependency_thread_id:
+            raise ValueError("thread cannot depend on itself")
+        if dependency_thread_id in state.dependency_thread_ids:
+            return
+        adjacency = {
+            candidate.thread_id: tuple(candidate.dependency_thread_ids)
+            for candidate in states.values()
+        }
+        adjacency[thread_id] = (*adjacency.get(thread_id, ()), dependency_thread_id)
+        self._assert_acyclic(adjacency, relation_name="dependency")
+        self.ledger.append_event(
+            event_type="DEPENDENCY_ADDED",
+            thread_id=thread_id,
+            reference_ids=(dependency_thread_id,),
+        )
+
+    def remove_dependency(self, thread_id: str, dependency_thread_id: str) -> None:
+        states = self._state_index()
+        state = self._require_state(states, thread_id)
+        self._require_state(states, dependency_thread_id)
+        if dependency_thread_id not in state.dependency_thread_ids:
+            return
+        self.ledger.append_event(
+            event_type="DEPENDENCY_REMOVED",
+            thread_id=thread_id,
+            reference_ids=(dependency_thread_id,),
+        )
+
+    def merge_threads(self, target_thread_id: str, source_thread_ids: Sequence[str]) -> None:
+        source_ids = tuple(dict.fromkeys(source_thread_ids))
+        if not source_ids:
+            raise ValueError("merge requires at least one source Work Thread")
+        states = self._state_index()
+        target = self._require_state(states, target_thread_id)
+        if target.status == "COMPLETE" or target.merged_into_thread_id is not None:
+            raise ValueError("merge target must be active and not already merged")
+        for source_id in source_ids:
+            if source_id == target_thread_id:
+                raise ValueError("thread cannot merge into itself")
+            source = self._require_state(states, source_id)
+            if source.merged_into_thread_id is not None:
+                raise ValueError(f"source Work Thread {source_id!r} is already merged")
+
+        self.ledger.append_event(
+            event_type="THREAD_MERGED",
+            thread_id=target_thread_id,
+            reference_ids=source_ids,
+            payload={"source_thread_ids": list(source_ids)},
+        )
 
     def run_once(
         self,
@@ -152,13 +252,28 @@ class RuntimeControlLoop:
         states = self.projector.project_all(events)
         if not states:
             raise ValueError("runtime has no Work Threads")
+        state_by_id = {state.thread_id: state for state in states}
 
         integration_overview = self.integration_tracker.overview(events) if self.integration_tracker is not None else None
+        verification_overview = self.verification_tracker.overview(events) if self.verification_tracker is not None else None
         candidates = tuple(
-            SchedulableThread(state=state, signals=self._signals_for(state, signal_provider, integration_overview))
+            SchedulableThread(
+                state=state,
+                signals=self._signals_for(
+                    state,
+                    signal_provider,
+                    integration_overview,
+                    verification_overview,
+                ),
+            )
             for state in states
-            if state.status != "COMPLETE"
+            if state.status != "COMPLETE" and not self._is_dependency_blocked(state, state_by_id)
         )
+        if not candidates:
+            if any(state.status != "COMPLETE" for state in states):
+                raise ValueError("all active Work Threads are dependency-blocked")
+            raise ValueError("runtime has no non-complete Work Threads")
+
         resolved_backpressure = (
             integration_overview.global_backpressured if integration_backpressure is None and integration_overview is not None
             else False if integration_backpressure is None
@@ -169,7 +284,7 @@ class RuntimeControlLoop:
             integration_backpressure=resolved_backpressure,
             max_width=self.worker_selector.population_width,
         )
-        selected_state = next(state for state in states if state.thread_id == decision.thread_id)
+        selected_state = state_by_id[decision.thread_id]
 
         if decision.action is SchedulerAction.PAUSE:
             self.ledger.append_event(event_type="THREAD_PAUSED", thread_id=selected_state.thread_id, payload={"reason_codes": list(decision.reason_codes)})
@@ -210,13 +325,68 @@ class RuntimeControlLoop:
         results = self.worker_runtime.run_batch(tuple(assignments), self.worker_bank)
         return ControlStep(selected_state, decision, assignments=tuple(assignments), results=results)
 
+    def _state_index(self) -> dict[str, ProjectedState]:
+        return {
+            state.thread_id: state
+            for state in self.projector.project_all(self.ledger.read_all_events())
+        }
+
     @staticmethod
-    def _signals_for(state: ProjectedState, signal_provider: SignalProvider, integration_overview: IntegrationOverview | None) -> SchedulerSignals:
+    def _require_state(
+        states: Mapping[str, ProjectedState], thread_id: str
+    ) -> ProjectedState:
+        try:
+            return states[thread_id]
+        except KeyError as error:
+            raise ValueError(f"unknown Work Thread {thread_id!r}") from error
+
+    @staticmethod
+    def _is_dependency_blocked(
+        state: ProjectedState, state_by_id: Mapping[str, ProjectedState]
+    ) -> bool:
+        return any(
+            state_by_id[dependency_id].status != "COMPLETE"
+            for dependency_id in state.dependency_thread_ids
+        )
+
+    @staticmethod
+    def _signals_for(
+        state: ProjectedState,
+        signal_provider: SignalProvider,
+        integration_overview: IntegrationOverview | None,
+        verification_overview: KnowledgeVerificationOverview | None,
+    ) -> SchedulerSignals:
         signals = signal_provider(state)
-        if integration_overview is None:
-            return signals
-        pressure = integration_overview.pressure_for(state.thread_id)
-        return signals if pressure <= signals.integration_backlog else replace(signals, integration_backlog=pressure)
+        if integration_overview is not None:
+            pressure = integration_overview.pressure_for(state.thread_id)
+            if pressure > signals.integration_backlog:
+                signals = replace(signals, integration_backlog=pressure)
+        if verification_overview is not None:
+            verification = verification_overview.pressure_for(state.thread_id)
+            if verification > signals.verification_need:
+                signals = replace(signals, verification_need=verification)
+        return signals
+
+    @staticmethod
+    def _assert_acyclic(
+        adjacency: Mapping[str, Sequence[str]], *, relation_name: str
+    ) -> None:
+        visiting: set[str] = set()
+        visited: set[str] = set()
+
+        def visit(thread_id: str) -> None:
+            if thread_id in visited:
+                return
+            if thread_id in visiting:
+                raise ValueError(f"{relation_name} cycle detected at {thread_id!r}")
+            visiting.add(thread_id)
+            for target_id in adjacency.get(thread_id, ()):
+                visit(target_id)
+            visiting.remove(thread_id)
+            visited.add(thread_id)
+
+        for thread_id in adjacency:
+            visit(thread_id)
 
     @staticmethod
     def _last_worker_id(events: Sequence[LedgerEvent], thread_id: str) -> str | None:
