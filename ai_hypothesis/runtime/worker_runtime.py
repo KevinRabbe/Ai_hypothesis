@@ -195,9 +195,10 @@ class WorkerRuntime:
             )
 
         for contribution in result.evidence:
+            references = (contribution.evidence_id, *contribution.reference_ids)
             self._ledger.append_event(
                 event_type="EVIDENCE_ADDED",
-                reference_ids=contribution.reference_ids,
+                reference_ids=references,
                 payload={
                     "evidence_id": contribution.evidence_id,
                     "kind": contribution.kind,
