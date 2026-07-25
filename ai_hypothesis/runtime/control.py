@@ -21,7 +21,7 @@ from .contracts import (
     WorkItem,
     WorkPurpose,
 )
-from .integration import IntegrationTracker
+from .integration import IntegrationOverview, IntegrationTracker
 from .ledger import SQLiteResearchLedger
 from .projector import ThreadStateProjector
 from .scheduler import SchedulerSignals, SchedulerV0, SchedulableThread
@@ -160,18 +160,26 @@ class RuntimeControlLoop:
         if not thread_ids:
             raise ValueError("runtime has no Work Threads")
 
+        integration_overview = (
+            self.integration_tracker.overview(events)
+            if self.integration_tracker is not None
+            else None
+        )
         states = tuple(
             self.projector.project(events, thread_id=thread_id) for thread_id in thread_ids
         )
         candidates = tuple(
-            SchedulableThread(state=state, signals=self._signals_for(state, signal_provider))
+            SchedulableThread(
+                state=state,
+                signals=self._signals_for(state, signal_provider, integration_overview),
+            )
             for state in states
             if state.status != "COMPLETE"
         )
         if integration_backpressure is None:
             resolved_backpressure = (
-                self.integration_tracker.is_backpressured()
-                if self.integration_tracker is not None
+                integration_overview.global_backpressured
+                if integration_overview is not None
                 else False
             )
         else:
@@ -224,15 +232,16 @@ class RuntimeControlLoop:
         result = self.worker_runtime.run_attempt(assignment, self.worker_bank)
         return ControlStep(selected_state, decision, assignment, result)
 
+    @staticmethod
     def _signals_for(
-        self,
         state: ProjectedState,
         signal_provider: SignalProvider,
+        integration_overview: IntegrationOverview | None,
     ) -> SchedulerSignals:
         signals = signal_provider(state)
-        if self.integration_tracker is None:
+        if integration_overview is None:
             return signals
-        pressure = self.integration_tracker.pressure(thread_id=state.thread_id)
+        pressure = integration_overview.pressure_for(state.thread_id)
         if pressure <= signals.integration_backlog:
             return signals
         return replace(signals, integration_backlog=pressure)
