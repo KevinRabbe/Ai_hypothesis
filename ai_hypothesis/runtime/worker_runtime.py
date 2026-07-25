@@ -128,23 +128,20 @@ class WorkerRuntime:
         for disposition in result.evidence_dispositions:
             unauthorized = set(disposition.evidence_ids) - authorized_reference_ids
             if unauthorized:
-                raise ValueError(
-                    "worker attempted to disposition evidence outside its Work Item authority"
-                )
+                raise ValueError("worker attempted to disposition evidence outside its Work Item authority")
         for delta in result.knowledge_deltas:
             unauthorized = set(delta.reference_ids) - authorized_reference_ids
             if unauthorized:
-                raise ValueError(
-                    "knowledge delta references information outside its Work Item authority"
-                )
-            if delta.thread_id is not None and delta.thread_id != item.thread_id:
-                if delta.thread_id not in item.parent_ids:
-                    raise ValueError(
-                        "knowledge delta targets a thread outside its Work Item authority"
-                    )
+                raise ValueError("knowledge delta references information outside its Work Item authority")
+            if delta.thread_id is not None and delta.thread_id != item.thread_id and delta.thread_id not in item.parent_ids:
+                raise ValueError("knowledge delta targets a thread outside its Work Item authority")
             for causal_event_id in delta.causal_event_ids:
                 if self._ledger.get_event(causal_event_id) is None:
                     raise ValueError("knowledge delta references a nonexistent causal event")
+        for assessment in result.knowledge_assessments:
+            unauthorized = set(assessment.delta_ids) - set(item.reference_ids)
+            if unauthorized:
+                raise ValueError("worker attempted to assess knowledge outside its Work Item authority")
 
     def _commit_result(self, result: AttemptResult, *, parent_event_id: str) -> None:
         common = {"thread_id": result.thread_id, "attempt_id": result.attempt_id, "parent_event_ids": (parent_event_id,)}
@@ -174,6 +171,16 @@ class WorkerRuntime:
                 reference_ids=(delta.delta_id, *delta.reference_ids),
                 parent_event_ids=(parent_event_id, *delta.causal_event_ids),
                 payload={"delta_id": delta.delta_id, "kind": delta.kind, "summary": delta.summary},
+            )
+        for assessment in result.knowledge_assessments:
+            payload = {"assessment": assessment.assessment.value}
+            if assessment.reason is not None:
+                payload["reason"] = assessment.reason
+            self._ledger.append_event(
+                event_type="KNOWLEDGE_ASSESSMENT_RECORDED",
+                reference_ids=assessment.delta_ids,
+                payload=payload,
+                **common,
             )
         for disposition in result.evidence_dispositions:
             payload = {"disposition": disposition.disposition.value}
