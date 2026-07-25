@@ -17,6 +17,7 @@ from .contracts import EvidenceDispositionKind, LedgerEvent
 @dataclass(frozen=True, slots=True)
 class IntegrationTelemetrySnapshot:
     revision: int
+    scope_thread_id: str | None
     evidence_count: int
     dispositioned_evidence_count: int
     disposition_reference_count: int
@@ -82,6 +83,8 @@ class IntegrationBandwidthWindow:
     ) -> "IntegrationBandwidthWindow":
         if elapsed_seconds <= 0.0:
             raise ValueError("elapsed_seconds must be positive")
+        if previous.scope_thread_id != current.scope_thread_id:
+            raise ValueError("telemetry snapshots must use the same thread scope")
         if current.revision < previous.revision:
             raise ValueError("current telemetry revision cannot precede previous revision")
 
@@ -244,6 +247,7 @@ class IntegrationTelemetryProjector:
 
         return IntegrationTelemetrySnapshot(
             revision=revision,
+            scope_thread_id=thread_id,
             evidence_count=len(selected_evidence),
             dispositioned_evidence_count=dispositioned_evidence_count,
             disposition_reference_count=disposition_reference_count,
