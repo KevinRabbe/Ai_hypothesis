@@ -11,6 +11,7 @@ from torch.func import stack_module_state
 
 from ai_hypothesis.runtime import (
     AttemptRequest,
+    AttemptStatus,
     SQLiteResearchLedger,
     ThreadStateProjector,
     WorkerAssignment,
@@ -170,6 +171,49 @@ class Step02RuntimeWorkerBankTests(unittest.TestCase):
             "fake-population",
         )
         self.assertEqual(len(results[0].evidence[0].data["label_logits"]), 11)
+
+    def test_invalid_request_does_not_discard_valid_peer(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            with SQLiteResearchLedger(Path(directory) / "ledger.sqlite") as ledger:
+                for thread_id in ("thread-a", "thread-b"):
+                    ledger.append_event(
+                        event_type="THREAD_CREATED",
+                        thread_id=thread_id,
+                        payload={
+                            "objective": "Inspect local pattern evidence",
+                            "purpose": "EXPLORE",
+                        },
+                    )
+
+                adapter = Step02RuntimeWorkerBank(
+                    _FakeSelectedBank(),  # type: ignore[arg-type]
+                    worker_ids=("alpha", "beta"),
+                )
+                results = WorkerRuntime(ledger).run_batch(
+                    (
+                        WorkerAssignment("alpha", _item("work-a", "thread-a")),
+                        WorkerAssignment("missing", _item("work-b", "thread-b")),
+                    ),
+                    adapter,
+                )
+
+                self.assertEqual(results[0].status, AttemptStatus.COMPLETED)
+                self.assertEqual(results[1].status, AttemptStatus.FAILED)
+                self.assertEqual(len(results[0].evidence), 1)
+                self.assertEqual(results[1].resource_usage["neural_worker_evaluations"], 0)
+
+                thread_a_types = tuple(
+                    event.event_type
+                    for event in ledger.read_events(thread_id="thread-a")
+                )
+                thread_b_types = tuple(
+                    event.event_type
+                    for event in ledger.read_events(thread_id="thread-b")
+                )
+                self.assertIn("EVIDENCE_ADDED", thread_a_types)
+                self.assertEqual(thread_a_types[-1], "ATTEMPT_COMPLETED")
+                self.assertNotIn("ATTEMPT_CRASHED", thread_b_types)
+                self.assertEqual(thread_b_types[-1], "ATTEMPT_FAILED")
 
     def test_runtime_persists_generated_evidence_as_addressable_state(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
