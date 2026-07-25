@@ -183,7 +183,8 @@ class AllocationOutcomeProjector:
                 if decision_id in decisions:
                     raise ValueError(f"scheduler decision {decision_id!r} was recorded more than once")
                 decisions[decision_id] = self._decision_metadata(event)
-                decision_order.append(decision_id)
+                if decision_id not in decision_order:
+                    decision_order.append(decision_id)
                 continue
 
             if event.event_type == "ATTEMPT_STARTED":
@@ -212,7 +213,7 @@ class AllocationOutcomeProjector:
                     ),
                 )
                 attempts_by_decision.setdefault(decision_id, []).append(event.attempt_id)
-                if decision_id not in decisions and decision_id not in decision_order:
+                if decision_id not in decision_order:
                     # Explicit externally supplied provenance may not have a local
                     # scheduler trace. Preserve it as an outcome group with unknown
                     # decision metadata rather than dropping the attempt.
@@ -227,18 +228,14 @@ class AllocationOutcomeProjector:
         outcomes: list[AllocationOutcome] = []
         for decision_id in decision_order:
             attempt_ids = attempts_by_decision.get(decision_id, ())
-            if not attempt_ids:
-                # A scheduler decision that never reached worker execution is still
-                # useful trace data, but it has no observable attempt outcome yet.
-                projected_attempts: tuple[AttemptOutcome, ...] = ()
-            else:
-                projected_attempts = tuple(
-                    self._freeze_attempt(attempts[attempt_id]) for attempt_id in attempt_ids
-                )
+            projected_attempts = tuple(
+                self._freeze_attempt(attempts[attempt_id]) for attempt_id in attempt_ids
+            )
             metadata = decisions.get(
                 decision_id,
                 _DecisionMetadata(None, None, None, None, (), None, None),
             )
+            self._validate_allocation_match(decision_id, metadata, projected_attempts)
             outcomes.append(
                 AllocationOutcome(
                     scheduler_decision_id=decision_id,
@@ -297,10 +294,42 @@ class AllocationOutcomeProjector:
         )
 
     @staticmethod
+    def _validate_allocation_match(
+        decision_id: str,
+        metadata: _DecisionMetadata,
+        attempts: tuple[AttemptOutcome, ...],
+    ) -> None:
+        if metadata.allocated_width is None:
+            return
+        if len(attempts) > metadata.allocated_width:
+            raise ValueError(
+                f"scheduler decision {decision_id!r} has more attempts than allocated width"
+            )
+        for attempt in attempts:
+            if metadata.thread_id is not None and attempt.thread_id != metadata.thread_id:
+                raise ValueError(
+                    f"attempt {attempt.attempt_id!r} does not match scheduler decision thread"
+                )
+            if (
+                metadata.projection_revision is not None
+                and attempt.projection_revision != metadata.projection_revision
+            ):
+                raise ValueError(
+                    f"attempt {attempt.attempt_id!r} does not match scheduler projection revision"
+                )
+            if metadata.purpose is not None and attempt.purpose != metadata.purpose:
+                raise ValueError(
+                    f"attempt {attempt.attempt_id!r} does not match scheduler decision purpose"
+                )
+
+    @staticmethod
     def _apply_attempt_event(attempt: _MutableAttempt, event: LedgerEvent) -> None:
+        if attempt.terminal_event_type is not None:
+            raise ValueError(
+                f"attempt {attempt.attempt_id!r} has events after terminal "
+                f"{attempt.terminal_event_type}"
+            )
         if event.event_type in _TERMINAL_ATTEMPT_EVENTS:
-            if attempt.terminal_event_type is not None:
-                raise ValueError(f"attempt {attempt.attempt_id!r} has multiple terminal events")
             attempt.terminal_event_type = event.event_type
             if event.event_type in {"ATTEMPT_COMPLETED", "ATTEMPT_PARTIAL", "ATTEMPT_FAILED"}:
                 progress = event.payload.get("progress_made")
