@@ -8,8 +8,9 @@ backpressure to Scheduler v0.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from typing import Any
 
 from .contracts import EvidenceDispositionKind, KnowledgeDelta, LedgerEvent
 from .ledger import SQLiteResearchLedger
@@ -43,6 +44,55 @@ class IntegrationSnapshot:
     @property
     def backlog_count(self) -> int:
         return len(self.backlog_evidence_ids)
+
+
+@dataclass(frozen=True, slots=True)
+class PendingEvidence:
+    """Compact recoverable evidence record eligible for integration work."""
+
+    evidence_id: str
+    event_id: str
+    sequence: int
+    thread_id: str | None
+    kind: str
+    summary: str
+    source_reference_ids: tuple[str, ...]
+    strength: float | None
+    uncertainty: float | None
+    data: Mapping[str, Any]
+
+    def to_context_record(self) -> dict[str, Any]:
+        return {
+            "evidence_id": self.evidence_id,
+            "event_id": self.event_id,
+            "sequence": self.sequence,
+            "thread_id": self.thread_id,
+            "kind": self.kind,
+            "summary": self.summary,
+            "source_reference_ids": list(self.source_reference_ids),
+            "strength": self.strength,
+            "uncertainty": self.uncertainty,
+            "data": dict(self.data),
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class IntegrationBatch:
+    """Fixed-size oldest-first slice of the unresolved evidence backlog."""
+
+    revision: int
+    records: tuple[PendingEvidence, ...]
+
+    @property
+    def evidence_ids(self) -> tuple[str, ...]:
+        return tuple(record.evidence_id for record in self.records)
+
+    @property
+    def causal_event_ids(self) -> tuple[str, ...]:
+        return tuple(record.event_id for record in self.records)
+
+    def to_context_records(self) -> tuple[dict[str, Any], ...]:
+        return tuple(record.to_context_record() for record in self.records)
 
 
 class IntegrationTracker:
@@ -99,6 +149,57 @@ class IntegrationTracker:
 
     def snapshot(self, *, thread_id: str | None = None) -> IntegrationSnapshot:
         return self.project(self.ledger.read_events(), thread_id=thread_id)
+
+    def pending_batch(
+        self,
+        *,
+        limit: int,
+        thread_id: str | None = None,
+    ) -> IntegrationBatch:
+        """Return at most ``limit`` oldest unresolved evidence records."""
+
+        if limit <= 0:
+            raise ValueError("limit must be positive")
+        events = self.ledger.read_events()
+        dispositioned = self._dispositioned_ids(events)
+        records: list[PendingEvidence] = []
+        revision = events[-1].sequence if events else 0
+
+        for event in events:
+            if event.event_type != "EVIDENCE_ADDED":
+                continue
+            if thread_id is not None and event.thread_id != thread_id:
+                continue
+            evidence_id = event.payload.get("evidence_id")
+            if not isinstance(evidence_id, str) or not evidence_id:
+                continue
+            if evidence_id in dispositioned:
+                continue
+
+            references = tuple(
+                reference_id
+                for reference_id in event.reference_ids
+                if reference_id != evidence_id
+            )
+            data = event.payload.get("data")
+            records.append(
+                PendingEvidence(
+                    evidence_id=evidence_id,
+                    event_id=event.event_id,
+                    sequence=event.sequence,
+                    thread_id=event.thread_id,
+                    kind=str(event.payload.get("kind", "UNKNOWN")),
+                    summary=str(event.payload.get("summary", "")),
+                    source_reference_ids=references,
+                    strength=self._optional_float(event.payload.get("strength")),
+                    uncertainty=self._optional_float(event.payload.get("uncertainty")),
+                    data=dict(data) if isinstance(data, Mapping) else {},
+                )
+            )
+            if len(records) >= limit:
+                break
+
+        return IntegrationBatch(revision=revision, records=tuple(records))
 
     def project(
         self,
@@ -172,6 +273,22 @@ class IntegrationTracker:
             or snapshot.oldest_backlog_age_sequences
             > self.config.max_backlog_age_sequences
         )
+
+    @staticmethod
+    def _dispositioned_ids(events: Sequence[LedgerEvent]) -> set[str]:
+        dispositioned: set[str] = set()
+        for event in events:
+            if event.event_type == "INTEGRATION_DISPOSITION_RECORDED":
+                dispositioned.update(event.reference_ids)
+        return dispositioned
+
+    @staticmethod
+    def _optional_float(value: object) -> float | None:
+        if value is None:
+            return None
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError("durable evidence scalar must be numeric or null")
+        return float(value)
 
     @staticmethod
     def _ratio(value: int, limit: int) -> float:
