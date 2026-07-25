@@ -194,9 +194,24 @@ class WorkerRuntime:
                 **common,
             )
 
-        if result.evidence_refs:
+        for contribution in result.evidence:
             self._ledger.append_event(
                 event_type="EVIDENCE_ADDED",
+                reference_ids=contribution.reference_ids,
+                payload={
+                    "evidence_id": contribution.evidence_id,
+                    "kind": contribution.kind,
+                    "summary": contribution.summary,
+                    "strength": contribution.strength,
+                    "uncertainty": contribution.uncertainty,
+                    "data": dict(contribution.data),
+                },
+                **common,
+            )
+
+        if result.evidence_refs:
+            self._ledger.append_event(
+                event_type="EVIDENCE_REFERENCED",
                 reference_ids=result.evidence_refs,
                 **common,
             )
