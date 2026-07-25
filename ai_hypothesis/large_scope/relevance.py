@@ -19,6 +19,7 @@ from ai_hypothesis.step01.schema import BenchmarkSample, Difficulty, TaskFamily
 LARGE_SCOPE_BENCHMARK_VERSION = "large-scope-relevance-v0"
 LARGE_SCOPE_SEED_BASE = 3_000_000_000
 LARGE_SCOPE_SEED_SPAN = 900_000_000
+LARGE_SCOPE_SEED_LIMIT = LARGE_SCOPE_SEED_BASE + LARGE_SCOPE_SEED_SPAN
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,7 +59,10 @@ class LargeScopeRelevanceSample:
             raise ValueError("window seed count does not match config")
         if len(set(self.window_seeds)) != len(self.window_seeds):
             raise ValueError("window seeds must be unique inside one world")
-        if any(seed < LARGE_SCOPE_SEED_BASE for seed in self.window_seeds):
+        if any(
+            not LARGE_SCOPE_SEED_BASE <= seed < LARGE_SCOPE_SEED_LIMIT
+            for seed in self.window_seeds
+        ):
             raise ValueError("large-scope window seed escaped the reserved seed range")
 
         relevant_indices: list[int] = []
@@ -109,9 +113,7 @@ def generate_large_scope_relevance(
             difficulty = config.target_difficulty
             desired_label = "RELEVANT"
         else:
-            ambiguous = (
-                layout_rng.random() < config.ambiguous_distractor_fraction
-            )
+            ambiguous = layout_rng.random() < config.ambiguous_distractor_fraction
             difficulty = Difficulty.AMBIGUOUS if ambiguous else config.distractor_difficulty
             desired_label = "UNCERTAIN" if ambiguous else "NOT_RELEVANT"
 
@@ -207,26 +209,31 @@ def _window_seed(
     desired_label: str,
     used_seeds: set[int],
 ) -> int:
-    raw = LARGE_SCOPE_SEED_BASE + (
+    candidate = LARGE_SCOPE_SEED_BASE + (
         _scope_seed("window", world_seed, window_index, desired_label)
         % LARGE_SCOPE_SEED_SPAN
     )
     if desired_label == "RELEVANT":
-        raw += raw % 2
+        parity: int | None = 0
+        step = 2
     elif desired_label == "NOT_RELEVANT":
-        raw += 1 - (raw % 2)
-    elif desired_label != "UNCERTAIN":
+        parity = 1
+        step = 2
+    elif desired_label == "UNCERTAIN":
+        parity = None
+        step = 1
+    else:
         raise ValueError(f"unsupported desired label {desired_label!r}")
 
-    candidate = raw
+    if parity is not None and candidate % 2 != parity:
+        candidate += 1
+        if candidate >= LARGE_SCOPE_SEED_LIMIT:
+            candidate -= 2
+
     while candidate in used_seeds:
-        candidate += 2 if desired_label != "UNCERTAIN" else 1
-        if candidate >= LARGE_SCOPE_SEED_BASE + LARGE_SCOPE_SEED_SPAN:
-            candidate = LARGE_SCOPE_SEED_BASE + (candidate % LARGE_SCOPE_SEED_SPAN)
-            if desired_label == "RELEVANT" and candidate % 2 != 0:
-                candidate += 1
-            elif desired_label == "NOT_RELEVANT" and candidate % 2 == 0:
-                candidate += 1
+        candidate += step
+        if candidate >= LARGE_SCOPE_SEED_LIMIT:
+            candidate = LARGE_SCOPE_SEED_BASE if parity is None else LARGE_SCOPE_SEED_BASE + parity
     return candidate
 
 
