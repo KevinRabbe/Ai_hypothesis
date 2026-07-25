@@ -146,6 +146,7 @@ class WorkerRuntime:
                 "purpose": item.purpose.value,
                 "projection_revision": item.projection_revision,
                 "scheduler_decision_id": scheduler_decision_id,
+                "scope_region_ids": list(item.scope_region_ids),
             },
         )
         return event.event_id
