@@ -91,6 +91,7 @@ See:
 - [`experiments/step_02_population_scaling/README.md`](experiments/step_02_population_scaling/README.md)
 - [`experiments/step_02_population_scaling/minority_rescue_v0.md`](experiments/step_02_population_scaling/minority_rescue_v0.md)
 - [`benchmarks/step_01_benchmark_v0.md`](benchmarks/step_01_benchmark_v0.md)
+- [`benchmarks/large_scope_relevance_v0.md`](benchmarks/large_scope_relevance_v0.md) — constructed controlled scope benchmark; no Gate 5 result is claimed.
 
 ## Current status
 
