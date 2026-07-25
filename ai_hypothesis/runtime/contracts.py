@@ -48,6 +48,12 @@ class EvidenceDispositionKind(str, Enum):
     LOCAL_ONLY = "LOCAL_ONLY"
 
 
+class KnowledgeAssessmentKind(str, Enum):
+    VERIFIED = "VERIFIED"
+    DISPUTED = "DISPUTED"
+    RETRACTED = "RETRACTED"
+
+
 def _require_text(name: str, value: str) -> None:
     if not value or not value.strip():
         raise ValueError(f"{name} must be non-empty")
@@ -65,8 +71,6 @@ def _require_finite(name: str, value: float) -> None:
 
 @dataclass(frozen=True, slots=True)
 class WorkItem:
-    """One immutable bounded unit of work assigned by the scheduler."""
-
     work_item_id: str
     thread_id: str
     objective: str
@@ -90,8 +94,6 @@ class WorkItem:
 
 @dataclass(frozen=True, slots=True)
 class EvidenceContribution:
-    """One structured evidence contribution produced by a bounded attempt."""
-
     evidence_id: str
     kind: str
     summary: str
@@ -116,8 +118,6 @@ class EvidenceContribution:
 
 @dataclass(frozen=True, slots=True)
 class EvidenceDisposition:
-    """Explicit integration outcome for generated evidence."""
-
     evidence_ids: tuple[str, ...]
     disposition: EvidenceDispositionKind
     reason: str | None = None
@@ -132,9 +132,24 @@ class EvidenceDisposition:
 
 
 @dataclass(frozen=True, slots=True)
-class AttemptResult:
-    """Structured changes produced by one bounded worker attempt."""
+class KnowledgeAssessment:
+    """Verification/challenge outcome for existing knowledge deltas."""
 
+    delta_ids: tuple[str, ...]
+    assessment: KnowledgeAssessmentKind
+    reason: str | None = None
+
+    def validate(self) -> None:
+        if not self.delta_ids:
+            raise ValueError("knowledge assessment requires at least one delta ID")
+        if any(not delta_id or not delta_id.strip() for delta_id in self.delta_ids):
+            raise ValueError("delta IDs must be non-empty")
+        if self.reason is not None:
+            _require_text("reason", self.reason)
+
+
+@dataclass(frozen=True, slots=True)
+class AttemptResult:
     attempt_id: str
     work_item_id: str
     thread_id: str
@@ -144,6 +159,7 @@ class AttemptResult:
     evidence: tuple[EvidenceContribution, ...] = ()
     evidence_refs: tuple[str, ...] = ()
     knowledge_deltas: tuple[KnowledgeDelta, ...] = ()
+    knowledge_assessments: tuple[KnowledgeAssessment, ...] = ()
     evidence_dispositions: tuple[EvidenceDisposition, ...] = ()
     hypotheses_proposed: tuple[str, ...] = ()
     hypotheses_strengthened: tuple[str, ...] = ()
@@ -158,17 +174,14 @@ class AttemptResult:
     resource_usage: Mapping[str, Any] = field(default_factory=dict)
 
     def validate(self) -> None:
-        for name, value in (
-            ("attempt_id", self.attempt_id),
-            ("work_item_id", self.work_item_id),
-            ("thread_id", self.thread_id),
-            ("worker_id", self.worker_id),
-        ):
+        for name, value in (("attempt_id", self.attempt_id), ("work_item_id", self.work_item_id), ("thread_id", self.thread_id), ("worker_id", self.worker_id)):
             _require_text(name, value)
         for contribution in self.evidence:
             contribution.validate()
         for delta in self.knowledge_deltas:
             delta.validate()
+        for assessment in self.knowledge_assessments:
+            assessment.validate()
         for disposition in self.evidence_dispositions:
             disposition.validate()
         if any(not value for value in self.evidence_refs):
@@ -177,8 +190,6 @@ class AttemptResult:
 
 @dataclass(frozen=True, slots=True)
 class LedgerEvent:
-    """Append-only durable change with causal provenance."""
-
     event_id: str
     event_type: str
     sequence: int
@@ -202,8 +213,6 @@ class LedgerEvent:
 
 @dataclass(frozen=True, slots=True)
 class ProjectedState:
-    """Rebuildable bounded state consumed by scheduling and worker preparation."""
-
     revision: int
     thread_id: str
     objective: str
@@ -225,8 +234,6 @@ class ProjectedState:
 
 @dataclass(frozen=True, slots=True)
 class SchedulerDecision:
-    """A bounded allocation decision made from projected metadata and resources."""
-
     decision_id: str
     thread_id: str
     action: SchedulerAction
@@ -250,8 +257,6 @@ class SchedulerDecision:
 
 @dataclass(frozen=True, slots=True)
 class KnowledgeDelta:
-    """Compact knowledge change that retains links to underlying evidence."""
-
     delta_id: str
     kind: str
     summary: str
