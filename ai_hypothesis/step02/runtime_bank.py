@@ -85,6 +85,8 @@ class Step02RuntimeWorkerBank:
 
         results: list[AttemptResult] = []
         for sample_index, request in enumerate(requests):
+            worker_index = worker_indices[sample_index]
+            checkpoint = self.bank.checkpoints[worker_index]
             label_index = int(evidence.top_valid_label_indices[0, sample_index].item())
             label = NON_UNCERTAIN_LABELS[label_index]
             strength = float(evidence.evidence_scores[0, sample_index, label_index].item())
@@ -107,6 +109,12 @@ class Step02RuntimeWorkerBank:
                     "reliability": reliability,
                     "invalid_label_mass": invalid_mass,
                     "top_margin": top_margin,
+                    "label_logits": [
+                        float(value) for value in output.label_logits[sample_index].tolist()
+                    ],
+                    "uncertainty_logit": float(
+                        output.uncertainty_logits[sample_index].item()
+                    ),
                     "label_probabilities": [
                         float(value)
                         for value in evidence.label_probabilities_all[0, sample_index].tolist()
@@ -119,6 +127,12 @@ class Step02RuntimeWorkerBank:
                         float(value)
                         for value in evidence.evidence_scores[0, sample_index].tolist()
                     ],
+                    "worker_index": worker_index,
+                    "checkpoint_path": checkpoint.path,
+                    "checkpoint_step": checkpoint.step,
+                    "checkpoint_validation_score": checkpoint.validation_score,
+                    "execution_backend": self.bank.execution_backend,
+                    "device": str(self.bank.device),
                 },
             )
             contribution.validate()
@@ -131,7 +145,11 @@ class Step02RuntimeWorkerBank:
                     status=AttemptStatus.COMPLETED,
                     evidence=(contribution,),
                     progress_made=True,
-                    resource_usage={"neural_worker_evaluations": 1},
+                    resource_usage={
+                        "neural_worker_evaluations": 1,
+                        "execution_backend": self.bank.execution_backend,
+                        "device": str(self.bank.device),
+                    },
                 )
             )
 
@@ -145,7 +163,7 @@ class Step02RuntimeWorkerBank:
             value = value.squeeze(0)
         if value.ndim != 2:
             raise ValueError("WorkItem features must have shape [sequence, feature]")
-        return value
+        return value.to(dtype=torch.float32)
 
     @staticmethod
     def _mask_tensor(value: object) -> torch.Tensor:
@@ -155,7 +173,7 @@ class Step02RuntimeWorkerBank:
             value = value.squeeze(0)
         if value.ndim != 1:
             raise ValueError("WorkItem mask must have shape [sequence]")
-        return value
+        return value.to(dtype=torch.bool)
 
     @staticmethod
     def _task(value: object) -> TaskFamily:
