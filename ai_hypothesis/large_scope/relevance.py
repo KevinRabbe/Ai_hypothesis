@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import random
+from collections.abc import Iterator
 from dataclasses import dataclass
 
 from ai_hypothesis.step01.generator import generate_sample
@@ -17,9 +18,11 @@ from ai_hypothesis.step01.schema import BenchmarkSample, Difficulty, TaskFamily
 
 
 LARGE_SCOPE_BENCHMARK_VERSION = "large-scope-relevance-v0"
-LARGE_SCOPE_SEED_BASE = 3_000_000_000
-LARGE_SCOPE_SEED_SPAN = 900_000_000
-LARGE_SCOPE_SEED_LIMIT = LARGE_SCOPE_SEED_BASE + LARGE_SCOPE_SEED_SPAN
+LARGE_SCOPE_SPLIT_SEED_RANGES: dict[str, tuple[int, int]] = {
+    "development": (3_000_000_000, 3_300_000_000),
+    "confirmation": (3_300_000_000, 3_600_000_000),
+    "test": (3_600_000_000, 3_900_000_000),
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,6 +47,7 @@ class LargeScopeRelevanceConfig:
 
 @dataclass(frozen=True, slots=True)
 class LargeScopeRelevanceSample:
+    split: str
     seed: int
     config: LargeScopeRelevanceConfig
     windows: tuple[BenchmarkSample, ...]
@@ -53,17 +57,21 @@ class LargeScopeRelevanceSample:
 
     def validate(self) -> None:
         self.config.validate()
+        if self.split not in LARGE_SCOPE_SPLIT_SEED_RANGES:
+            raise ValueError(f"unknown large-scope split {self.split!r}")
+        if self.seed < 0:
+            raise ValueError("seed must be non-negative")
         if len(self.windows) != self.config.window_count:
             raise ValueError("window count does not match config")
         if len(self.window_seeds) != self.config.window_count:
             raise ValueError("window seed count does not match config")
         if len(set(self.window_seeds)) != len(self.window_seeds):
             raise ValueError("window seeds must be unique inside one world")
+        range_start, range_limit = LARGE_SCOPE_SPLIT_SEED_RANGES[self.split]
         if any(
-            not LARGE_SCOPE_SEED_BASE <= seed < LARGE_SCOPE_SEED_LIMIT
-            for seed in self.window_seeds
+            not range_start <= seed < range_limit for seed in self.window_seeds
         ):
-            raise ValueError("large-scope window seed escaped the reserved seed range")
+            raise ValueError("large-scope window seed escaped its split-reserved range")
 
         relevant_indices: list[int] = []
         for index, window in enumerate(self.windows):
@@ -91,15 +99,20 @@ def generate_large_scope_relevance(
     seed: int,
     config: LargeScopeRelevanceConfig = LargeScopeRelevanceConfig(),
     *,
+    split: str = "development",
     target_present: bool | None = None,
 ) -> LargeScopeRelevanceSample:
     """Generate one deterministic world without changing Worker v1 local semantics."""
 
     if seed < 0:
         raise ValueError("seed must be non-negative")
+    if split not in LARGE_SCOPE_SPLIT_SEED_RANGES:
+        raise ValueError(f"unknown large-scope split {split!r}")
     config.validate()
     resolved_target_present = seed % 2 == 0 if target_present is None else target_present
-    layout_rng = random.Random(_scope_seed("layout", seed, config.window_count))
+    layout_rng = random.Random(
+        _scope_seed("layout", split, seed, config.window_count)
+    )
     target_index = (
         layout_rng.randrange(config.window_count) if resolved_target_present else None
     )
@@ -118,6 +131,7 @@ def generate_large_scope_relevance(
             desired_label = "UNCERTAIN" if ambiguous else "NOT_RELEVANT"
 
         window_seed = _window_seed(
+            split=split,
             world_seed=seed,
             window_index=window_index,
             desired_label=desired_label,
@@ -133,6 +147,7 @@ def generate_large_scope_relevance(
         windows.append(window)
 
     sample = LargeScopeRelevanceSample(
+        split=split,
         seed=seed,
         config=config,
         windows=tuple(windows),
@@ -144,15 +159,45 @@ def generate_large_scope_relevance(
     return sample
 
 
-def inspection_order(seed: int, window_count: int) -> tuple[int, ...]:
+def generate_large_scope_dataset(
+    split: str,
+    count: int,
+    config: LargeScopeRelevanceConfig = LargeScopeRelevanceConfig(),
+    *,
+    start_seed: int = 0,
+) -> Iterator[LargeScopeRelevanceSample]:
+    """Yield a deterministic balanced target-present/absent world stream."""
+
+    if split not in LARGE_SCOPE_SPLIT_SEED_RANGES:
+        raise ValueError(f"unknown large-scope split {split!r}")
+    if count < 0:
+        raise ValueError("count must be non-negative")
+    if start_seed < 0:
+        raise ValueError("start_seed must be non-negative")
+    for offset in range(count):
+        yield generate_large_scope_relevance(
+            start_seed + offset,
+            config,
+            split=split,
+        )
+
+
+def inspection_order(
+    seed: int,
+    window_count: int,
+    *,
+    split: str = "development",
+) -> tuple[int, ...]:
     """Return one deterministic no-duplicate order independent of world layout RNG."""
 
     if seed < 0:
         raise ValueError("seed must be non-negative")
     if window_count <= 0:
         raise ValueError("window_count must be positive")
+    if split not in LARGE_SCOPE_SPLIT_SEED_RANGES:
+        raise ValueError(f"unknown large-scope split {split!r}")
     indices = list(range(window_count))
-    random.Random(_scope_seed("inspection", seed, window_count)).shuffle(indices)
+    random.Random(_scope_seed("inspection", split, seed, window_count)).shuffle(indices)
     return tuple(indices)
 
 
@@ -164,7 +209,11 @@ def inspection_prefix(sample: LargeScopeRelevanceSample, width: int) -> tuple[in
         raise ValueError("width must be positive")
     if width > sample.config.window_count:
         raise ValueError("width cannot exceed world window_count")
-    return inspection_order(sample.seed, sample.config.window_count)[:width]
+    return inspection_order(
+        sample.seed,
+        sample.config.window_count,
+        split=sample.split,
+    )[:width]
 
 
 def same_worker_indices(
@@ -172,11 +221,12 @@ def same_worker_indices(
     seed: int,
     width: int,
     population_width: int,
+    split: str = "development",
 ) -> tuple[int, ...]:
     """Scope-only control: one checkpoint inspects every selected window."""
 
-    _validate_worker_plan(width=width, population_width=population_width)
-    worker = _scope_seed("same-worker", seed, population_width) % population_width
+    _validate_worker_plan(width=width, population_width=population_width, split=split)
+    worker = _scope_seed("same-worker", split, seed, population_width) % population_width
     return (worker,) * width
 
 
@@ -185,33 +235,38 @@ def diverse_worker_indices(
     seed: int,
     width: int,
     population_width: int,
+    split: str = "development",
 ) -> tuple[int, ...]:
     """Scope + diversity: distinct checkpoints inspect the same window prefix."""
 
-    _validate_worker_plan(width=width, population_width=population_width)
+    _validate_worker_plan(width=width, population_width=population_width, split=split)
     if width > population_width:
         raise ValueError("diverse width cannot exceed available population width")
-    start = _scope_seed("diverse-workers", seed, population_width) % population_width
+    start = _scope_seed("diverse-workers", split, seed, population_width) % population_width
     return tuple((start + offset) % population_width for offset in range(width))
 
 
-def _validate_worker_plan(*, width: int, population_width: int) -> None:
+def _validate_worker_plan(*, width: int, population_width: int, split: str) -> None:
     if width <= 0:
         raise ValueError("width must be positive")
     if population_width <= 0:
         raise ValueError("population_width must be positive")
+    if split not in LARGE_SCOPE_SPLIT_SEED_RANGES:
+        raise ValueError(f"unknown large-scope split {split!r}")
 
 
 def _window_seed(
     *,
+    split: str,
     world_seed: int,
     window_index: int,
     desired_label: str,
     used_seeds: set[int],
 ) -> int:
-    candidate = LARGE_SCOPE_SEED_BASE + (
-        _scope_seed("window", world_seed, window_index, desired_label)
-        % LARGE_SCOPE_SEED_SPAN
+    range_start, range_limit = LARGE_SCOPE_SPLIT_SEED_RANGES[split]
+    span = range_limit - range_start
+    candidate = range_start + (
+        _scope_seed("window", split, world_seed, window_index, desired_label) % span
     )
     if desired_label == "RELEVANT":
         parity: int | None = 0
@@ -227,13 +282,13 @@ def _window_seed(
 
     if parity is not None and candidate % 2 != parity:
         candidate += 1
-        if candidate >= LARGE_SCOPE_SEED_LIMIT:
+        if candidate >= range_limit:
             candidate -= 2
 
     while candidate in used_seeds:
         candidate += step
-        if candidate >= LARGE_SCOPE_SEED_LIMIT:
-            candidate = LARGE_SCOPE_SEED_BASE if parity is None else LARGE_SCOPE_SEED_BASE + parity
+        if candidate >= range_limit:
+            candidate = range_start if parity is None else range_start + parity
     return candidate
 
 
