@@ -12,6 +12,12 @@ from .contracts import (
     WorkItem,
     WorkPurpose,
 )
+from .evidence_projector import (
+    EvidenceProjection,
+    EvidenceState,
+    EvidenceStateProjector,
+    EvidenceStatus,
+)
 from .ledger import SQLiteResearchLedger
 from .projector import ThreadStateProjector
 from .scheduler import SchedulerConfig, SchedulerSignals, SchedulerV0, SchedulableThread
@@ -22,6 +28,10 @@ __all__ = [
     "AttemptResult",
     "AttemptStatus",
     "EvidenceContribution",
+    "EvidenceProjection",
+    "EvidenceState",
+    "EvidenceStateProjector",
+    "EvidenceStatus",
     "KnowledgeDelta",
     "LedgerEvent",
     "ProjectedState",
