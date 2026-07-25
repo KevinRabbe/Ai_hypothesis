@@ -170,7 +170,13 @@ class WorkerRuntime:
                 attempt_id=result.attempt_id,
                 reference_ids=(delta.delta_id, *delta.reference_ids),
                 parent_event_ids=(parent_event_id, *delta.causal_event_ids),
-                payload={"delta_id": delta.delta_id, "kind": delta.kind, "summary": delta.summary},
+                payload={
+                    "delta_id": delta.delta_id,
+                    "kind": delta.kind,
+                    "summary": delta.summary,
+                    "source_reference_ids": list(delta.reference_ids),
+                    "causal_event_ids": list(delta.causal_event_ids),
+                },
             )
         for assessment in result.knowledge_assessments:
             payload = {"assessment": assessment.assessment.value}
