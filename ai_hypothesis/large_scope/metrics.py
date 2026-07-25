@@ -1,11 +1,9 @@
-"""Threshold-free summaries for large-scope relevance evaluations."""
+"""Threshold-free bounded summaries for large-scope relevance evaluations."""
 
 from __future__ import annotations
 
-from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass
-from statistics import fmean
 
 from .evaluate import ScopeEvaluation, ScopeWorkerMode
 
@@ -37,82 +35,152 @@ class ScopeConditionSummary:
         return payload
 
 
+@dataclass(slots=True)
+class _RunningCondition:
+    split: str
+    mode: ScopeWorkerMode
+    width: int
+    world_count: int = 0
+    positive_world_count: int = 0
+    negative_world_count: int = 0
+    target_inspected_count: int = 0
+    target_retrieved_count: int = 0
+    target_rank_sum: float = 0.0
+    target_rank_count: int = 0
+    target_score_sum: float = 0.0
+    target_score_count: int = 0
+    distractor_score_sum: float = 0.0
+    distractor_score_count: int = 0
+    target_gap_sum: float = 0.0
+    target_gap_count: int = 0
+    positive_candidate_sum: float = 0.0
+    positive_candidate_count: int = 0
+    negative_candidate_sum: float = 0.0
+    negative_candidate_count: int = 0
+    max_negative_candidate: float | None = None
+
+    def add(self, result: ScopeEvaluation) -> None:
+        self.world_count += 1
+        if result.target_present:
+            self.positive_world_count += 1
+            self.positive_candidate_sum += result.candidate_relevant_evidence
+            self.positive_candidate_count += 1
+            if result.target_inspected:
+                self.target_inspected_count += 1
+                if result.target_rank is not None:
+                    self.target_rank_sum += result.target_rank
+                    self.target_rank_count += 1
+                if result.target_relevant_evidence is not None:
+                    self.target_score_sum += result.target_relevant_evidence
+                    self.target_score_count += 1
+                if (
+                    result.target_relevant_evidence is not None
+                    and result.strongest_distractor_relevant_evidence is not None
+                ):
+                    self.target_gap_sum += (
+                        result.target_relevant_evidence
+                        - result.strongest_distractor_relevant_evidence
+                    )
+                    self.target_gap_count += 1
+            if result.candidate_is_target:
+                self.target_retrieved_count += 1
+        else:
+            self.negative_world_count += 1
+            score = result.candidate_relevant_evidence
+            self.negative_candidate_sum += score
+            self.negative_candidate_count += 1
+            self.max_negative_candidate = (
+                score
+                if self.max_negative_candidate is None
+                else max(self.max_negative_candidate, score)
+            )
+
+        if result.strongest_distractor_relevant_evidence is not None:
+            self.distractor_score_sum += result.strongest_distractor_relevant_evidence
+            self.distractor_score_count += 1
+
+    def finish(self) -> ScopeConditionSummary:
+        return ScopeConditionSummary(
+            split=self.split,
+            mode=self.mode,
+            width=self.width,
+            world_count=self.world_count,
+            positive_world_count=self.positive_world_count,
+            negative_world_count=self.negative_world_count,
+            target_inspected_count=self.target_inspected_count,
+            target_retrieved_count=self.target_retrieved_count,
+            target_coverage_rate=_rate(
+                self.target_inspected_count, self.positive_world_count
+            ),
+            target_retrieval_rate=_rate(
+                self.target_retrieved_count, self.positive_world_count
+            ),
+            retrieval_given_inspected=(
+                _rate(self.target_retrieved_count, self.target_inspected_count)
+                if self.target_inspected_count
+                else None
+            ),
+            mean_target_rank_when_inspected=_running_mean(
+                self.target_rank_sum, self.target_rank_count
+            ),
+            mean_target_relevant_evidence_when_inspected=_running_mean(
+                self.target_score_sum, self.target_score_count
+            ),
+            mean_strongest_distractor_relevant_evidence=_running_mean(
+                self.distractor_score_sum, self.distractor_score_count
+            ),
+            mean_target_minus_distractor_evidence=_running_mean(
+                self.target_gap_sum, self.target_gap_count
+            ),
+            mean_candidate_relevant_evidence_positive=_running_mean(
+                self.positive_candidate_sum, self.positive_candidate_count
+            ),
+            mean_candidate_relevant_evidence_negative=_running_mean(
+                self.negative_candidate_sum, self.negative_candidate_count
+            ),
+            max_candidate_relevant_evidence_negative=self.max_negative_candidate,
+        )
+
+
+class ScopeMetricsAccumulator:
+    """Bounded streaming condition summaries for arbitrarily many worlds."""
+
+    def __init__(self) -> None:
+        self._conditions: dict[
+            tuple[str, ScopeWorkerMode, int], _RunningCondition
+        ] = {}
+
+    def add(self, evaluation: ScopeEvaluation) -> None:
+        evaluation.validate()
+        key = (evaluation.split, evaluation.mode, evaluation.width)
+        condition = self._conditions.get(key)
+        if condition is None:
+            condition = _RunningCondition(*key)
+            self._conditions[key] = condition
+        condition.add(evaluation)
+
+    def summaries(self) -> tuple[ScopeConditionSummary, ...]:
+        return tuple(
+            self._conditions[key].finish()
+            for key in sorted(
+                self._conditions,
+                key=lambda value: (value[0], value[1].value, value[2]),
+            )
+        )
+
+
 def summarize_scope_evaluations(
     evaluations: Sequence[ScopeEvaluation],
 ) -> tuple[ScopeConditionSummary, ...]:
-    """Summarize observable retrieval/evidence behavior without choosing a threshold."""
-
-    grouped: dict[tuple[str, ScopeWorkerMode, int], list[ScopeEvaluation]] = defaultdict(list)
+    accumulator = ScopeMetricsAccumulator()
     for evaluation in evaluations:
-        evaluation.validate()
-        grouped[(evaluation.split, evaluation.mode, evaluation.width)].append(evaluation)
-
-    summaries: list[ScopeConditionSummary] = []
-    for (split, mode, width), group in sorted(
-        grouped.items(), key=lambda item: (item[0][0], item[0][1].value, item[0][2])
-    ):
-        positives = [result for result in group if result.target_present]
-        negatives = [result for result in group if not result.target_present]
-        inspected = [result for result in positives if result.target_inspected]
-        retrieved = [result for result in positives if result.candidate_is_target]
-        target_scores = [
-            result.target_relevant_evidence
-            for result in inspected
-            if result.target_relevant_evidence is not None
-        ]
-        target_ranks = [
-            result.target_rank for result in inspected if result.target_rank is not None
-        ]
-        distractor_scores = [
-            result.strongest_distractor_relevant_evidence
-            for result in group
-            if result.strongest_distractor_relevant_evidence is not None
-        ]
-        target_minus_distractor = [
-            result.target_relevant_evidence - result.strongest_distractor_relevant_evidence
-            for result in inspected
-            if result.target_relevant_evidence is not None
-            and result.strongest_distractor_relevant_evidence is not None
-        ]
-        positive_candidate_scores = [
-            result.candidate_relevant_evidence for result in positives
-        ]
-        negative_candidate_scores = [
-            result.candidate_relevant_evidence for result in negatives
-        ]
-
-        summaries.append(
-            ScopeConditionSummary(
-                split=split,
-                mode=mode,
-                width=width,
-                world_count=len(group),
-                positive_world_count=len(positives),
-                negative_world_count=len(negatives),
-                target_inspected_count=len(inspected),
-                target_retrieved_count=len(retrieved),
-                target_coverage_rate=_rate(len(inspected), len(positives)),
-                target_retrieval_rate=_rate(len(retrieved), len(positives)),
-                retrieval_given_inspected=(
-                    _rate(len(retrieved), len(inspected)) if inspected else None
-                ),
-                mean_target_rank_when_inspected=_mean(target_ranks),
-                mean_target_relevant_evidence_when_inspected=_mean(target_scores),
-                mean_strongest_distractor_relevant_evidence=_mean(distractor_scores),
-                mean_target_minus_distractor_evidence=_mean(target_minus_distractor),
-                mean_candidate_relevant_evidence_positive=_mean(positive_candidate_scores),
-                mean_candidate_relevant_evidence_negative=_mean(negative_candidate_scores),
-                max_candidate_relevant_evidence_negative=(
-                    max(negative_candidate_scores) if negative_candidate_scores else None
-                ),
-            )
-        )
-    return tuple(summaries)
+        accumulator.add(evaluation)
+    return accumulator.summaries()
 
 
 def _rate(numerator: int, denominator: int) -> float:
     return numerator / denominator if denominator else 0.0
 
 
-def _mean(values: Sequence[float | int]) -> float | None:
-    return float(fmean(values)) if values else None
+def _running_mean(total: float, count: int) -> float | None:
+    return total / count if count else None
