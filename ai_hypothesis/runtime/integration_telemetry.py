@@ -61,10 +61,12 @@ class IntegrationBandwidthWindow:
 
     elapsed_seconds: float
     evidence_generated: int
+    evidence_dispositioned: int
     disposition_references_recorded: int
     knowledge_deltas_recorded: int
     backlog_delta: int
     evidence_per_second: float
+    evidence_dispositioned_per_second: float
     disposition_references_per_second: float
     knowledge_deltas_per_second: float
     backlog_growth_per_second: float
@@ -84,12 +86,17 @@ class IntegrationBandwidthWindow:
             raise ValueError("current telemetry revision cannot precede previous revision")
 
         evidence_generated = current.evidence_count - previous.evidence_count
+        evidence_dispositioned = (
+            current.dispositioned_evidence_count
+            - previous.dispositioned_evidence_count
+        )
         disposition_references = (
             current.disposition_reference_count - previous.disposition_reference_count
         )
         knowledge_deltas = current.knowledge_delta_count - previous.knowledge_delta_count
         for name, value in (
             ("evidence_count", evidence_generated),
+            ("dispositioned_evidence_count", evidence_dispositioned),
             ("disposition_reference_count", disposition_references),
             ("knowledge_delta_count", knowledge_deltas),
         ):
@@ -98,17 +105,19 @@ class IntegrationBandwidthWindow:
 
         backlog_delta = current.backlog_count - previous.backlog_count
         absorption_ratio = (
-            disposition_references / evidence_generated
+            evidence_dispositioned / evidence_generated
             if evidence_generated > 0
             else None
         )
         return cls(
             elapsed_seconds=elapsed_seconds,
             evidence_generated=evidence_generated,
+            evidence_dispositioned=evidence_dispositioned,
             disposition_references_recorded=disposition_references,
             knowledge_deltas_recorded=knowledge_deltas,
             backlog_delta=backlog_delta,
             evidence_per_second=evidence_generated / elapsed_seconds,
+            evidence_dispositioned_per_second=evidence_dispositioned / elapsed_seconds,
             disposition_references_per_second=disposition_references / elapsed_seconds,
             knowledge_deltas_per_second=knowledge_deltas / elapsed_seconds,
             backlog_growth_per_second=backlog_delta / elapsed_seconds,
