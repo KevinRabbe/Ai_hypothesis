@@ -22,6 +22,7 @@ from ai_hypothesis.step02.rescue import (
     score_rescue_gate,
     select_rescue_threshold,
 )
+from ai_hypothesis.step02.run_minority_rescue import _development_confirmation_masks
 
 
 class Step02RescueTests(unittest.TestCase):
@@ -105,6 +106,19 @@ class Step02RescueTests(unittest.TestCase):
         scores = score_rescue_gate(features, exists, config)
 
         self.assertGreater(float(scores[:4].mean()), float(scores[4:].mean()))
+
+    def test_validation_half_split_is_reproducible_disjoint_and_balanced(self) -> None:
+        development_a, confirmation_a = _development_confirmation_masks(101, seed=7)
+        development_b, confirmation_b = _development_confirmation_masks(101, seed=7)
+        development_c, _ = _development_confirmation_masks(101, seed=8)
+
+        self.assertTrue(torch.equal(development_a, development_b))
+        self.assertTrue(torch.equal(confirmation_a, confirmation_b))
+        self.assertFalse(bool((development_a & confirmation_a).any()))
+        self.assertTrue(bool((development_a | confirmation_a).all()))
+        self.assertEqual(int(development_a.sum()), 50)
+        self.assertEqual(int(confirmation_a.sum()), 51)
+        self.assertFalse(torch.equal(development_a, development_c))
 
 
 if __name__ == "__main__":
