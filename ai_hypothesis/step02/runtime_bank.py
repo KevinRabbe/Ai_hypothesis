@@ -54,25 +54,61 @@ class Step02RuntimeWorkerBank:
         if not requests:
             return ()
 
+        results: list[AttemptResult | None] = [None] * len(requests)
+        valid_positions: list[int] = []
+        valid_requests: list[AttemptRequest] = []
         worker_indices: list[int] = []
         features: list[torch.Tensor] = []
         masks: list[torch.Tensor] = []
         tasks: list[TaskFamily] = []
 
-        for request in requests:
+        for request_position, request in enumerate(requests):
             try:
                 worker_index = self._worker_indices[request.worker_id]
-            except KeyError as error:
-                raise KeyError(f"unknown worker_id {request.worker_id!r}") from error
+                item = request.work_item
+                feature = self._feature_tensor(item.context.get("features"))
+                mask = self._mask_tensor(item.context.get("mask"))
+                task = self._task(item.context.get("task"))
+            except (KeyError, TypeError, ValueError) as error:
+                results[request_position] = self._invalid_request_result(request, error)
+                continue
+
+            valid_positions.append(request_position)
+            valid_requests.append(request)
             worker_indices.append(worker_index)
+            features.append(feature)
+            masks.append(mask)
+            tasks.append(task)
 
-            item = request.work_item
-            features.append(self._feature_tensor(item.context.get("features")))
-            masks.append(self._mask_tensor(item.context.get("mask")))
-            tasks.append(self._task(item.context.get("task")))
+        if valid_requests:
+            valid_results = self._execute_valid_requests(
+                valid_requests,
+                worker_indices,
+                features,
+                masks,
+                tasks,
+            )
+            for request_position, result in zip(
+                valid_positions,
+                valid_results,
+                strict=True,
+            ):
+                results[request_position] = result
 
-        feature_batch = torch.stack(features, dim=0)
-        mask_batch = torch.stack(masks, dim=0)
+        if any(result is None for result in results):
+            raise RuntimeError("Step 2 runtime bank failed to produce one result per request")
+        return tuple(result for result in results if result is not None)
+
+    def _execute_valid_requests(
+        self,
+        requests: Sequence[AttemptRequest],
+        worker_indices: Sequence[int],
+        features: Sequence[torch.Tensor],
+        masks: Sequence[torch.Tensor],
+        tasks: Sequence[TaskFamily],
+    ) -> tuple[AttemptResult, ...]:
+        feature_batch = torch.stack(tuple(features), dim=0)
+        mask_batch = torch.stack(tuple(masks), dim=0)
         output = self.bank.forward_selected(worker_indices, feature_batch, mask_batch)
         evidence = build_evidence_matrix(
             PopulationOutput(
@@ -156,6 +192,30 @@ class Step02RuntimeWorkerBank:
             )
 
         return tuple(results)
+
+    @staticmethod
+    def _invalid_request_result(
+        request: AttemptRequest,
+        error: Exception,
+    ) -> AttemptResult:
+        result = AttemptResult(
+            attempt_id=request.attempt_id,
+            work_item_id=request.work_item.work_item_id,
+            thread_id=request.work_item.thread_id,
+            worker_id=request.worker_id,
+            status=AttemptStatus.FAILED,
+            observations=(
+                f"STEP02_WORK_ITEM_INVALID: {type(error).__name__}: {error}",
+            ),
+            requested_followups=("repair Step 2 Work Item context or worker assignment",),
+            progress_made=False,
+            resource_usage={
+                "neural_worker_evaluations": 0,
+                "validation_error_type": type(error).__name__,
+            },
+        )
+        result.validate()
+        return result
 
     @staticmethod
     def _feature_tensor(value: object) -> torch.Tensor:
