@@ -9,6 +9,7 @@ import torch
 from ai_hypothesis.large_scope import (
     ScopeWorkerMode,
     diverse_worker_indices,
+    evaluate_scope_batch,
     evaluate_scope_sample,
     evaluate_scope_widths,
     generate_large_scope_relevance,
@@ -42,6 +43,32 @@ class _FakeSelectedBank:
         return Step01Output(
             label_logits=logits,
             uncertainty_logits=torch.full((batch,), -5.0),
+        )
+
+
+class _FeatureDrivenBank:
+    """Deterministic row-local fake bank whose output is independent of batch shape."""
+
+    def __init__(self, population_width: int = 16) -> None:
+        self._population_width = population_width
+        self.batch_sizes: list[int] = []
+
+    @property
+    def population_width(self) -> int:
+        return self._population_width
+
+    def forward_selected(self, worker_indices, features, mask):
+        self.batch_sizes.append(int(features.shape[0]))
+        batch = features.shape[0]
+        logits = torch.full((batch, len(NON_UNCERTAIN_LABELS)), -8.0)
+        relevant = LABEL_TO_INDEX["RELEVANT"]
+        not_relevant = LABEL_TO_INDEX["NOT_RELEVANT"]
+        signal = features[:, :, 0].sum(dim=1) / 8.0
+        logits[:, relevant] = signal
+        logits[:, not_relevant] = -signal
+        return Step01Output(
+            label_logits=logits,
+            uncertainty_logits=torch.full((batch,), -3.0),
         )
 
 
@@ -95,6 +122,32 @@ class LargeScopeEvaluationTests(unittest.TestCase):
         )
         self.assertEqual(len(set(same.worker_indices)), 1)
         self.assertEqual(len(set(diverse.worker_indices)), 4)
+
+    def test_batched_worlds_match_individual_evaluation_with_one_forward_call(self) -> None:
+        samples = tuple(
+            generate_large_scope_relevance(seed) for seed in (40, 41, 42)
+        )
+        sequential_bank = _FeatureDrivenBank()
+        sequential = tuple(
+            evaluate_scope_sample(
+                sequential_bank,
+                sample,
+                width=4,
+                mode=ScopeWorkerMode.DIVERSE_WORKERS,
+            )
+            for sample in samples
+        )
+        batched_bank = _FeatureDrivenBank()
+        batched = evaluate_scope_batch(
+            batched_bank,
+            samples,
+            width=4,
+            mode=ScopeWorkerMode.DIVERSE_WORKERS,
+        )
+
+        self.assertEqual(batched, sequential)
+        self.assertEqual(sequential_bank.batch_sizes, [4, 4, 4])
+        self.assertEqual(batched_bank.batch_sizes, [12])
 
     def test_width_runner_preserves_nested_prefixes_in_both_modes(self) -> None:
         sample = generate_large_scope_relevance(88)
