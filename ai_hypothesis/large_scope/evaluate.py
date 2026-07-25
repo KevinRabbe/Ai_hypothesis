@@ -58,6 +58,7 @@ class WindowEvidence:
 
 @dataclass(frozen=True, slots=True)
 class ScopeEvaluation:
+    split: str
     seed: int
     width: int
     mode: ScopeWorkerMode
@@ -75,6 +76,8 @@ class ScopeEvaluation:
     window_evidence: tuple[WindowEvidence, ...]
 
     def validate(self) -> None:
+        if not self.split:
+            raise ValueError("split must be non-empty")
         if self.width <= 0:
             raise ValueError("width must be positive")
         if len(self.inspected_window_indices) != self.width:
@@ -115,12 +118,14 @@ def evaluate_scope_sample(
             seed=sample.seed,
             width=width,
             population_width=bank.population_width,
+            split=sample.split,
         )
     else:
         workers = diverse_worker_indices(
             seed=sample.seed,
             width=width,
             population_width=bank.population_width,
+            split=sample.split,
         )
 
     features = torch.tensor(
@@ -196,9 +201,7 @@ def evaluate_scope_sample(
         assert sample.target_index is not None
         target_batch_index = window_indices.index(sample.target_index)
         target_score = relevant_scores[target_batch_index]
-        target_rank = 1 + sum(
-            score > target_score for score in relevant_scores
-        )
+        target_rank = 1 + sum(score > target_score for score in relevant_scores)
 
     distractor_scores = [
         score
@@ -208,6 +211,7 @@ def evaluate_scope_sample(
     strongest_distractor = max(distractor_scores) if distractor_scores else None
 
     result = ScopeEvaluation(
+        split=sample.split,
         seed=sample.seed,
         width=width,
         mode=mode,
