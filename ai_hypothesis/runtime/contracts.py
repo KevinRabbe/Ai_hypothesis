@@ -225,12 +225,13 @@ class ProjectedState:
 
 @dataclass(frozen=True, slots=True)
 class SchedulerDecision:
-    """A bounded allocation decision made from projected metadata."""
+    """A bounded allocation decision made from projected metadata and resources."""
 
     decision_id: str
     thread_id: str
     action: SchedulerAction
     purpose: WorkPurpose | None = None
+    width: int = 1
     work_item_ids: tuple[str, ...] = ()
     reason_codes: tuple[str, ...] = ()
     projection_revision: int = 0
@@ -238,7 +239,13 @@ class SchedulerDecision:
     def validate(self) -> None:
         _require_text("decision_id", self.decision_id)
         _require_text("thread_id", self.thread_id)
+        if self.width <= 0:
+            raise ValueError("scheduler decision width must be positive")
         _require_non_negative("projection_revision", self.projection_revision)
+        if any(not work_item_id for work_item_id in self.work_item_ids):
+            raise ValueError("work_item_ids must not contain empty IDs")
+        if self.work_item_ids and len(self.work_item_ids) != self.width:
+            raise ValueError("work_item_ids must match allocated scheduler width")
 
 
 @dataclass(frozen=True, slots=True)
