@@ -173,6 +173,7 @@ class ThreadStateProjector:
                     f"thread {source_id!r} was merged into multiple targets"
                 )
             source.merged_into = target_id
+            source.status = "COMPLETE"
             _extend_unique(mutable[target_id].merged_from, (source_id,))
 
     @staticmethod
