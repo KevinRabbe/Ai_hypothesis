@@ -98,6 +98,29 @@ class ControlStep:
         return self.results[0] if self.results else None
 
 
+@dataclass(frozen=True, slots=True)
+class ControlBatch:
+    """Several independent control decisions executed through one WorkerBank batch."""
+
+    steps: tuple[ControlStep, ...]
+
+    @property
+    def assignments(self) -> tuple[WorkerAssignment, ...]:
+        return tuple(
+            assignment
+            for step in self.steps
+            for assignment in step.assignments
+        )
+
+    @property
+    def results(self) -> tuple[AttemptResult, ...]:
+        return tuple(result for step in self.steps for result in step.results)
+
+    @property
+    def neural_attempt_count(self) -> int:
+        return len(self.assignments)
+
+
 class WorkerSelectorV0:
     def __init__(self, worker_ids: Sequence[str]) -> None:
         self.worker_ids = tuple(worker_ids)
@@ -278,6 +301,42 @@ class RuntimeControlLoop:
         context_provider: ContextProvider,
         integration_backpressure: bool | None = None,
     ) -> ControlStep:
+        batch = self.run_many(
+            signal_provider=signal_provider,
+            context_provider=context_provider,
+            max_threads=1,
+            max_attempts=self.worker_selector.population_width,
+            integration_backpressure=integration_backpressure,
+        )
+        if not batch.steps:
+            raise RuntimeError("single-step control produced no decision")
+        return batch.steps[0]
+
+    def run_many(
+        self,
+        *,
+        signal_provider: SignalProvider,
+        context_provider: ContextProvider,
+        max_threads: int,
+        max_attempts: int,
+        integration_backpressure: bool | None = None,
+    ) -> ControlBatch:
+        """Schedule independent threads from one snapshot and execute one neural batch.
+
+        Each Work Thread can receive at most one scheduler decision in a call. Graph,
+        dependency, integration, and verification eligibility are computed once from the
+        initial ledger snapshot. A dependency completed during this batch therefore does
+        not unlock another thread until the next control call.
+
+        Scheduler decisions remain independent and retain their own provenance. Only the
+        resulting neural assignments are flattened into one WorkerRuntime/WorkerBank call.
+        """
+
+        if max_threads <= 0:
+            raise ValueError("max_threads must be positive")
+        if max_attempts <= 0:
+            raise ValueError("max_attempts must be positive")
+
         events = self.ledger.read_all_events()
         states = self.projector.project_all(events)
         if not states:
@@ -286,7 +345,7 @@ class RuntimeControlLoop:
 
         integration_overview = self.integration_tracker.overview(events) if self.integration_tracker is not None else None
         verification_overview = self.verification_tracker.overview(events) if self.verification_tracker is not None else None
-        candidates = tuple(
+        candidates = [
             SchedulableThread(
                 state=state,
                 signals=self._signals_for(
@@ -298,7 +357,7 @@ class RuntimeControlLoop:
             )
             for state in states
             if state.status != "COMPLETE" and not self._is_dependency_blocked(state, state_by_id)
-        )
+        ]
         if not candidates:
             if any(state.status != "COMPLETE" for state in states):
                 raise ValueError("all active Work Threads are dependency-blocked")
@@ -309,38 +368,133 @@ class RuntimeControlLoop:
             else False if integration_backpressure is None
             else integration_backpressure
         )
-        decision = self.scheduler.choose(
-            candidates,
-            integration_backpressure=resolved_backpressure,
-            max_width=self.worker_selector.population_width,
+
+        planned_steps: list[ControlStep] = []
+        all_assignments: list[WorkerAssignment] = []
+        assignment_counts: list[int] = []
+        remaining_attempts = max_attempts
+
+        while candidates and len(planned_steps) < max_threads:
+            if remaining_attempts <= 0:
+                break
+            available_width = min(
+                self.worker_selector.population_width,
+                remaining_attempts,
+            )
+            decision = self.scheduler.choose(
+                tuple(candidates),
+                integration_backpressure=resolved_backpressure,
+                max_width=available_width,
+            )
+            if decision.width > available_width:
+                raise ValueError(
+                    "scheduler decision width exceeds remaining neural-attempt budget"
+                )
+
+            selected_index = next(
+                (
+                    index
+                    for index, candidate in enumerate(candidates)
+                    if candidate.state.thread_id == decision.thread_id
+                ),
+                None,
+            )
+            if selected_index is None:
+                raise ValueError("scheduler selected a thread outside the candidate snapshot")
+            selected = candidates.pop(selected_index)
+            selected_state = selected.state
+
+            if decision.action is SchedulerAction.PAUSE:
+                self.ledger.append_event(
+                    event_type="THREAD_PAUSED",
+                    thread_id=selected_state.thread_id,
+                    payload={"reason_codes": list(decision.reason_codes)},
+                )
+                planned_steps.append(ControlStep(selected_state, decision))
+                assignment_counts.append(0)
+                continue
+            if decision.action is SchedulerAction.COMPLETE:
+                self.ledger.append_event(
+                    event_type="THREAD_COMPLETED",
+                    thread_id=selected_state.thread_id,
+                    payload={"reason_codes": list(decision.reason_codes)},
+                )
+                planned_steps.append(ControlStep(selected_state, decision))
+                assignment_counts.append(0)
+                continue
+
+            assignments, resolved_decision = self._prepare_assignments(
+                selected_state,
+                decision,
+                events=events,
+                context_provider=context_provider,
+            )
+            if len(assignments) != decision.width:
+                raise RuntimeError("prepared assignment count does not match scheduler width")
+            remaining_attempts -= len(assignments)
+            all_assignments.extend(assignments)
+            assignment_counts.append(len(assignments))
+            planned_steps.append(
+                ControlStep(
+                    selected_state,
+                    resolved_decision,
+                    assignments=assignments,
+                )
+            )
+
+        flat_results = self.worker_runtime.run_batch(
+            tuple(all_assignments),
+            self.worker_bank,
         )
-        selected_state = state_by_id[decision.thread_id]
+        if len(flat_results) != len(all_assignments):
+            raise RuntimeError("worker runtime returned a mismatched cross-thread result count")
 
-        if decision.action is SchedulerAction.PAUSE:
-            self.ledger.append_event(event_type="THREAD_PAUSED", thread_id=selected_state.thread_id, payload={"reason_codes": list(decision.reason_codes)})
-            return ControlStep(selected_state, decision)
-        if decision.action is SchedulerAction.COMPLETE:
-            self.ledger.append_event(event_type="THREAD_COMPLETED", thread_id=selected_state.thread_id, payload={"reason_codes": list(decision.reason_codes)})
-            return ControlStep(selected_state, decision)
+        resolved_steps: list[ControlStep] = []
+        result_offset = 0
+        for step, assignment_count in zip(
+            planned_steps,
+            assignment_counts,
+            strict=True,
+        ):
+            step_results = tuple(
+                flat_results[result_offset : result_offset + assignment_count]
+            )
+            result_offset += assignment_count
+            resolved_steps.append(replace(step, results=step_results))
+        if result_offset != len(flat_results):
+            raise RuntimeError("cross-thread result partition did not consume all results")
+        return ControlBatch(tuple(resolved_steps))
 
-        raw_preparation = context_provider(selected_state, decision)
+    def _prepare_assignments(
+        self,
+        state: ProjectedState,
+        decision: SchedulerDecision,
+        *,
+        events: Sequence[LedgerEvent],
+        context_provider: ContextProvider,
+    ) -> tuple[tuple[WorkerAssignment, ...], SchedulerDecision]:
+        raw_preparation = context_provider(state, decision)
         preparations = self._preparations_for_width(raw_preparation, decision.width)
         selected_worker_ids = self.worker_selector.choose_many(
             decision.action,
-            previous_worker_id=self._last_worker_id(events, selected_state.thread_id),
+            previous_worker_id=self._last_worker_id(events, state.thread_id),
             count=decision.width,
         )
         if len(selected_worker_ids) != decision.width:
             raise RuntimeError("scheduler allocated more distinct workers than available")
 
         assignments: list[WorkerAssignment] = []
-        for worker_id, preparation in zip(selected_worker_ids, preparations, strict=True):
+        for worker_id, preparation in zip(
+            selected_worker_ids,
+            preparations,
+            strict=True,
+        ):
             item = WorkItem(
                 work_item_id=uuid.uuid4().hex,
-                thread_id=selected_state.thread_id,
-                objective=selected_state.objective,
-                purpose=decision.purpose or selected_state.purpose,
-                projection_revision=selected_state.revision,
+                thread_id=state.thread_id,
+                objective=state.objective,
+                purpose=decision.purpose or state.purpose,
+                projection_revision=state.revision,
                 reference_ids=preparation.reference_ids,
                 parent_ids=preparation.parent_ids,
                 context=dict(preparation.context),
@@ -351,10 +505,14 @@ class RuntimeControlLoop:
             item.validate()
             assignments.append(WorkerAssignment(worker_id=worker_id, work_item=item))
 
-        decision = replace(decision, work_item_ids=tuple(a.work_item.work_item_id for a in assignments))
-        decision.validate()
-        results = self.worker_runtime.run_batch(tuple(assignments), self.worker_bank)
-        return ControlStep(selected_state, decision, assignments=tuple(assignments), results=results)
+        resolved_decision = replace(
+            decision,
+            work_item_ids=tuple(
+                assignment.work_item.work_item_id for assignment in assignments
+            ),
+        )
+        resolved_decision.validate()
+        return tuple(assignments), resolved_decision
 
     @staticmethod
     def _preparations_for_width(

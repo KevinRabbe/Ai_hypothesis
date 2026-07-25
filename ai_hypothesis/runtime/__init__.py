@@ -18,6 +18,7 @@ from .contracts import (
     WorkPurpose,
 )
 from .control import (
+    ControlBatch,
     ControlStep,
     RuntimeControlLoop,
     WorkerSelectorV0,
@@ -62,6 +63,7 @@ __all__ = [
     "AttemptRequest",
     "AttemptResult",
     "AttemptStatus",
+    "ControlBatch",
     "ControlStep",
     "EvidenceContribution",
     "EvidenceDisposition",
