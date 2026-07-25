@@ -6,6 +6,8 @@ from .contracts import (
     EvidenceContribution,
     EvidenceDisposition,
     EvidenceDispositionKind,
+    KnowledgeAssessment,
+    KnowledgeAssessmentKind,
     KnowledgeDelta,
     LedgerEvent,
     ProjectedState,
@@ -25,6 +27,12 @@ from .integration import (
     PendingEvidence,
 )
 from .integration_work import prepare_bounded_integration_work
+from .knowledge import (
+    KnowledgeRecord,
+    KnowledgeSnapshot,
+    KnowledgeStateProjector,
+    KnowledgeStatus,
+)
 from .ledger import SQLiteResearchLedger
 from .projector import ThreadStateProjector
 from .scheduler import SchedulerConfig, SchedulerSignals, SchedulerV0, SchedulableThread
@@ -44,7 +52,13 @@ __all__ = [
     "IntegrationOverview",
     "IntegrationSnapshot",
     "IntegrationTracker",
+    "KnowledgeAssessment",
+    "KnowledgeAssessmentKind",
     "KnowledgeDelta",
+    "KnowledgeRecord",
+    "KnowledgeSnapshot",
+    "KnowledgeStateProjector",
+    "KnowledgeStatus",
     "LedgerEvent",
     "PendingEvidence",
     "ProjectedState",
