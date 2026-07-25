@@ -30,7 +30,8 @@ class _FakeSelectedBank:
         LoadedCheckpoint("checkpoint-alpha.pt", 10, 0.71),
         LoadedCheckpoint("checkpoint-beta.pt", 20, 0.73),
     )
-    execution_backend = "fake-selected"
+    execution_backend = "fake-population"
+    selected_execution_backend = "fake-grouped"
     device = torch.device("cpu")
 
     def forward_selected(
@@ -161,8 +162,12 @@ class Step02RuntimeWorkerBankTests(unittest.TestCase):
             20,
         )
         self.assertEqual(
-            results[0].resource_usage["execution_backend"],
-            "fake-selected",
+            results[0].resource_usage["selected_execution_backend"],
+            "fake-grouped",
+        )
+        self.assertEqual(
+            results[0].resource_usage["population_execution_backend"],
+            "fake-population",
         )
         self.assertEqual(len(results[0].evidence[0].data["label_logits"]), 11)
 
