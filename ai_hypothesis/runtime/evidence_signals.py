@@ -1,4 +1,4 @@
-"""Provisional Scheduler v0 signals derived from persistent evidence state.
+"""Provisional Scheduler v0 signals derived from evidence and verification state.
 
 The formulas are deliberately simple and replaceable. The stable boundary is the
 callable ``ProjectedState -> SchedulerSignals`` contract used by the control loop.
@@ -19,6 +19,11 @@ from .evidence_projector import (
 )
 from .ledger import SQLiteResearchLedger
 from .scheduler import SchedulerSignals
+from .verification_projector import (
+    EvidenceVerificationStatus,
+    VerificationProjection,
+    VerificationStateProjector,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,7 +54,7 @@ class EvidenceSignalConfig:
 
 
 class EvidenceSignalProviderV0:
-    """Derive bounded scheduler metadata from ledger/evidence projections.
+    """Derive bounded scheduler metadata from ledger projections.
 
     One provider may be reused for every thread in a control-loop cycle. It caches the
     replay result until the ledger sequence changes so global history is not rebuilt
@@ -62,14 +67,19 @@ class EvidenceSignalProviderV0:
         *,
         config: EvidenceSignalConfig | None = None,
         evidence_projector: EvidenceStateProjector | None = None,
+        verification_projector: VerificationStateProjector | None = None,
     ) -> None:
         self.ledger = ledger
         self.config = config or EvidenceSignalConfig()
         self.config.validate()
         self.evidence_projector = evidence_projector or EvidenceStateProjector()
+        self.verification_projector = (
+            verification_projector or VerificationStateProjector()
+        )
         self._cached_sequence = -1
         self._cached_events: tuple[LedgerEvent, ...] = ()
         self._cached_evidence = EvidenceProjection(revision=0, evidence=())
+        self._cached_verification = VerificationProjection(revision=0, attempts=())
 
     def __call__(self, state: ProjectedState) -> SchedulerSignals:
         state.validate()
@@ -102,7 +112,15 @@ class EvidenceSignalProviderV0:
             len(state.contradiction_ids) / self.config.contradiction_target,
             1.0,
         )
-        contradiction_severity = max(disagreement, explicit_contradiction)
+        verification_contradiction = _verification_contradiction(
+            active,
+            self._cached_verification,
+        )
+        contradiction_severity = max(
+            disagreement,
+            explicit_contradiction,
+            verification_contradiction,
+        )
         novelty = (
             min(len(coverage_units) / max(len(active), 1), 1.0)
             if active
@@ -118,8 +136,9 @@ class EvidenceSignalProviderV0:
         )
         verification_need = max(
             contradiction_severity,
-            _unverified_strong_signal(
+            _verification_need(
                 active,
+                self._cached_verification,
                 threshold=self.config.strong_evidence_threshold,
                 redundancy_target=self.config.verification_redundancy_target,
             ),
@@ -152,6 +171,7 @@ class EvidenceSignalProviderV0:
         events = self.ledger.read_events()
         self._cached_events = events
         self._cached_evidence = self.evidence_projector.project(events)
+        self._cached_verification = self.verification_projector.project(events)
         self._cached_sequence = latest_sequence
 
 
@@ -205,22 +225,50 @@ def _label_disagreement(evidence: tuple[EvidenceState, ...]) -> float:
     return min(2.0 * minority_fraction, 1.0)
 
 
-def _unverified_strong_signal(
+def _verification_contradiction(
     evidence: tuple[EvidenceState, ...],
+    verification: VerificationProjection,
+) -> float:
+    statuses = {
+        verification.summary_for(state.evidence_id).status
+        for state in evidence
+    }
+    if EvidenceVerificationStatus.CONFLICTED in statuses:
+        return 1.0
+    if EvidenceVerificationStatus.REJECTED in statuses:
+        return 1.0
+    return 0.0
+
+
+def _verification_need(
+    evidence: tuple[EvidenceState, ...],
+    verification: VerificationProjection,
     *,
     threshold: float,
     redundancy_target: int,
 ) -> float:
-    if len(evidence) >= redundancy_target:
-        return 0.0
-    strengths = tuple(
-        max(state.strength, 0.0)
-        for state in evidence
-        if state.strength is not None
-    )
-    if not strengths:
-        return 0.0
-    return min(max(strengths) / threshold, 1.0)
+    need = 0.0
+    for state in evidence:
+        summary = verification.summary_for(state.evidence_id)
+        if summary.status in {
+            EvidenceVerificationStatus.CONFLICTED,
+            EvidenceVerificationStatus.REJECTED,
+            EvidenceVerificationStatus.INCONCLUSIVE,
+        }:
+            need = 1.0
+            continue
+        if summary.status is EvidenceVerificationStatus.PENDING:
+            continue
+        strength = max(state.strength or 0.0, 0.0)
+        strength_signal = min(strength / threshold, 1.0)
+        if summary.status is EvidenceVerificationStatus.UNVERIFIED:
+            need = max(need, strength_signal)
+        elif (
+            summary.status is EvidenceVerificationStatus.CONFIRMED
+            and summary.confirmed_count < redundancy_target
+        ):
+            need = max(need, strength_signal)
+    return need
 
 
 def _recent_progress(
