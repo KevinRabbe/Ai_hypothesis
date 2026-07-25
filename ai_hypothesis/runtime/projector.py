@@ -12,6 +12,7 @@ from .contracts import LedgerEvent, ProjectedState, WorkPurpose
 @dataclass(slots=True)
 class _MutableThreadState:
     created: bool = False
+    created_sequence: int = 0
     objective: str = ""
     status: str = "ACTIVE"
     purpose: WorkPurpose = WorkPurpose.EXPLORE
@@ -44,8 +45,8 @@ class ThreadStateProjector:
 
         mutable: dict[str, _MutableThreadState] = {}
         creation_order: list[str] = []
-        fork_edges: list[tuple[str, str]] = []
-        merge_edges: list[tuple[str, str]] = []
+        fork_edges: list[tuple[str, str, int]] = []
+        merge_edges: list[tuple[str, str, int]] = []
         previous_sequence = -1
 
         for event in events:
@@ -59,17 +60,21 @@ class ThreadStateProjector:
             if event.event_type == "THREAD_FORKED":
                 parent_id = self._require_thread_id(event)
                 child_ids = self._relation_targets(event, "THREAD_FORKED")
-                fork_edges.extend((parent_id, child_id) for child_id in child_ids)
+                fork_edges.extend(
+                    (parent_id, child_id, event.sequence) for child_id in child_ids
+                )
             elif event.event_type == "THREAD_MERGED":
                 target_id = self._require_thread_id(event)
                 source_ids = self._relation_targets(event, "THREAD_MERGED")
-                merge_edges.extend((source_id, target_id) for source_id in source_ids)
+                merge_edges.extend(
+                    (source_id, target_id, event.sequence) for source_id in source_ids
+                )
 
             if event.thread_id is None:
                 continue
 
             state = mutable.setdefault(event.thread_id, _MutableThreadState())
-            state.revision = event.sequence
+            state.revision = max(state.revision, event.sequence)
             _extend_unique(state.references, event.reference_ids)
             self._apply_thread_event(event.thread_id, state, event, creation_order)
 
@@ -110,6 +115,7 @@ class ThreadStateProjector:
             if not state.status:
                 raise ValueError("THREAD_CREATED status must be non-empty")
             state.created = True
+            state.created_sequence = event.sequence
             creation_order.append(thread_id)
         elif event.event_type == "THREAD_PURPOSE_SET":
             state.purpose = WorkPurpose(_require_payload_text(event, "purpose"))
@@ -148,33 +154,54 @@ class ThreadStateProjector:
     def _apply_forks(
         mutable: Mapping[str, _MutableThreadState],
         created_ids: set[str],
-        fork_edges: Iterable[tuple[str, str]],
+        fork_edges: Iterable[tuple[str, str, int]],
     ) -> None:
-        for parent_id, child_id in fork_edges:
-            _require_created_relation(parent_id, child_id, created_ids, "THREAD_FORKED")
+        for parent_id, child_id, sequence in fork_edges:
+            _require_created_relation(
+                mutable,
+                parent_id,
+                child_id,
+                created_ids,
+                "THREAD_FORKED",
+                sequence,
+            )
             if parent_id == child_id:
                 raise ValueError("thread cannot fork itself")
-            _extend_unique(mutable[parent_id].children, (child_id,))
-            _extend_unique(mutable[child_id].parents, (parent_id,))
+            parent = mutable[parent_id]
+            child = mutable[child_id]
+            _extend_unique(parent.children, (child_id,))
+            _extend_unique(child.parents, (parent_id,))
+            parent.revision = max(parent.revision, sequence)
+            child.revision = max(child.revision, sequence)
 
     @staticmethod
     def _apply_merges(
         mutable: Mapping[str, _MutableThreadState],
         created_ids: set[str],
-        merge_edges: Iterable[tuple[str, str]],
+        merge_edges: Iterable[tuple[str, str, int]],
     ) -> None:
-        for source_id, target_id in merge_edges:
-            _require_created_relation(source_id, target_id, created_ids, "THREAD_MERGED")
+        for source_id, target_id, sequence in merge_edges:
+            _require_created_relation(
+                mutable,
+                source_id,
+                target_id,
+                created_ids,
+                "THREAD_MERGED",
+                sequence,
+            )
             if source_id == target_id:
                 raise ValueError("thread cannot merge into itself")
             source = mutable[source_id]
+            target = mutable[target_id]
             if source.merged_into is not None and source.merged_into != target_id:
                 raise ValueError(
                     f"thread {source_id!r} was merged into multiple targets"
                 )
             source.merged_into = target_id
             source.status = "COMPLETE"
-            _extend_unique(mutable[target_id].merged_from, (source_id,))
+            _extend_unique(target.merged_from, (source_id,))
+            source.revision = max(source.revision, sequence)
+            target.revision = max(target.revision, sequence)
 
     @staticmethod
     def _validate_dependencies(
@@ -249,15 +276,25 @@ class ThreadStateProjector:
 
 
 def _require_created_relation(
+    mutable: Mapping[str, _MutableThreadState],
     source_id: str,
     target_id: str,
     created_ids: set[str],
     event_type: str,
+    relation_sequence: int,
 ) -> None:
     if source_id not in created_ids:
         raise ValueError(f"{event_type} references missing thread {source_id!r}")
     if target_id not in created_ids:
         raise ValueError(f"{event_type} references missing thread {target_id!r}")
+    if mutable[source_id].created_sequence > relation_sequence:
+        raise ValueError(
+            f"{event_type} references source thread {source_id!r} before creation"
+        )
+    if mutable[target_id].created_sequence > relation_sequence:
+        raise ValueError(
+            f"{event_type} references target thread {target_id!r} before creation"
+        )
 
 
 def _require_payload_text(event: LedgerEvent, key: str) -> str:
