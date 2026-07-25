@@ -133,6 +133,27 @@ class LedgerEvent:
 
 
 @dataclass(frozen=True, slots=True)
+class ProjectedState:
+    """Rebuildable bounded state consumed by scheduling and worker preparation."""
+
+    revision: int
+    thread_id: str
+    status: str
+    purpose: WorkPurpose
+    reference_ids: tuple[str, ...] = ()
+    hypothesis_ids: tuple[str, ...] = ()
+    contradiction_ids: tuple[str, ...] = ()
+    open_questions: tuple[str, ...] = ()
+    dependency_thread_ids: tuple[str, ...] = ()
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+    def validate(self) -> None:
+        _require_non_negative("revision", self.revision)
+        _require_text("thread_id", self.thread_id)
+        _require_text("status", self.status)
+
+
+@dataclass(frozen=True, slots=True)
 class SchedulerDecision:
     """A bounded allocation decision made from projected metadata."""
 
