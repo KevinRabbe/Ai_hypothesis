@@ -138,6 +138,7 @@ class ProjectedState:
 
     revision: int
     thread_id: str
+    objective: str
     status: str
     purpose: WorkPurpose
     reference_ids: tuple[str, ...] = ()
@@ -150,6 +151,7 @@ class ProjectedState:
     def validate(self) -> None:
         _require_non_negative("revision", self.revision)
         _require_text("thread_id", self.thread_id)
+        _require_text("objective", self.objective)
         _require_text("status", self.status)
 
 
