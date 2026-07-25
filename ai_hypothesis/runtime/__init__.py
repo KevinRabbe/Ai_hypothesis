@@ -22,6 +22,14 @@ from .evidence_signals import EvidenceSignalConfig, EvidenceSignalProviderV0
 from .ledger import SQLiteResearchLedger
 from .projector import ThreadStateProjector
 from .scheduler import SchedulerConfig, SchedulerSignals, SchedulerV0, SchedulableThread
+from .verification_projector import (
+    EvidenceVerificationStatus,
+    EvidenceVerificationSummary,
+    VerificationAttempt,
+    VerificationAttemptStatus,
+    VerificationProjection,
+    VerificationStateProjector,
+)
 from .worker_runtime import AttemptRequest, WorkerAssignment, WorkerBank, WorkerRuntime
 
 __all__ = [
@@ -35,6 +43,8 @@ __all__ = [
     "EvidenceState",
     "EvidenceStateProjector",
     "EvidenceStatus",
+    "EvidenceVerificationStatus",
+    "EvidenceVerificationSummary",
     "KnowledgeDelta",
     "LedgerEvent",
     "ProjectedState",
@@ -46,6 +56,10 @@ __all__ = [
     "SchedulableThread",
     "SQLiteResearchLedger",
     "ThreadStateProjector",
+    "VerificationAttempt",
+    "VerificationAttemptStatus",
+    "VerificationProjection",
+    "VerificationStateProjector",
     "WorkerAssignment",
     "WorkerBank",
     "WorkerRuntime",
