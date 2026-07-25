@@ -77,12 +77,12 @@ class WorkItem:
     purpose: WorkPurpose
     projection_revision: int
     scheduler_decision_id: str | None = None
-    scope_region_ids: tuple[str, ...] = ()
     reference_ids: tuple[str, ...] = ()
     parent_ids: tuple[str, ...] = ()
     context: Mapping[str, Any] = field(default_factory=dict)
     constraints: Mapping[str, Any] = field(default_factory=dict)
     resource_budget: Mapping[str, Any] = field(default_factory=dict)
+    scope_region_ids: tuple[str, ...] = ()
 
     def validate(self) -> None:
         _require_text("work_item_id", self.work_item_id)
