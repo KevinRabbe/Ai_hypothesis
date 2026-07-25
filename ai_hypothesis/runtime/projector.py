@@ -36,7 +36,12 @@ class ThreadStateProjector:
         raise ValueError(f"thread {thread_id!r} has no THREAD_CREATED event")
 
     def project_all(self, events: Iterable[LedgerEvent]) -> tuple[ProjectedState, ...]:
-        """Project every Work Thread with one ordered pass over shared history."""
+        """Project every created Work Thread with one ordered pass over shared history.
+
+        Thread-tagged evidence or diagnostic events that never received a
+        ``THREAD_CREATED`` event are not schedulable Work Threads and are ignored in
+        the returned view.
+        """
 
         mutable: dict[str, _MutableThreadState] = {}
         creation_order: list[str] = []
@@ -56,12 +61,6 @@ class ThreadStateProjector:
             state.revision = event.sequence
             _extend_unique(state.references, event.reference_ids)
             self._apply_event(event.thread_id, state, event, creation_order)
-
-        orphaned = [thread_id for thread_id, state in mutable.items() if not state.created]
-        if orphaned:
-            raise ValueError(
-                f"thread {orphaned[0]!r} has events but no THREAD_CREATED event"
-            )
 
         return tuple(
             self._freeze(thread_id, mutable[thread_id]) for thread_id in creation_order
