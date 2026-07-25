@@ -72,13 +72,14 @@ class CoverageAwareScopePlanner:
             sample.config.window_count,
             split=sample.split,
         )
+        self._inspection_position = {
+            window_index: position
+            for position, window_index in enumerate(self._inspection_order)
+        }
         self._region_by_window = tuple(
             large_scope_region_id(sample, index)
             for index in range(sample.config.window_count)
         )
-        self._window_by_region = {
-            region_id: index for index, region_id in enumerate(self._region_by_window)
-        }
 
     @property
     def expected_region_ids(self) -> tuple[str, ...]:
@@ -116,16 +117,17 @@ class CoverageAwareScopePlanner:
         def rank(window_index: int) -> tuple[int, int, int, int]:
             region_id = self._region_by_window[window_index]
             region = by_region.get(region_id)
+            position = self._inspection_position[window_index]
             if region is None:
                 # New scope is always preferred.
-                return (0, 0, 0, self._inspection_order.index(window_index))
+                return (0, 0, 0, position)
             if region.resolved_attempt_count == 0:
                 # Aborted/unresolved work is retried only after never-seen scope.
                 return (
                     1,
                     region.started_attempt_count,
                     region.aborted_attempt_count,
-                    self._inspection_order.index(window_index),
+                    position,
                 )
             # Once all missing work is exhausted, distribute redundancy toward the
             # least independently resolved regions first.
@@ -133,7 +135,7 @@ class CoverageAwareScopePlanner:
                 2,
                 region.resolved_attempt_count,
                 region.started_attempt_count,
-                self._inspection_order.index(window_index),
+                position,
             )
 
         selected = tuple(sorted(self._inspection_order, key=rank)[:width])
