@@ -12,6 +12,7 @@ from .contracts import (
     WorkItem,
     WorkPurpose,
 )
+from .control import ControlStep, RuntimeControlLoop, WorkerSelectorV0, WorkPreparation
 from .ledger import SQLiteResearchLedger
 from .projector import ThreadStateProjector
 from .scheduler import SchedulerConfig, SchedulerSignals, SchedulerV0, SchedulableThread
@@ -21,10 +22,12 @@ __all__ = [
     "AttemptRequest",
     "AttemptResult",
     "AttemptStatus",
+    "ControlStep",
     "EvidenceContribution",
     "KnowledgeDelta",
     "LedgerEvent",
     "ProjectedState",
+    "RuntimeControlLoop",
     "SchedulerAction",
     "SchedulerConfig",
     "SchedulerDecision",
@@ -36,6 +39,8 @@ __all__ = [
     "WorkerAssignment",
     "WorkerBank",
     "WorkerRuntime",
+    "WorkerSelectorV0",
     "WorkItem",
+    "WorkPreparation",
     "WorkPurpose",
 ]
