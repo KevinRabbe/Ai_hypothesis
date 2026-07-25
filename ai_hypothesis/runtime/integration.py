@@ -47,6 +47,19 @@ class IntegrationSnapshot:
 
 
 @dataclass(frozen=True, slots=True)
+class IntegrationOverview:
+    """One-pass global + per-thread integration projection for scheduler use."""
+
+    global_snapshot: IntegrationSnapshot
+    thread_snapshots: Mapping[str, IntegrationSnapshot]
+    thread_pressure: Mapping[str, float]
+    global_backpressured: bool
+
+    def pressure_for(self, thread_id: str) -> float:
+        return float(self.thread_pressure.get(thread_id, 0.0))
+
+
+@dataclass(frozen=True, slots=True)
 class PendingEvidence:
     """Compact recoverable evidence record eligible for integration work."""
 
@@ -148,7 +161,76 @@ class IntegrationTracker:
         )
 
     def snapshot(self, *, thread_id: str | None = None) -> IntegrationSnapshot:
-        return self.project(self.ledger.read_events(), thread_id=thread_id)
+        overview = self.overview(self.ledger.read_events())
+        if thread_id is None:
+            return overview.global_snapshot
+        return overview.thread_snapshots.get(
+            thread_id,
+            self._empty_snapshot(overview.global_snapshot.revision),
+        )
+
+    def overview(self, events: Sequence[LedgerEvent]) -> IntegrationOverview:
+        """Project global and all per-thread integration state in one history pass."""
+
+        global_evidence: dict[str, int] = {}
+        thread_evidence: dict[str, dict[str, int]] = {}
+        dispositioned: set[str] = set()
+        global_delta_count = 0
+        thread_delta_counts: dict[str, int] = {}
+        revision = 0
+        previous_sequence = -1
+
+        for event in events:
+            event.validate()
+            if event.sequence <= previous_sequence:
+                raise ValueError("events must be in strictly increasing sequence order")
+            previous_sequence = event.sequence
+            revision = event.sequence
+
+            if event.event_type == "EVIDENCE_ADDED":
+                evidence_id = event.payload.get("evidence_id")
+                if isinstance(evidence_id, str) and evidence_id:
+                    global_evidence.setdefault(evidence_id, event.sequence)
+                    if event.thread_id is not None:
+                        thread_evidence.setdefault(event.thread_id, {}).setdefault(
+                            evidence_id,
+                            event.sequence,
+                        )
+            elif event.event_type == "INTEGRATION_DISPOSITION_RECORDED":
+                dispositioned.update(event.reference_ids)
+            elif event.event_type == "KNOWLEDGE_DELTA_RECORDED":
+                global_delta_count += 1
+                if event.thread_id is not None:
+                    thread_delta_counts[event.thread_id] = (
+                        thread_delta_counts.get(event.thread_id, 0) + 1
+                    )
+
+        global_snapshot = self._build_snapshot(
+            evidence_sequences=global_evidence,
+            dispositioned=dispositioned,
+            knowledge_delta_count=global_delta_count,
+            revision=revision,
+        )
+        thread_ids = set(thread_evidence) | set(thread_delta_counts)
+        thread_snapshots = {
+            thread_id: self._build_snapshot(
+                evidence_sequences=thread_evidence.get(thread_id, {}),
+                dispositioned=dispositioned,
+                knowledge_delta_count=thread_delta_counts.get(thread_id, 0),
+                revision=revision,
+            )
+            for thread_id in thread_ids
+        }
+        thread_pressure = {
+            thread_id: self._pressure_for_snapshot(snapshot)
+            for thread_id, snapshot in thread_snapshots.items()
+        }
+        return IntegrationOverview(
+            global_snapshot=global_snapshot,
+            thread_snapshots=thread_snapshots,
+            thread_pressure=thread_pressure,
+            global_backpressured=self._is_snapshot_backpressured(global_snapshot),
+        )
 
     def pending_batch(
         self,
@@ -207,31 +289,46 @@ class IntegrationTracker:
         *,
         thread_id: str | None = None,
     ) -> IntegrationSnapshot:
-        evidence_sequences: dict[str, int] = {}
-        dispositioned: set[str] = set()
-        knowledge_delta_count = 0
-        revision = 0
-        previous_sequence = -1
+        overview = self.overview(events)
+        if thread_id is None:
+            return overview.global_snapshot
+        return overview.thread_snapshots.get(
+            thread_id,
+            self._empty_snapshot(overview.global_snapshot.revision),
+        )
 
-        for event in events:
-            event.validate()
-            if event.sequence <= previous_sequence:
-                raise ValueError("events must be in strictly increasing sequence order")
-            previous_sequence = event.sequence
-            revision = event.sequence
+    def pressure(self, *, thread_id: str | None = None) -> float:
+        return self._pressure_for_snapshot(self.snapshot(thread_id=thread_id))
 
-            if event.event_type == "EVIDENCE_ADDED":
-                if thread_id is not None and event.thread_id != thread_id:
-                    continue
-                evidence_id = event.payload.get("evidence_id")
-                if isinstance(evidence_id, str) and evidence_id:
-                    evidence_sequences.setdefault(evidence_id, event.sequence)
-            elif event.event_type == "INTEGRATION_DISPOSITION_RECORDED":
-                dispositioned.update(event.reference_ids)
-            elif event.event_type == "KNOWLEDGE_DELTA_RECORDED":
-                if thread_id is None or event.thread_id == thread_id:
-                    knowledge_delta_count += 1
+    def is_backpressured(self) -> bool:
+        return self._is_snapshot_backpressured(self.snapshot())
 
+    def _pressure_for_snapshot(self, snapshot: IntegrationSnapshot) -> float:
+        count_pressure = self._ratio(
+            snapshot.backlog_count,
+            self.config.max_backlog_count,
+        )
+        age_pressure = self._ratio(
+            snapshot.oldest_backlog_age_sequences,
+            self.config.max_backlog_age_sequences,
+        )
+        return max(count_pressure, age_pressure)
+
+    def _is_snapshot_backpressured(self, snapshot: IntegrationSnapshot) -> bool:
+        return (
+            snapshot.backlog_count > self.config.max_backlog_count
+            or snapshot.oldest_backlog_age_sequences
+            > self.config.max_backlog_age_sequences
+        )
+
+    @staticmethod
+    def _build_snapshot(
+        *,
+        evidence_sequences: Mapping[str, int],
+        dispositioned: set[str],
+        knowledge_delta_count: int,
+        revision: int,
+    ) -> IntegrationSnapshot:
         backlog = tuple(
             evidence_id
             for evidence_id in evidence_sequences
@@ -242,7 +339,6 @@ class IntegrationTracker:
             age = max(0, revision - oldest_sequence)
         else:
             age = 0
-
         return IntegrationSnapshot(
             revision=revision,
             evidence_count=len(evidence_sequences),
@@ -254,24 +350,15 @@ class IntegrationTracker:
             oldest_backlog_age_sequences=age,
         )
 
-    def pressure(self, *, thread_id: str | None = None) -> float:
-        snapshot = self.snapshot(thread_id=thread_id)
-        count_pressure = self._ratio(
-            snapshot.backlog_count,
-            self.config.max_backlog_count,
-        )
-        age_pressure = self._ratio(
-            snapshot.oldest_backlog_age_sequences,
-            self.config.max_backlog_age_sequences,
-        )
-        return max(count_pressure, age_pressure)
-
-    def is_backpressured(self) -> bool:
-        snapshot = self.snapshot()
-        return (
-            snapshot.backlog_count > self.config.max_backlog_count
-            or snapshot.oldest_backlog_age_sequences
-            > self.config.max_backlog_age_sequences
+    @staticmethod
+    def _empty_snapshot(revision: int) -> IntegrationSnapshot:
+        return IntegrationSnapshot(
+            revision=revision,
+            evidence_count=0,
+            dispositioned_evidence_count=0,
+            backlog_evidence_ids=(),
+            knowledge_delta_count=0,
+            oldest_backlog_age_sequences=0,
         )
 
     @staticmethod
