@@ -119,6 +119,7 @@ class SharedPopulationCell(nn.Module):
         communication_mode: CommunicationMode,
         shared_seed: torch.Tensor | None = None,
         message_content: torch.Tensor | None = None,
+        reset_state_each_round: bool = False,
     ) -> PopulationForwardOutput:
         if local_inputs.ndim != 3:
             raise ValueError(
@@ -201,7 +202,8 @@ class SharedPopulationCell(nn.Module):
             .reshape(-1)
         )
         active_batch_indices = flat_batch_indices.index_select(0, active_flat_indices)
-        active_states = torch.tanh(self.input_projection(active_local_inputs))
+        initial_states = torch.tanh(self.input_projection(active_local_inputs))
+        active_states = initial_states
         shared = seed
 
         active_states_per_batch = int(active_states.shape[0])
@@ -211,7 +213,8 @@ class SharedPopulationCell(nn.Module):
         for _ in range(recurrent_rounds):
             shared_for_active = shared.index_select(0, active_batch_indices)
             update_input = torch.cat((active_local_inputs, shared_for_active), dim=-1)
-            active_states = self.update(update_input, active_states)
+            recurrent_state = initial_states if reset_state_each_round else active_states
+            active_states = self.update(update_input, recurrent_state)
 
             if communication_mode is CommunicationMode.SPARSE_SHARED_V0:
                 gate = torch.sigmoid(self.message_gate(active_states))
