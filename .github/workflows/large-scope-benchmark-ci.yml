@@ -36,10 +36,34 @@ jobs:
           python -m compileall -q ai_hypothesis/large_scope
 
       - name: Run large-scope mechanics and runtime-bridge regressions
+        shell: bash
         run: |
+          set +e
           python -m unittest \
             tests/test_large_scope_relevance.py \
             tests/test_large_scope_evaluate.py \
             tests/test_large_scope_metrics.py \
             tests/test_large_scope_runtime_bridge.py \
-            tests/test_large_scope_run_relevance.py
+            tests/test_large_scope_run_relevance.py \
+            > large-scope-tests.log 2>&1
+          echo $? > large-scope-tests.status
+          exit 0
+
+      - name: Upload large-scope qualification log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: large-scope-qualification-log
+          path: |
+            large-scope-tests.log
+            large-scope-tests.status
+          if-no-files-found: error
+
+      - name: Enforce large-scope qualification
+        shell: bash
+        run: |
+          status="$(cat large-scope-tests.status)"
+          if [ "$status" -ne 0 ]; then
+            echo "Large-scope regression suite failed with exit $status"
+            exit "$status"
+          fi
