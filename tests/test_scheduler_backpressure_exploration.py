@@ -86,14 +86,18 @@ class SchedulerBackpressureExplorationTests(unittest.TestCase):
         self.assertIn("BACKPRESSURE", decision.reason_codes)
         self.assertIn("VERIFY", decision.reason_codes)
 
-    def test_backpressure_probability_cannot_be_zero(self) -> None:
-        with self.assertRaisesRegex(
-            ValueError,
-            "backpressure_exploration_probability",
-        ):
-            SchedulerV0(
-                SchedulerConfig(backpressure_exploration_probability=0.0)
-            )
+    def test_backpressure_probability_keeps_both_lanes_nonzero(self) -> None:
+        for invalid in (0.0, 1.0):
+            with self.subTest(invalid=invalid):
+                with self.assertRaisesRegex(
+                    ValueError,
+                    "backpressure_exploration_probability",
+                ):
+                    SchedulerV0(
+                        SchedulerConfig(
+                            backpressure_exploration_probability=invalid
+                        )
+                    )
 
     def test_backpressure_probability_is_appended_to_config_contract(self) -> None:
         # Existing positional fields keep their original meaning.
