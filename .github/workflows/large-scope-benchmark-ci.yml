@@ -43,6 +43,7 @@ jobs:
             tests/test_large_scope_relevance.py \
             tests/test_large_scope_evaluate.py \
             tests/test_large_scope_metrics.py \
+            tests/test_large_scope_paired_metrics.py \
             tests/test_large_scope_runtime_bridge.py \
             tests/test_large_scope_run_relevance.py \
             > large-scope-tests.log 2>&1
