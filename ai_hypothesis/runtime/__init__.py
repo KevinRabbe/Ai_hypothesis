@@ -87,6 +87,13 @@ from .projector import ThreadStateProjector
 from .scheduler import SchedulerConfig, SchedulerSignals, SchedulerV0, SchedulableThread
 from .scheduler_trace import TracingScheduler, TracingSchedulerV0
 from .scope_coverage import ScopeCoverageProjector, ScopeRegionCoverage, ThreadScopeCoverage
+from .thread_consolidation import (
+    ThreadConsolidationConfig,
+    ThreadConsolidationPlan,
+    ThreadConsolidationPlanner,
+    ThreadConsolidationSource,
+    prepare_thread_consolidation_work,
+)
 from .worker_runtime import AttemptRequest, WorkerAssignment, WorkerBank, WorkerRuntime
 
 __all__ = [
@@ -154,6 +161,10 @@ __all__ = [
     "ScopeCoverageProjector",
     "ScopeRegionCoverage",
     "SQLiteResearchLedger",
+    "ThreadConsolidationConfig",
+    "ThreadConsolidationPlan",
+    "ThreadConsolidationPlanner",
+    "ThreadConsolidationSource",
     "ThreadScopeCoverage",
     "ThreadStateProjector",
     "TracingScheduler",
@@ -170,5 +181,6 @@ __all__ = [
     "prepare_bounded_integration_work",
     "prepare_bounded_knowledge_work",
     "prepare_partition_integration_work",
+    "prepare_thread_consolidation_work",
     "summarize_integration_allocations_by_width",
 ]
