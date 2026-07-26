@@ -14,40 +14,40 @@ The failure therefore begins when a retrieved value must become the query for th
 
 Two mechanisms are required by the development ablations:
 
-1. **Compositional node messages.** One learned node projection maps fixed node bits into the shared message space. The start query and every worker's candidate value use that same projection, so `node X as emitted value == node X as next-query representation`.
+1. **Exactly compositional node messages.** One learned node projection maps fixed node bits into the shared message space. A fresh query is `tanh(node_projection(bits))`. Candidate values now contribute the **raw** `node_projection(value_bits)` to the shared reducer, whose existing final `tanh` produces that exact same bounded representation when the candidate is selected. This avoids the earlier accidental `tanh(tanh(...))` distortion.
 2. **Hop-local worker state.** The shared field is the recurrent state across relay hops. Each worker's hidden state is reinitialized from its immutable local record before processing the next shared query, preventing a previous match from contaminating later re-selection.
 
 The generic `SharedPopulationCell` keeps persistent local state as its default. Relay explicitly opts into hop-local reset semantics.
 
 Workers still learn the recurrent update and scalar emission gate. No oracle chain edge, lookup table, answer key, specialized worker type, or population-dependent learned parameter is added.
 
-## Development ablations
+## Historical development ablations
 
-All numbers below are development-only CPU diagnostics; they are not Gate-v0 results.
+The following numbers were measured before the exact compositional correction, when candidate content was prematurely bounded and the shared reducer applied a second `tanh`. They localized the state-reset requirement but do **not** qualify the corrected exact-identity implementation.
 
 At fixed population 4 with information-complete relay-2 worlds:
 
-- compositional messages + **persistent** local state: 3.91% exact;
+- prematurely bounded compositional messages + **persistent** local state: 3.91% exact;
 - original learned state→message projection + **reset** local state: 1.95% exact;
-- compositional messages + **reset** local state: **99.22% exact**, 99.87% bit accuracy;
-- the corresponding no-communication control with both repairs: 0% exact.
+- prematurely bounded compositional messages + **reset** local state: **99.22% exact**, 99.87% bit accuracy;
+- the corresponding no-communication control: 0% exact.
 
-Therefore neither repair alone is sufficient in this experiment; together they make the two-hop primitive reliably learnable at width 4.
+These results established that hop-local state reset matters strongly. The message contract itself has since been corrected so perfect candidate selection maps a node value to the exact same representation used for that node as a new query.
 
-## Remaining failure
+## Historical width-scaling diagnostics
 
-Training one repaired checkpoint across mixed populations 4/16/64/256 still fails:
+Before the exact-identity correction:
 
-- width 4, solve given information-complete: 2.34%;
-- width 16: 0.39%;
-- width 64: 0%;
-- width 256: 0%.
+- one mixed-population checkpoint over 4/16/64/256 failed beyond the small-width regime;
+- separate fixed-width checkpoints failed already at width 16;
+- parameter-free softmax competition preserved width 4 but did not rescue width 16+.
 
-This changes the active uncertainty. The local recurrent primitive is no longer the primary blocker. The next diagnostic must determine whether the repaired architecture can learn relay-2 **independently** at fixed widths 16, 64, and 256.
+Those negative results remain useful localization evidence, but the corrected exact-identity implementation must be re-qualified before deciding the next bottleneck.
 
-Interpretation:
+## Current immediate gate
 
-- if those fixed-width models learn, the remaining problem is mixed-width curriculum / scale normalization;
-- if capability collapses as fixed width grows, the remaining problem is population aggregation/selectivity.
+Run the existing #64 structural suite and mixed-population relay-2 diagnostic on the corrected exact-identity implementation.
 
-Do not run the full Gate-v0 population curve until that distinction is resolved.
+If the corrected protocol still shows a width-related collapse, rerun the fixed-width capacity diagnostic from the corrected head before changing aggregation or model capacity again.
+
+No Gate-v0 population-scaling result is claimed.
