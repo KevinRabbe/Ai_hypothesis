@@ -8,7 +8,7 @@ actually came from thread consolidation, and supplies the bounded consolidation 
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from typing import Callable, Mapping, Protocol, Sequence
+from typing import Mapping, Protocol, Sequence
 
 from .contracts import LedgerEvent, ProjectedState, SchedulerAction, SchedulerDecision
 from .control import ContextProvider, SignalProvider, WorkPreparation, WorkPreparationBatch
@@ -203,16 +203,36 @@ class ThreadConsolidationControlAdapter:
         self.ledger = ledger
         self.signal_fallback = signal_fallback
         self.context_fallback = context_fallback
-        self.pressure_projector = (
-            pressure_projector or ThreadConsolidationPressureProjector()
-        )
         self.planner = planner or ThreadConsolidationPlanner()
-        self.knowledge_projector = knowledge_projector or KnowledgeStateProjector()
+        if pressure_projector is None:
+            full_pressure_count = max(8, self.planner.config.minimum_source_deltas)
+            pressure_projector = ThreadConsolidationPressureProjector(
+                ThreadConsolidationPressureConfig(
+                    full_pressure_count=full_pressure_count,
+                    minimum_source_deltas=self.planner.config.minimum_source_deltas,
+                ),
+                lineage_projector=self.planner.lineage_projector,
+                knowledge_projector=self.planner.knowledge_projector,
+            )
+        if (
+            pressure_projector.config.minimum_source_deltas
+            != self.planner.config.minimum_source_deltas
+        ):
+            raise ValueError(
+                "consolidation pressure and planner minimum_source_deltas must match"
+            )
+        self.pressure_projector = pressure_projector
+        self.knowledge_projector = (
+            knowledge_projector or self.planner.knowledge_projector
+        )
         self._cached_sequence: int | None = None
         self._cached_events: tuple[LedgerEvent, ...] = ()
         self._cached_overview: ThreadConsolidationPressureOverview | None = None
         self._snapshot_by_thread_revision: dict[
             tuple[str, int], tuple[LedgerEvent, ...]
+        ] = {}
+        self._pressure_revision_by_thread_revision: dict[
+            tuple[str, int], int
         ] = {}
         self._owned_route_by_thread_revision: set[tuple[str, int]] = set()
 
@@ -225,6 +245,7 @@ class ThreadConsolidationControlAdapter:
         pressure = self._cached_overview.pressure_for(state.thread_id)
         key = (state.thread_id, state.revision)
         self._snapshot_by_thread_revision[key] = self._cached_events
+        self._pressure_revision_by_thread_revision[key] = self._cached_overview.revision
         if pressure > base.synthesis_need:
             self._owned_route_by_thread_revision.add(key)
             adjusted = replace(base, synthesis_need=pressure)
@@ -246,10 +267,19 @@ class ThreadConsolidationControlAdapter:
             return self.context_fallback(state, decision)
 
         key = (state.thread_id, decision.projection_revision)
+        if key not in self._owned_route_by_thread_revision:
+            raise ValueError(
+                "thread consolidation route was not owned by the matching synthesis signal"
+            )
         events = self._snapshot_by_thread_revision.get(key)
         if events is None:
             raise RuntimeError(
                 "thread consolidation decision has no matching signal snapshot"
+            )
+        pressure_revision = self._pressure_revision_by_thread_revision.get(key)
+        if pressure_revision is None:
+            raise RuntimeError(
+                "thread consolidation decision has no matching pressure revision"
             )
         plan = self.planner.plan(events, thread_id=state.thread_id)
         if not plan.ready:
@@ -263,11 +293,7 @@ class ThreadConsolidationControlAdapter:
             context={
                 **dict(preparation.context),
                 "synthesis_route": _THREAD_CONSOLIDATION_REASON,
-                "consolidation_pressure_revision": (
-                    self._cached_overview.revision
-                    if self._cached_overview is not None
-                    else knowledge.revision
-                ),
+                "consolidation_pressure_revision": pressure_revision,
             },
         )
 
@@ -284,6 +310,7 @@ class ThreadConsolidationControlAdapter:
         self._cached_sequence = sequence
         # Bound route/snapshot memory to the current durable revision.
         self._snapshot_by_thread_revision.clear()
+        self._pressure_revision_by_thread_revision.clear()
         self._owned_route_by_thread_revision.clear()
 
 
