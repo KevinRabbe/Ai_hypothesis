@@ -48,7 +48,7 @@ jobs:
             tests/test_population_compute_contract.py \
             tests/test_collective_relay.py \
             tests/test_shared_population_cell.py \
-            tests/test_relay_model.py \
+            tests/test_relay_population_model.py \
             tests/test_relay_experiment.py \
             > population-relay-tests.log 2>&1
           echo $? > population-relay-tests.status
