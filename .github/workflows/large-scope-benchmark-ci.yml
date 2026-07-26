@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - agent/large-scope-benchmark-ci-v0
+      - agent/large-scope-result-audit-v0
   pull_request:
   workflow_dispatch:
 
@@ -35,7 +36,7 @@ jobs:
         run: |
           python -m compileall -q ai_hypothesis/large_scope
 
-      - name: Run large-scope mechanics and runtime-bridge regressions
+      - name: Run large-scope mechanics, bridge, and result-audit regressions
         shell: bash
         run: |
           set +e
@@ -46,6 +47,7 @@ jobs:
             tests/test_large_scope_paired_metrics.py \
             tests/test_large_scope_runtime_bridge.py \
             tests/test_large_scope_run_relevance.py \
+            tests/test_large_scope_result_audit.py \
             > large-scope-tests.log 2>&1
           echo $? > large-scope-tests.status
           exit 0
