@@ -1,0 +1,67 @@
+name: Population-compute gate qualification
+
+on:
+  push:
+    branches:
+      - agent/population-compute-scaling-gate-v0
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  population-compute:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHONPATH: .
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install CPU Torch
+        run: |
+          python -m pip install --disable-pip-version-check torch --index-url https://download.pytorch.org/whl/cpu
+          python -c "import torch; print('torch', torch.__version__)"
+
+      - name: Compile population-compute modules
+        run: python -m compileall -q ai_hypothesis/population_compute
+
+      - name: Run population-compute contract regressions
+        shell: bash
+        run: |
+          set +e
+          python -m unittest \
+            tests/test_population_compute_contract.py \
+            tests/test_collective_relay.py \
+            tests/test_shared_population_cell.py \
+            > population-compute-tests.log 2>&1
+          echo $? > population-compute-tests.status
+          exit 0
+
+      - name: Upload qualification log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: population-compute-qualification-log
+          path: |
+            population-compute-tests.log
+            population-compute-tests.status
+          if-no-files-found: error
+
+      - name: Enforce population-compute qualification
+        shell: bash
+        run: |
+          status="$(cat population-compute-tests.status)"
+          if [ "$status" -ne 0 ]; then
+            echo "Population-compute regression suite failed with exit $status"
+            cat population-compute-tests.log
+            exit "$status"
+          fi
