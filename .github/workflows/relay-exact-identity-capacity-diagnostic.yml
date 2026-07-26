@@ -1,0 +1,75 @@
+name: Relay exact-identity capacity diagnostic
+
+on:
+  push:
+    branches:
+      - agent/relay-exact-identity-capacity-diagnostic-v0
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  exact-identity-capacity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      PYTHONPATH: .
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install CPU Torch
+        run: python -m pip install --disable-pip-version-check torch --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Compile corrected relay diagnostic
+        run: |
+          python -m compileall -q \
+            ai_hypothesis/population_compute/model.py \
+            ai_hypothesis/population_compute/relay_model.py \
+            experiments/population_compute_scaling_v0/diagnose_exact_identity_capacity.py
+
+      - name: Run corrected relay structural regressions
+        run: |
+          python -m unittest \
+            tests/test_shared_population_cell.py \
+            tests/test_relay_population_model.py \
+            tests/test_compositional_relay_protocol.py \
+            tests/test_population_state_reset_policy.py
+
+      - name: Run fixed-width exact-identity capacity diagnostic
+        shell: bash
+        run: |
+          mkdir -p diagnostic
+          set +e
+          python experiments/population_compute_scaling_v0/diagnose_exact_identity_capacity.py \
+            --device cpu \
+            --steps 2048 \
+            --heldout-world-count 512 \
+            --output diagnostic/exact-identity-capacity.json \
+            > diagnostic/stdout.json \
+            2> diagnostic/stderr.log
+          echo $? > diagnostic/status
+          exit 0
+
+      - name: Upload exact-identity capacity result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: relay-exact-identity-capacity-diagnostic
+          path: diagnostic/
+          if-no-files-found: error
+
+      - name: Enforce diagnostic execution
+        shell: bash
+        run: |
+          status="$(cat diagnostic/status)"
+          if [ "$status" -ne 0 ]; then
+            echo "Exact-identity capacity diagnostic failed with exit $status"
+            exit "$status"
+          fi
