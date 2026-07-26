@@ -1,0 +1,74 @@
+name: Population relay training qualification
+
+on:
+  push:
+    branches:
+      - agent/population-relay-training-v0
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  relay-training:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: .
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install CPU Torch
+        run: |
+          python -m pip install --disable-pip-version-check torch --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Compile relay experiment modules
+        run: |
+          python -m compileall -q \
+            ai_hypothesis/population_compute/collective_relay.py \
+            ai_hypothesis/population_compute/contract.py \
+            ai_hypothesis/population_compute/model.py \
+            ai_hypothesis/population_compute/relay_model.py \
+            ai_hypothesis/population_compute/relay_experiment.py \
+            ai_hypothesis/population_compute/run_relay_scaling.py
+
+      - name: Run relay training and fixed-weight curve regressions
+        shell: bash
+        run: |
+          set +e
+          python -m unittest \
+            tests/test_population_compute_contract.py \
+            tests/test_collective_relay.py \
+            tests/test_shared_population_cell.py \
+            tests/test_relay_population_model.py \
+            tests/test_relay_experiment.py \
+            > population-relay-tests.log 2>&1
+          echo $? > population-relay-tests.status
+          exit 0
+
+      - name: Upload relay qualification log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: population-relay-qualification-log
+          path: |
+            population-relay-tests.log
+            population-relay-tests.status
+          if-no-files-found: error
+
+      - name: Enforce relay qualification
+        shell: bash
+        run: |
+          status="$(cat population-relay-tests.status)"
+          if [ "$status" -ne 0 ]; then
+            echo "Population relay regression suite failed with exit $status"
+            exit "$status"
+          fi
