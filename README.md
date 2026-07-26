@@ -93,6 +93,7 @@ See:
 - [`benchmarks/step_01_benchmark_v0.md`](benchmarks/step_01_benchmark_v0.md)
 - [`benchmarks/large_scope_relevance_v0.md`](benchmarks/large_scope_relevance_v0.md) — mechanically qualified controlled scope benchmark with paired diversity controls; frozen Worker-v1 empirical result still pending and no Gate 5 result is claimed.
 - [`benchmarks/large_scope_runtime_bridge_v0.md`](benchmarks/large_scope_runtime_bridge_v0.md) — persistent-runtime equivalence contract for the same benchmark workload.
+- [`benchmarks/large_scope_result_audit_v0.md`](benchmarks/large_scope_result_audit_v0.md) — pure-Python result-integrity audit and threshold-free reporting contract for the eventual frozen-checkpoint benchmark artifact.
 
 ## Current status
 
