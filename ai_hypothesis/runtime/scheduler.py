@@ -56,6 +56,9 @@ class SchedulerConfig:
     challenge_threshold: float = 0.65
     verification_threshold: float = 0.65
     stagnation_threshold: float = 0.05
+    # Keep a small permanent discovery lane even while integration is overloaded.
+    # Appended to preserve positional compatibility with the original config fields.
+    backpressure_exploration_probability: float = 0.05
 
     def validate(self) -> None:
         if self.exploration_width <= 0:
@@ -68,6 +71,8 @@ class SchedulerConfig:
         ):
             if not 0.0 <= value <= 1.0:
                 raise ValueError(f"{name} must be in [0, 1]")
+        if not 0.0 < self.backpressure_exploration_probability < 1.0:
+            raise ValueError("backpressure_exploration_probability must be in (0, 1)")
 
 
 @dataclass(frozen=True, slots=True)
@@ -108,13 +113,19 @@ class SchedulerV0:
         for candidate in active:
             candidate.validate()
 
-        exploring = (
+        backpressure_exploring = (
+            integration_backpressure
+            and self._rng.random() < self.config.backpressure_exploration_probability
+        )
+        normal_exploring = (
             not integration_backpressure
             and self.config.exploration_probability > 0.0
             and self._rng.random() < self.config.exploration_probability
         )
+        exploring = backpressure_exploring or normal_exploring
+        servicing_backpressure = integration_backpressure and not backpressure_exploring
 
-        if integration_backpressure:
+        if servicing_backpressure:
             selected = max(
                 active,
                 key=lambda candidate: (
@@ -130,7 +141,8 @@ class SchedulerV0:
         action, purpose, reason_codes = self._choose_action(
             selected,
             exploring=exploring,
-            integration_backpressure=integration_backpressure,
+            integration_backpressure=servicing_backpressure,
+            backpressure_exploring=backpressure_exploring,
         )
         width = (
             min(self.config.exploration_width, max_width)
@@ -184,6 +196,7 @@ class SchedulerV0:
         *,
         exploring: bool,
         integration_backpressure: bool,
+        backpressure_exploring: bool,
     ) -> tuple[SchedulerAction, WorkPurpose, tuple[str, ...]]:
         signals = candidate.signals
 
@@ -193,7 +206,10 @@ class SchedulerV0:
             return SchedulerAction.SYNTHESIZE, WorkPurpose.SYNTHESIZE, ("BACKPRESSURE",)
 
         if exploring:
-            return SchedulerAction.ADD_WIDTH, WorkPurpose.EXPLORE, ("STRUCTURED_EXPLORATION",)
+            reasons = ["STRUCTURED_EXPLORATION"]
+            if backpressure_exploring:
+                reasons.append("BACKPRESSURE_EXPLORATION")
+            return SchedulerAction.ADD_WIDTH, WorkPurpose.EXPLORE, tuple(reasons)
 
         if signals.verification_need >= self.config.verification_threshold:
             return SchedulerAction.VERIFY, WorkPurpose.VERIFY, ("VERIFICATION_NEEDED",)
