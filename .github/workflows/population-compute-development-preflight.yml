@@ -31,23 +31,23 @@ jobs:
           python -m pip install --disable-pip-version-check torch --index-url https://download.pytorch.org/whl/cpu
           python -c "import torch; print('torch', torch.__version__)"
 
-      - name: Run non-gating relay trainability preflight
+      - name: Run full CPU development seed 0
         run: |
           python -m ai_hypothesis.population_compute.run_relay_scaling \
             --training-seed 0 \
             --device cpu \
-            --steps 300 \
-            --train-batch-size 32 \
-            --evaluation-world-count 120 \
-            --evaluation-batch-size 32 \
+            --steps 2000 \
+            --train-batch-size 64 \
+            --evaluation-world-count 1000 \
+            --evaluation-batch-size 64 \
             --state-width 64 \
             --message-width 24 \
-            --output-dir results/population_compute_development_preflight_v0
+            --output-dir results/population_compute_development_cpu_seed0
 
-      - name: Upload preflight artifacts
+      - name: Upload development artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: population-compute-development-preflight
-          path: results/population_compute_development_preflight_v0
+          name: population-compute-development-cpu-seed0
+          path: results/population_compute_development_cpu_seed0
           if-no-files-found: error
