@@ -114,6 +114,7 @@ class RelayPopulationModel(nn.Module):
             shared_seed=seed,
             message_content=message_content,
             reset_state_each_round=True,
+            competitive_message_weights=True,
         )
 
     def trainable_parameter_count(self) -> int:

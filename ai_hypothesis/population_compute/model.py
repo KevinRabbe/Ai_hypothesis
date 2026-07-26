@@ -120,6 +120,7 @@ class SharedPopulationCell(nn.Module):
         shared_seed: torch.Tensor | None = None,
         message_content: torch.Tensor | None = None,
         reset_state_each_round: bool = False,
+        competitive_message_weights: bool = False,
     ) -> PopulationForwardOutput:
         if local_inputs.ndim != 3:
             raise ValueError(
@@ -217,7 +218,30 @@ class SharedPopulationCell(nn.Module):
             active_states = self.update(update_input, recurrent_state)
 
             if communication_mode is CommunicationMode.SPARSE_SHARED_V0:
-                gate = torch.sigmoid(self.message_gate(active_states))
+                gate_logits = self.message_gate(active_states).squeeze(-1)
+                if competitive_message_weights:
+                    max_per_batch = gate_logits.new_full((batch_size,), float("-inf"))
+                    max_per_batch.scatter_reduce_(
+                        0,
+                        active_batch_indices,
+                        gate_logits,
+                        reduce="amax",
+                        include_self=True,
+                    )
+                    exp_gate = torch.exp(
+                        gate_logits - max_per_batch.index_select(0, active_batch_indices)
+                    )
+                    gate_sum = exp_gate.new_zeros(batch_size).index_add(
+                        0,
+                        active_batch_indices,
+                        exp_gate,
+                    )
+                    gate = (
+                        exp_gate
+                        / gate_sum.index_select(0, active_batch_indices).clamp_min(1e-12)
+                    ).unsqueeze(-1)
+                else:
+                    gate = torch.sigmoid(gate_logits).unsqueeze(-1)
                 if active_message_content is None:
                     content = torch.tanh(self.message_projection(active_states))
                 else:
