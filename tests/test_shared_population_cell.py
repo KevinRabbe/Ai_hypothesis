@@ -40,24 +40,31 @@ class SharedPopulationCellTests(unittest.TestCase):
                 output.final_states.shape,
                 (2, workers, self.config.state_width),
             )
+            self.assertEqual(
+                output.final_shared.shape,
+                (2, self.config.message_width),
+            )
 
         self.assertEqual(self.model.trainable_parameter_count(), before_count)
         self.assertEqual(self.model.parameter_fingerprint(), before_fingerprint)
 
-    def test_no_communication_reports_zero_communication(self) -> None:
+    def test_no_communication_reports_zero_communication_and_preserves_seed(self) -> None:
         local_inputs = torch.randn(1, 4, self.config.local_input_width)
         mask = torch.ones(1, 4, dtype=torch.bool)
+        seed = torch.randn(1, self.config.message_width)
 
         output = self.model(
             local_inputs,
             mask,
             recurrent_rounds=3,
             communication_mode=CommunicationMode.NO_COMMUNICATION,
+            shared_seed=seed,
         )
 
         self.assertEqual(output.telemetry.active_state_updates, 12)
         self.assertEqual(output.telemetry.messages_emitted, 0)
         self.assertEqual(output.telemetry.communicated_scalar_count, 0)
+        self.assertTrue(torch.equal(output.final_shared, seed))
 
     def test_sparse_shared_communication_is_linear_in_active_states(self) -> None:
         local_inputs = torch.randn(2, 4, self.config.local_input_width)
@@ -83,6 +90,7 @@ class SharedPopulationCellTests(unittest.TestCase):
             output.telemetry.communicated_scalar_count,
             expected_messages * self.config.message_width * 2,
         )
+        self.assertTrue(torch.all(output.final_shared.abs() <= 1.0))
 
     def test_inactive_states_remain_zero(self) -> None:
         local_inputs = torch.randn(1, 4, self.config.local_input_width)
@@ -97,6 +105,19 @@ class SharedPopulationCellTests(unittest.TestCase):
 
         self.assertTrue(torch.equal(output.final_states[0, 1], torch.zeros(12)))
         self.assertTrue(torch.equal(output.final_states[0, 3], torch.zeros(12)))
+
+    def test_shared_seed_shape_is_checked(self) -> None:
+        local_inputs = torch.randn(2, 4, self.config.local_input_width)
+        mask = torch.ones(2, 4, dtype=torch.bool)
+
+        with self.assertRaisesRegex(ValueError, "shared_seed"):
+            self.model(
+                local_inputs,
+                mask,
+                recurrent_rounds=1,
+                communication_mode=CommunicationMode.SPARSE_SHARED_V0,
+                shared_seed=torch.randn(2, self.config.message_width + 1),
+            )
 
     def test_every_sample_requires_an_active_state(self) -> None:
         local_inputs = torch.randn(2, 4, self.config.local_input_width)
