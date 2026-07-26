@@ -127,7 +127,7 @@ class CompositionalRelayProtocolTests(unittest.TestCase):
         batch = build_relay_tensor_batch((world,), active_workers=16)
         expected_seed = torch.tanh(model.query_projection(batch.start_bits))
         value_bits = batch.local_inputs[..., NODE_BIT_WIDTH:]
-        expected_content = torch.tanh(model.query_projection(value_bits))
+        expected_content = model.query_projection(value_bits)
 
         recorder = _RecordingCell()
         model.cell = recorder
@@ -143,6 +143,9 @@ class CompositionalRelayProtocolTests(unittest.TestCase):
         self.assertTrue(torch.allclose(recorder.shared_seed, expected_seed, atol=1e-7))
         self.assertTrue(
             torch.allclose(recorder.message_content, expected_content, atol=1e-7)
+        )
+        self.assertTrue(
+            torch.allclose(torch.tanh(expected_content), torch.tanh(model.query_projection(value_bits)), atol=1e-7)
         )
         self.assertTrue(recorder.reset_state_each_round)
 

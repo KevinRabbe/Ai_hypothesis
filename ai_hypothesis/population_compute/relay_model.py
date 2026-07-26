@@ -105,7 +105,7 @@ class RelayPopulationModel(nn.Module):
             raise ValueError("recurrent_rounds must be positive")
         seed = torch.tanh(self.query_projection(batch.start_bits))
         value_bits = batch.local_inputs[..., NODE_BIT_WIDTH:]
-        message_content = torch.tanh(self.query_projection(value_bits))
+        message_content = self.query_projection(value_bits)
         return self.cell(
             batch.local_inputs,
             batch.active_mask,
