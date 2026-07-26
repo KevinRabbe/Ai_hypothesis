@@ -1,6 +1,7 @@
 """Stable semantic contracts and local runtime primitives."""
 
 from .allocation_outcomes import AllocationOutcome, AllocationOutcomeProjector, AttemptOutcome
+from .context_views import PurposeContextRouter
 from .contracts import (
     AttemptResult,
     AttemptStatus,
@@ -98,6 +99,7 @@ __all__ = [
     "LedgerEvent",
     "PendingEvidence",
     "ProjectedState",
+    "PurposeContextRouter",
     "RuntimeControlLoop",
     "SchedulerAction",
     "SchedulerConfig",
