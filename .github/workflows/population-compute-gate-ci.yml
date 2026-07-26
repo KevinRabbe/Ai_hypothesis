@@ -3,7 +3,7 @@ name: Population-compute gate qualification
 on:
   push:
     branches:
-      - agent/population-compute-scaling-gate-v0
+      - 'agent/population-compute-*'
   pull_request:
   workflow_dispatch:
 
@@ -42,6 +42,7 @@ jobs:
             tests/test_population_compute_contract.py \
             tests/test_collective_relay.py \
             tests/test_shared_population_cell.py \
+            tests/test_relay_population_model.py \
             > population-compute-tests.log 2>&1
           echo $? > population-compute-tests.status
           exit 0
