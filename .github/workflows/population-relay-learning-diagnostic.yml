@@ -1,0 +1,54 @@
+name: Population relay learning diagnostic
+
+on:
+  push:
+    branches:
+      - agent/population-relay-learning-diagnostic-v0
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: .
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install CPU Torch
+        run: |
+          python -m pip install --disable-pip-version-check torch --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Run held-out development diagnostic
+        run: |
+          mkdir -p diagnostic
+          python -m ai_hypothesis.population_compute.run_relay_scaling \
+            --device cpu \
+            --training-seed 900 \
+            --benchmark-seed 900 \
+            --train-steps 256 \
+            --train-batch-size 8 \
+            --learning-rate 0.001 \
+            --state-width 32 \
+            --message-width 12 \
+            --development-world-count 128 \
+            --eval-batch-size 16 \
+            --checkpoint diagnostic/relay.pt \
+            --output diagnostic/development.json \
+            > diagnostic/stdout.json
+
+      - name: Upload diagnostic result
+        uses: actions/upload-artifact@v4
+        with:
+          name: population-relay-learning-diagnostic
+          path: |
+            diagnostic/development.json
+          if-no-files-found: error
