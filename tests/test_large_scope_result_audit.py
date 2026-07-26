@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import copy
 import json
 import tempfile
 import unittest
@@ -168,11 +167,16 @@ class LargeScopeResultAuditTests(unittest.TestCase):
         markdown = render_large_scope_audit_markdown(payload, audit)
         self.assertIn("**Integrity:** VALID", markdown)
         self.assertIn("Paired diversity summaries", markdown)
-        self.assertIn("This audit intentionally does **not** apply a research-success threshold.", markdown)
+        self.assertIn(
+            "This audit intentionally does **not** apply a research-success threshold.",
+            markdown,
+        )
 
     def test_width1_nonzero_diversity_delta_is_integrity_failure(self) -> None:
         payload = valid_payload()
-        payload["paired_summaries"][0]["mean_candidate_relevant_evidence_negative_delta"] = 0.01
+        payload["paired_summaries"][0][
+            "mean_candidate_relevant_evidence_negative_delta"
+        ] = 0.01
         audit = audit_large_scope_result(payload)
         self.assertFalse(audit.valid)
         self.assertIn("WIDTH1_CONTROL_DELTA", {issue.code for issue in audit.errors})
@@ -181,16 +185,48 @@ class LargeScopeResultAuditTests(unittest.TestCase):
         payload = valid_payload()
         payload["summaries"][1]["target_inspected_count"] = 0
         payload["summaries"][1]["target_coverage_rate"] = 0.0
+        payload["summaries"][1]["target_retrieved_count"] = 0
+        payload["summaries"][1]["target_retrieval_rate"] = 0.0
+        payload["summaries"][1]["retrieval_given_inspected"] = None
         audit = audit_large_scope_result(payload)
         codes = {issue.code for issue in audit.errors}
         self.assertIn("SCOPE_MODE_MISMATCH", codes)
         self.assertIn("SCOPE_COVERAGE_MISMATCH", codes)
 
+    def test_condition_rates_must_match_counts(self) -> None:
+        payload = valid_payload()
+        payload["summaries"][2]["target_retrieval_rate"] = 1.0
+        audit = audit_large_scope_result(payload)
+        self.assertIn(
+            "CONDITION_RATE_ARITHMETIC",
+            {issue.code for issue in audit.errors},
+        )
+
+    def test_paired_contingency_and_exact_probability_must_close(self) -> None:
+        payload = valid_payload()
+        payload["paired_summaries"][1]["diverse_only_retrieved_count"] = 0
+        audit = audit_large_scope_result(payload)
+        codes = {issue.code for issue in audit.errors}
+        self.assertIn("PAIRED_COUNT_ARITHMETIC", codes)
+        self.assertIn("PAIRED_P_ARITHMETIC", codes)
+
+    def test_malformed_summary_still_renders_integrity_report(self) -> None:
+        payload = valid_payload()
+        payload["summaries"][0]["width"] = "broken"
+        audit = audit_large_scope_result(payload)
+        self.assertFalse(audit.valid)
+        markdown = render_large_scope_audit_markdown(payload, audit)
+        self.assertIn("**Integrity:** INVALID", markdown)
+        self.assertIn("Result tables are omitted", markdown)
+
     def test_local_window_accounting_must_close_exactly(self) -> None:
         payload = valid_payload()
         payload["local_window_evaluations"] = 39
         audit = audit_large_scope_result(payload)
-        self.assertIn("LOCAL_EVALUATION_COUNT", {issue.code for issue in audit.errors})
+        self.assertIn(
+            "LOCAL_EVALUATION_COUNT",
+            {issue.code for issue in audit.errors},
+        )
 
     def test_missing_paired_width_is_integrity_failure_when_both_modes_exist(self) -> None:
         payload = valid_payload()
@@ -233,7 +269,9 @@ class LargeScopeResultAuditTests(unittest.TestCase):
                 ),
                 2,
             )
-            self.assertIn("LOCAL_EVALUATION_COUNT", output.read_text(encoding="utf-8"))
+            report = output.read_text(encoding="utf-8")
+            self.assertIn("LOCAL_EVALUATION_COUNT", report)
+            self.assertIn("Result tables are omitted", report)
 
 
 if __name__ == "__main__":
