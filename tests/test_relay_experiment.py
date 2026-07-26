@@ -10,6 +10,7 @@ from ai_hypothesis.population_compute import (
     RELAY_DIFFICULTIES,
     CommunicationMode,
 )
+from ai_hypothesis.population_compute import evaluate_relay_checkpoint
 from ai_hypothesis.population_compute.relay_experiment import (
     RelayTrainingConfig,
     assess_relay_results,
@@ -127,6 +128,19 @@ class RelayExperimentTests(unittest.TestCase):
                 split="confirmation",
                 world_count=2,
                 batch_size=1,
+            )
+
+    def test_checkpoint_evaluation_cli_locks_confirmation_before_loading(self) -> None:
+        with self.assertRaisesRegex(SystemExit, "Refusing to open frozen confirmation"):
+            evaluate_relay_checkpoint.main(
+                [
+                    "--checkpoint",
+                    "does-not-exist.pt",
+                    "--evaluation-split",
+                    "confirmation",
+                    "--output",
+                    "unused.json",
+                ]
             )
 
     def test_checkpoint_round_trip_preserves_exact_parameter_fingerprint(self) -> None:
