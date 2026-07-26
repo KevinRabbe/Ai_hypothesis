@@ -265,25 +265,22 @@ class IntegrationPartitionProjector:
 
 
 def prepare_partition_integration_work(
-    partition: IntegrationPartition,
-    *,
-    revision: int,
-    batch_limit: int,
+    plan: IntegrationPartitionPlan,
+    partition_id: str,
 ) -> WorkPreparation:
-    """Turn one already-bounded integration partition into ordinary synthesis work."""
+    """Turn one partition from one immutable plan into ordinary synthesis work."""
 
-    if revision < 0:
-        raise ValueError("revision must be non-negative")
-    if batch_limit <= 0:
-        raise ValueError("batch_limit must be positive")
-    partition.validate(batch_limit=batch_limit)
+    plan.validate()
+    partition = plan.get(partition_id)
+    if partition is None:
+        raise ValueError("unknown integration partition ID for this plan")
 
     preparation = WorkPreparation(
         reference_ids=partition.evidence_ids,
         context={
             "context_view": "SYNTHESIZE",
             "synthesis_mode": "INTEGRATION_PARTITION",
-            "integration_revision": revision,
+            "integration_revision": plan.revision,
             "integration_partition": {
                 "partition_id": partition.partition_id,
                 "thread_id": partition.thread_id,
@@ -298,7 +295,7 @@ def prepare_partition_integration_work(
             "causal_event_ids": list(partition.causal_event_ids),
         },
         constraints={
-            "max_pending_evidence": batch_limit,
+            "max_pending_evidence": plan.batch_limit,
             "emit_structured_knowledge_deltas": True,
             "disposition_consumed_evidence": True,
             "preserve_source_thread_ownership": True,
