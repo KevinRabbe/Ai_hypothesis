@@ -94,6 +94,13 @@ from .thread_consolidation import (
     ThreadConsolidationSource,
     prepare_thread_consolidation_work,
 )
+from .thread_consolidation_control import (
+    ThreadConsolidationControlAdapter,
+    ThreadConsolidationPressureConfig,
+    ThreadConsolidationPressureOverview,
+    ThreadConsolidationPressureProjector,
+    ThreadConsolidationScheduler,
+)
 from .worker_runtime import AttemptRequest, WorkerAssignment, WorkerBank, WorkerRuntime
 
 __all__ = [
@@ -162,8 +169,13 @@ __all__ = [
     "ScopeRegionCoverage",
     "SQLiteResearchLedger",
     "ThreadConsolidationConfig",
+    "ThreadConsolidationControlAdapter",
     "ThreadConsolidationPlan",
     "ThreadConsolidationPlanner",
+    "ThreadConsolidationPressureConfig",
+    "ThreadConsolidationPressureOverview",
+    "ThreadConsolidationPressureProjector",
+    "ThreadConsolidationScheduler",
     "ThreadConsolidationSource",
     "ThreadScopeCoverage",
     "ThreadStateProjector",
