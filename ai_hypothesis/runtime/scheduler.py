@@ -30,6 +30,10 @@ class SchedulerSignals:
     integration_backlog: float = 0.0
     starvation: float = 0.0
     estimated_cost: float = 0.0
+    # Generic demand for bounded synthesis/organization work. The scheduler deliberately
+    # does not know whether the source is thread consolidation, final synthesis, or another
+    # future projection. Appended to preserve positional compatibility.
+    synthesis_need: float = 0.0
 
     def validate(self) -> None:
         for name, value in (
@@ -44,6 +48,7 @@ class SchedulerSignals:
             ("integration_backlog", self.integration_backlog),
             ("starvation", self.starvation),
             ("estimated_cost", self.estimated_cost),
+            ("synthesis_need", self.synthesis_need),
         ):
             if not 0.0 <= value <= 1.0:
                 raise ValueError(f"{name} must be in [0, 1]")
@@ -59,6 +64,9 @@ class SchedulerConfig:
     # Keep a small permanent discovery lane even while integration is overloaded.
     # Appended to preserve positional compatibility with the original config fields.
     backpressure_exploration_probability: float = 0.05
+    # Generic synthesis threshold. Appended after all existing config fields so old
+    # positional construction retains exactly the same meaning.
+    synthesis_threshold: float = 0.65
 
     def validate(self) -> None:
         if self.exploration_width <= 0:
@@ -68,6 +76,7 @@ class SchedulerConfig:
             ("challenge_threshold", self.challenge_threshold),
             ("verification_threshold", self.verification_threshold),
             ("stagnation_threshold", self.stagnation_threshold),
+            ("synthesis_threshold", self.synthesis_threshold),
         ):
             if not 0.0 <= value <= 1.0:
                 raise ValueError(f"{name} must be in [0, 1]")
@@ -173,6 +182,7 @@ class SchedulerV0:
             + signals.dependency_impact
             + signals.recent_progress
             + signals.verification_need
+            + signals.synthesis_need
             + signals.starvation
             - signals.estimated_cost
         )
@@ -216,6 +226,9 @@ class SchedulerV0:
 
         if signals.contradiction_severity >= self.config.challenge_threshold:
             return SchedulerAction.CHALLENGE, WorkPurpose.CHALLENGE, ("CONTRADICTION",)
+
+        if signals.synthesis_need >= self.config.synthesis_threshold:
+            return SchedulerAction.SYNTHESIZE, WorkPurpose.SYNTHESIZE, ("SYNTHESIS_NEEDED",)
 
         if candidate.state.status == "PAUSED":
             return SchedulerAction.CONTINUE, candidate.state.purpose, ("RESUME",)
