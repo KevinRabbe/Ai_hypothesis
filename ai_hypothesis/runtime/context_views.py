@@ -43,9 +43,9 @@ class PurposeContextRouter:
             raise ValueError("integration_limit must be positive")
         if verification_limit <= 0:
             raise ValueError("verification_limit must be positive")
-        if integration_tracker is not None and integration_tracker.ledger.path != ledger.path:
+        if integration_tracker is not None and integration_tracker.ledger is not ledger:
             raise ValueError("integration tracker must use the same Research Ledger")
-        if verification_tracker is not None and verification_tracker.ledger.path != ledger.path:
+        if verification_tracker is not None and verification_tracker.ledger is not ledger:
             raise ValueError("verification tracker must use the same Research Ledger")
 
         self.ledger = ledger
