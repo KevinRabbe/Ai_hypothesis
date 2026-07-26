@@ -43,6 +43,7 @@ jobs:
             tests/test_collective_relay.py \
             tests/test_shared_population_cell.py \
             tests/test_relay_population_model.py \
+            tests/test_relay_experiment.py \
             > population-compute-tests.log 2>&1
           echo $? > population-compute-tests.status
           exit 0

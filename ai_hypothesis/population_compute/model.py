@@ -79,6 +79,11 @@ class SharedPopulationCell(nn.Module):
     message. Candidate messages are summed and bounded with tanh. Communication is
     therefore O(active_workers * message_width), not pairwise O(N^2), and one rare
     useful emission is not divided by the total population size.
+
+    Inactive slots are not merely zeroed after execution: they are gathered out before
+    every learned projection, GRU update and message projection. Thus the neural compute
+    path scales with the active-state count rather than the padded tensor width used by
+    the surrounding benchmark representation.
     """
 
     def __init__(self, config: SharedPopulationConfig) -> None:
@@ -154,32 +159,41 @@ class SharedPopulationCell(nn.Module):
                 )
             seed = shared_seed.to(device=local_inputs.device, dtype=local_inputs.dtype)
 
-        state = torch.tanh(self.input_projection(local_inputs))
-        state = state * mask.unsqueeze(-1).to(dtype=state.dtype)
+        flat_mask = mask.reshape(-1)
+        active_flat_indices = torch.nonzero(flat_mask, as_tuple=False).squeeze(1)
+        flat_local_inputs = local_inputs.reshape(
+            batch_size * worker_count,
+            self.config.local_input_width,
+        )
+        active_local_inputs = flat_local_inputs.index_select(0, active_flat_indices)
+
+        flat_batch_indices = (
+            torch.arange(batch_size, device=local_inputs.device)
+            .unsqueeze(1)
+            .expand(batch_size, worker_count)
+            .reshape(-1)
+        )
+        active_batch_indices = flat_batch_indices.index_select(0, active_flat_indices)
+        active_states = torch.tanh(self.input_projection(active_local_inputs))
         shared = seed
 
-        active_states_per_batch = int(mask.sum().item())
+        active_states_per_batch = int(active_states.shape[0])
         messages_emitted = 0
         communicated_scalars = 0
-        state_mask = mask.unsqueeze(-1)
 
         for _ in range(recurrent_rounds):
-            shared_per_worker = shared.unsqueeze(1).expand(
-                batch_size,
-                worker_count,
-                self.config.message_width,
-            )
-            update_input = torch.cat((local_inputs, shared_per_worker), dim=-1)
-            flat_input = update_input.reshape(batch_size * worker_count, -1)
-            flat_state = state.reshape(batch_size * worker_count, -1)
-            candidate = self.update(flat_input, flat_state).reshape_as(state)
-            state = torch.where(state_mask, candidate, torch.zeros_like(candidate))
+            shared_for_active = shared.index_select(0, active_batch_indices)
+            update_input = torch.cat((active_local_inputs, shared_for_active), dim=-1)
+            active_states = self.update(update_input, active_states)
 
             if communication_mode is CommunicationMode.SPARSE_SHARED_V0:
-                gate = torch.sigmoid(self.message_gate(state))
-                messages = torch.tanh(self.message_projection(state)) * gate
-                messages = messages * state_mask.to(dtype=messages.dtype)
-                shared = torch.tanh(messages.sum(dim=1))
+                gate = torch.sigmoid(self.message_gate(active_states))
+                messages = torch.tanh(self.message_projection(active_states)) * gate
+                message_sum = messages.new_zeros(
+                    batch_size,
+                    self.config.message_width,
+                ).index_add(0, active_batch_indices, messages)
+                shared = torch.tanh(message_sum)
                 messages_emitted += active_states_per_batch
                 # One bounded field read and one candidate write per active state.
                 communicated_scalars += (
@@ -190,17 +204,36 @@ class SharedPopulationCell(nn.Module):
                 # but population-produced state never moves between workers.
                 shared = seed
 
-        weights = state_mask.to(dtype=state.dtype)
-        pooled = (state * weights).sum(dim=1) / weights.sum(dim=1).clamp_min(1.0)
+        pooled_sum = active_states.new_zeros(
+            batch_size,
+            self.config.state_width,
+        ).index_add(0, active_batch_indices, active_states)
+        active_counts = torch.bincount(
+            active_batch_indices,
+            minlength=batch_size,
+        ).to(dtype=active_states.dtype).unsqueeze(1)
+        pooled = pooled_sum / active_counts.clamp_min(1.0)
         readout = torch.cat((pooled, shared), dim=-1)
         logits = self.output_head(self.output_norm(readout))
+
+        # Preserve the public padded diagnostic shape without carrying padded recurrent
+        # state through the learned hot path.
+        flat_final_states = active_states.new_zeros(
+            batch_size * worker_count,
+            self.config.state_width,
+        ).index_copy(0, active_flat_indices, active_states)
+        final_states = flat_final_states.reshape(
+            batch_size,
+            worker_count,
+            self.config.state_width,
+        )
 
         telemetry = PopulationTelemetry(
             active_state_updates=active_states_per_batch * recurrent_rounds,
             messages_emitted=messages_emitted,
             communicated_scalar_count=communicated_scalars,
         )
-        return PopulationForwardOutput(logits, state, shared, telemetry)
+        return PopulationForwardOutput(logits, final_states, shared, telemetry)
 
     def trainable_parameter_count(self) -> int:
         return sum(
