@@ -3,6 +3,7 @@
 from .collective_relay import (
     COLLECTIVE_RELAY_VERSION,
     RELAY_DIFFICULTIES,
+    RELAY_WORLD_SIZE,
     RelayDifficulty,
     RelayRecord,
     RelayWorld,
@@ -31,6 +32,7 @@ __all__ = [
     "COLLECTIVE_RELAY_VERSION",
     "DEVELOPMENT_POPULATION_SIZES",
     "RELAY_DIFFICULTIES",
+    "RELAY_WORLD_SIZE",
     "CommunicationMode",
     "CurveAssessment",
     "GateCriteria",
