@@ -3,22 +3,29 @@ from __future__ import annotations
 import json
 import tempfile
 import unittest
+from collections import Counter
 from pathlib import Path
 from unittest.mock import patch
 
 import torch
 
 from ai_hypothesis.population_compute import run_relay_scaling
-from ai_hypothesis.population_compute.collective_relay import RELAY_DIFFICULTIES
+from ai_hypothesis.population_compute.collective_relay import (
+    RELAY_DIFFICULTIES,
+    relay_scope_thresholds,
+)
 from ai_hypothesis.population_compute.contract import (
     DEVELOPMENT_POPULATION_SIZES,
     CommunicationMode,
 )
 from ai_hypothesis.population_compute.relay_experiment import (
+    RELAY_TRAINING_PROTOCOL,
+    TRAINING_POPULATION_SIZES,
     RelayTrainingConfig,
     RelayTrainingSummary,
     evaluate_relay_development,
     load_relay_checkpoint,
+    relay_training_schedule,
     train_relay_checkpoint,
 )
 from ai_hypothesis.population_compute.relay_model import (
@@ -33,6 +40,19 @@ class RelayExperimentTests(unittest.TestCase):
         model: RelayPopulationModel,
         training_seed: int = 0,
     ) -> RelayTrainingSummary:
+        schedule = relay_training_schedule(1)
+        population_counts = Counter(plan.active_workers for plan in schedule)
+        difficulty_counts = Counter(plan.difficulty.name for plan in schedule)
+        threshold_counts = Counter(plan.scope_threshold for plan in schedule)
+        all_thresholds = tuple(
+            sorted(
+                {
+                    threshold
+                    for difficulty in RELAY_DIFFICULTIES
+                    for threshold in relay_scope_thresholds(difficulty)
+                }
+            )
+        )
         return RelayTrainingSummary(
             training_seed=training_seed,
             steps=1,
@@ -45,13 +65,41 @@ class RelayExperimentTests(unittest.TestCase):
             elapsed_seconds=0.0,
             learned_parameter_count=model.trainable_parameter_count(),
             parameter_fingerprint=model.parameter_fingerprint(),
+            training_protocol=RELAY_TRAINING_PROTOCOL,
+            population_batch_counts=tuple(
+                (population, population_counts.get(population, 0))
+                for population in TRAINING_POPULATION_SIZES
+            ),
+            difficulty_batch_counts=tuple(
+                (difficulty.name, difficulty_counts.get(difficulty.name, 0))
+                for difficulty in RELAY_DIFFICULTIES
+            ),
+            scope_threshold_batch_counts=tuple(
+                (threshold, threshold_counts.get(threshold, 0))
+                for threshold in all_thresholds
+            ),
         )
+
+    def test_training_schedule_balances_population_exposure_and_requires_complete_scope(self) -> None:
+        schedule = relay_training_schedule(40)
+        counts = Counter(plan.active_workers for plan in schedule)
+        self.assertEqual(
+            tuple(counts[population] for population in TRAINING_POPULATION_SIZES),
+            (10, 10, 10, 10),
+        )
+        for plan in schedule:
+            self.assertGreaterEqual(plan.active_workers, plan.difficulty.hop_count)
+            self.assertLessEqual(plan.scope_threshold, plan.active_workers)
+            self.assertIn(
+                plan.scope_threshold,
+                relay_scope_thresholds(plan.difficulty),
+            )
 
     def test_training_changes_checkpoint_and_reload_preserves_exact_identity(self) -> None:
         config = RelayPopulationConfig(state_width=16, message_width=8)
         training = RelayTrainingConfig(
             training_seed=7,
-            steps=2,
+            steps=4,
             batch_size=2,
             learning_rate=1e-3,
         )
@@ -70,6 +118,11 @@ class RelayExperimentTests(unittest.TestCase):
             self.assertTrue(checkpoint.is_file())
             self.assertNotEqual(summary.parameter_fingerprint, initial_fingerprint)
             self.assertGreater(summary.learned_parameter_count, 0)
+            self.assertEqual(summary.training_protocol, RELAY_TRAINING_PROTOCOL)
+            self.assertEqual(
+                summary.population_batch_counts,
+                ((4, 1), (16, 1), (64, 1), (256, 1)),
+            )
 
             loaded, loaded_summary = load_relay_checkpoint(checkpoint, device="cpu")
             self.assertEqual(loaded_summary, summary)
@@ -183,7 +236,7 @@ class RelayExperimentTests(unittest.TestCase):
                         "--benchmark-seed",
                         "5",
                         "--train-steps",
-                        "1",
+                        "4",
                         "--train-batch-size",
                         "2",
                         "--state-width",
@@ -207,6 +260,14 @@ class RelayExperimentTests(unittest.TestCase):
             self.assertEqual(payload["split"], "development")
             self.assertFalse(payload["provenance"]["confirmation_opened"])
             self.assertEqual(len(payload["runs"]), 30)
+            self.assertEqual(
+                payload["training"]["training_protocol"],
+                RELAY_TRAINING_PROTOCOL,
+            )
+            self.assertEqual(
+                payload["training"]["population_batch_counts"],
+                [[4, 1], [16, 1], [64, 1], [256, 1]],
+            )
             fingerprints = {row["parameter_fingerprint"] for row in payload["runs"]}
             self.assertEqual(len(fingerprints), 1)
             self.assertEqual(
