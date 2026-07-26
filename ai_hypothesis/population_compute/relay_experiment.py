@@ -19,6 +19,7 @@ import torch
 from torch import nn
 
 from .collective_relay import (
+    COLLECTIVE_RELAY_VERSION,
     RELAY_DIFFICULTIES,
     RelayDifficulty,
     RelayWorld,
@@ -42,7 +43,7 @@ from .relay_model import (
 )
 
 
-RELAY_EXPERIMENT_VERSION = "population-compute-relay-training-v0"
+RELAY_EXPERIMENT_VERSION = "population-compute-relay-training-v1"
 TRAINING_SEED_LIMIT = 1_000_000_000
 TRAINING_SEED_STRIDE = 50_000_000
 TRAINING_STEP_STRIDE = 8_192
@@ -195,6 +196,7 @@ class RelayDevelopmentResult:
     def to_dict(self) -> dict[str, object]:
         return {
             "experiment_version": self.experiment_version,
+            "benchmark_version": COLLECTIVE_RELAY_VERSION,
             "evaluation_split": self.evaluation_split,
             "training": asdict(self.training),
             "training_config": {
@@ -599,6 +601,7 @@ def save_relay_checkpoint(
     output.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "experiment_version": RELAY_EXPERIMENT_VERSION,
+        "benchmark_version": COLLECTIVE_RELAY_VERSION,
         "training_seed": training.training_seed,
         "training_summary": asdict(training),
         "training_config": {
@@ -624,6 +627,8 @@ def load_relay_checkpoint(
     payload = torch.load(Path(path), map_location=torch.device(device), weights_only=False)
     if payload.get("experiment_version") != RELAY_EXPERIMENT_VERSION:
         raise ValueError("unexpected relay checkpoint experiment version")
+    if payload.get("benchmark_version") != COLLECTIVE_RELAY_VERSION:
+        raise ValueError("unexpected relay checkpoint benchmark version")
     config_data = payload.get("training_config", {}).get("model")
     if not isinstance(config_data, dict):
         raise ValueError("relay checkpoint is missing model configuration")

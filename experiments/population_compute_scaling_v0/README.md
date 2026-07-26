@@ -1,5 +1,7 @@
 # Population Compute Scaling Gate v0
 
+> **Benchmark revision note — 2026-07-26:** The first trained development run of `collective-relay-v0` is invalid for architecture interpretation. V0 allowed pre-threshold prefixes to expose the final answer-bearing edge and allowed minimum complete prefixes to contain the only complete chain. Those shortcuts produced large exact-solve rates without valid multi-hop relay. `collective-relay-v1` supersedes v0 before confirmation: it uses structurally matched disjoint target/distractor chains, hides the final target edge before the previous frozen population point, and requires at least one complete distractor chain at every first-complete threshold. V0 artifacts remain benchmark-failure evidence only and must never be mixed with v1 checkpoints/results.
+
 ## Purpose
 
 This experiment replaces the previous immediate objective of finding the smallest independently useful worker.
