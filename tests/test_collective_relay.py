@@ -4,7 +4,9 @@ import unittest
 
 from ai_hypothesis.population_compute import (
     COLLECTIVE_RELAY_VERSION,
+    DEVELOPMENT_POPULATION_SIZES,
     RELAY_DIFFICULTIES,
+    RELAY_WORLD_SIZE,
     RelayDifficulty,
     generate_relay_dataset,
     generate_relay_world,
@@ -22,6 +24,17 @@ class CollectiveRelayTests(unittest.TestCase):
         self.assertEqual(first, second)
         self.assertEqual(first.version, COLLECTIVE_RELAY_VERSION)
         self.assertEqual(resolve_relay(first), first.answer_key)
+
+    def test_frozen_difficulties_change_hops_not_world_scope(self) -> None:
+        self.assertEqual(
+            {difficulty.world_size for difficulty in RELAY_DIFFICULTIES},
+            {RELAY_WORLD_SIZE},
+        )
+        self.assertEqual(RELAY_WORLD_SIZE, DEVELOPMENT_POPULATION_SIZES[-1])
+        self.assertEqual(
+            tuple(difficulty.hop_count for difficulty in RELAY_DIFFICULTIES),
+            (2, 4, 8),
+        )
 
     def test_chain_is_distributed_among_shuffled_worker_slots(self) -> None:
         difficulty = RelayDifficulty(name="test", world_size=32, hop_count=4)
