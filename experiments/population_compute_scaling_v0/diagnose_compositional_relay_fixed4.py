@@ -15,6 +15,7 @@ import torch.nn.functional as F
 
 from ai_hypothesis.population_compute.collective_relay import (
     RELAY_DIFFICULTIES,
+    generate_relay_dataset,
     generate_relay_world,
     relay_scope_thresholds,
 )
@@ -94,11 +95,10 @@ def main(argv: list[str] | None = None) -> int:
         losses.append(float(loss.detach().item()))
 
     model.eval()
-    heldout_worlds = _threshold_worlds(
-        base_seed=HELDOUT_WORLD_SEED_BASE,
-        offset=0,
-        count=args.heldout_world_count,
-        threshold=ACTIVE_WORKERS,
+    heldout_worlds = generate_relay_dataset(
+        start_seed=HELDOUT_WORLD_SEED_BASE,
+        world_count=args.heldout_world_count,
+        difficulty=difficulty,
     )
     fingerprint = model.parameter_fingerprint()
     parameter_count = model.trainable_parameter_count()
