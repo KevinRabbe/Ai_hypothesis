@@ -63,7 +63,13 @@ class PopulationCondition:
 
 @dataclass(frozen=True, slots=True)
 class PopulationRunMetrics:
-    """Comparable measurements for one trained seed, difficulty and condition."""
+    """Comparable measurements for one trained seed, difficulty and condition.
+
+    The scope decomposition is mandatory for Gate v0. ``information_complete_count``
+    records how many benchmark worlds expose every required fact inside the active
+    worker prefix. ``solved_information_complete_count`` then separates neural/system
+    utilization of available information from the trivial effect of exposing more scope.
+    """
 
     training_seed: int
     benchmark_seed: int
@@ -73,6 +79,8 @@ class PopulationRunMetrics:
     condition: PopulationCondition
     task_count: int
     solved_count: int
+    information_complete_count: int
+    solved_information_complete_count: int
     messages_emitted: int
     communicated_scalar_count: int
     peak_worker_state_bytes: int
@@ -94,6 +102,20 @@ class PopulationRunMetrics:
             raise ValueError("task_count must be positive")
         if not 0 <= self.solved_count <= self.task_count:
             raise ValueError("solved_count must be within [0, task_count]")
+        if not 0 <= self.information_complete_count <= self.task_count:
+            raise ValueError(
+                "information_complete_count must be within [0, task_count]"
+            )
+        if not 0 <= self.solved_information_complete_count <= self.information_complete_count:
+            raise ValueError(
+                "solved_information_complete_count must be within information-complete tasks"
+            )
+        solved_incomplete = self.solved_information_incomplete_count
+        incomplete_count = self.task_count - self.information_complete_count
+        if not 0 <= solved_incomplete <= incomplete_count:
+            raise ValueError(
+                "solved_count is inconsistent with the information-complete decomposition"
+            )
         if self.messages_emitted < 0:
             raise ValueError("messages_emitted must be non-negative")
         if self.communicated_scalar_count < 0:
@@ -118,13 +140,34 @@ class PopulationRunMetrics:
         return self.solved_count / self.task_count
 
     @property
+    def information_complete_rate(self) -> float:
+        return self.information_complete_count / self.task_count
+
+    @property
+    def solve_rate_given_information_complete(self) -> float | None:
+        if self.information_complete_count == 0:
+            return None
+        return self.solved_information_complete_count / self.information_complete_count
+
+    @property
+    def solved_information_incomplete_count(self) -> int:
+        return self.solved_count - self.solved_information_complete_count
+
+    @property
+    def solve_rate_given_information_incomplete(self) -> float | None:
+        incomplete_count = self.task_count - self.information_complete_count
+        if incomplete_count == 0:
+            return None
+        return self.solved_information_incomplete_count / incomplete_count
+
+    @property
     def worker_updates(self) -> int:
         return self.condition.worker_updates
 
 
 @dataclass(frozen=True, slots=True)
 class GateCriteria:
-    """Provisional preregistration for one per-seed/per-difficulty curve."""
+    """Frozen preregistration for one per-seed/per-difficulty curve."""
 
     endpoint_gain: float = 0.05
     communication_advantage: float = 0.05
@@ -150,6 +193,8 @@ class CurveAssessment:
 
     population_sizes: tuple[int, ...]
     solve_rates: tuple[float, ...]
+    information_complete_rates: tuple[float, ...]
+    solve_rates_given_information_complete: tuple[float | None, ...]
     endpoint_gain: float
     nondecreasing_steps: int
     communication_endpoint_advantage: float
@@ -186,7 +231,8 @@ def assess_scaling_curve(
     """Assess one seed/difficulty curve against the preregistered v0 thresholds.
 
     Cross-seed Gate-v0 acceptance is deliberately a higher-level aggregation.
-    This function prevents a runner from silently changing the per-curve rules.
+    This function prevents a runner from silently changing the per-curve rules and
+    requires the communication/control curves to expose identical benchmark scope.
     """
 
     criteria.validate()
@@ -228,6 +274,29 @@ def assess_scaling_curve(
     if _run_scope(communicating[0]) != _run_scope(no_communication[0]):
         raise ValueError("communication and control curves do not share run scope")
 
+    for communicating_run, control_run in zip(
+        communicating, no_communication, strict=True
+    ):
+        if (
+            communicating_run.information_complete_count
+            != control_run.information_complete_count
+        ):
+            raise ValueError(
+                "communication and control conditions do not share information scope"
+            )
+
+    information_complete_rates = tuple(
+        run.information_complete_rate for run in communicating
+    )
+    if any(
+        later + 1e-12 < earlier
+        for earlier, later in zip(
+            information_complete_rates,
+            information_complete_rates[1:],
+        )
+    ):
+        raise ValueError("nested population scope must not lose complete information")
+
     rates = tuple(run.solve_rate for run in communicating)
     endpoint_gain = rates[-1] - rates[0]
     nondecreasing_steps = sum(
@@ -249,6 +318,10 @@ def assess_scaling_curve(
     return CurveAssessment(
         population_sizes=DEVELOPMENT_POPULATION_SIZES,
         solve_rates=rates,
+        information_complete_rates=information_complete_rates,
+        solve_rates_given_information_complete=tuple(
+            run.solve_rate_given_information_complete for run in communicating
+        ),
         endpoint_gain=endpoint_gain,
         nondecreasing_steps=nondecreasing_steps,
         communication_endpoint_advantage=communication_endpoint_advantage,
