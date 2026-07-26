@@ -34,7 +34,8 @@ jobs:
             ai_hypothesis/population_compute/model.py \
             ai_hypothesis/population_compute/relay_model.py \
             experiments/population_compute_scaling_v0/diagnose_compositional_relay.py \
-            experiments/population_compute_scaling_v0/diagnose_compositional_relay_fixed4.py
+            experiments/population_compute_scaling_v0/diagnose_compositional_relay_fixed4.py \
+            experiments/population_compute_scaling_v0/diagnose_compositional_relay_reset4.py
 
       - name: Run protocol structural regressions
         run: |
@@ -74,6 +75,22 @@ jobs:
             > diagnostic/fixed4-stdout.json \
             2> diagnostic/fixed4-stderr.log
           echo $? > diagnostic/fixed4-status
+          exit 0
+
+      - name: Run fixed-four state-reset relay-2 diagnostic
+        shell: bash
+        run: |
+          set +e
+          python experiments/population_compute_scaling_v0/diagnose_compositional_relay_reset4.py \
+            --device cpu \
+            --seed 505 \
+            --steps 2048 \
+            --batch-size 32 \
+            --heldout-world-count 512 \
+            --output diagnostic/compositional-relay-2-reset4.json \
+            > diagnostic/reset4-stdout.json \
+            2> diagnostic/reset4-stderr.log
+          echo $? > diagnostic/reset4-status
           exit 0
 
       - name: Upload relay-2 diagnostic results
