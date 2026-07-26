@@ -37,6 +37,13 @@ from .integration import (
     IntegrationTracker,
     PendingEvidence,
 )
+from .integration_partitions import (
+    IntegrationPartition,
+    IntegrationPartitionConfig,
+    IntegrationPartitionPlan,
+    IntegrationPartitionProjector,
+    prepare_partition_integration_work,
+)
 from .integration_telemetry import (
     IntegrationBandwidthWindow,
     IntegrationTelemetryProjector,
@@ -82,6 +89,10 @@ __all__ = [
     "IntegrationBatch",
     "IntegrationDisposition",
     "IntegrationOverview",
+    "IntegrationPartition",
+    "IntegrationPartitionConfig",
+    "IntegrationPartitionPlan",
+    "IntegrationPartitionProjector",
     "IntegrationSnapshot",
     "IntegrationTelemetryProjector",
     "IntegrationTelemetrySnapshot",
@@ -125,4 +136,5 @@ __all__ = [
     "WorkPurpose",
     "prepare_bounded_integration_work",
     "prepare_bounded_knowledge_work",
+    "prepare_partition_integration_work",
 ]
