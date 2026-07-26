@@ -27,7 +27,7 @@ class CompetitivePopulationAggregationTests(unittest.TestCase):
         )
         active_content = torch.tensor([0.25, -0.5, 0.75, -0.125])
         message_content = active_content.view(1, 1, -1).expand(2, 4, -1).clone()
-        message_content[:, 2, :] = 1000.0
+        message_content[0, 2, :] = 1000.0
         message_content[1, 1, :] = -1000.0
 
         output = cell(
