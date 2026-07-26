@@ -37,6 +37,12 @@ from .integration import (
     IntegrationTracker,
     PendingEvidence,
 )
+from .integration_parallelism import (
+    IntegrationParallelismConfig,
+    IntegrationPartitionAllocator,
+    PartitionedBackpressureScheduler,
+    PartitionedIntegrationContextRouter,
+)
 from .integration_partitions import (
     IntegrationPartition,
     IntegrationPartitionConfig,
@@ -89,7 +95,9 @@ __all__ = [
     "IntegrationBatch",
     "IntegrationDisposition",
     "IntegrationOverview",
+    "IntegrationParallelismConfig",
     "IntegrationPartition",
+    "IntegrationPartitionAllocator",
     "IntegrationPartitionConfig",
     "IntegrationPartitionPlan",
     "IntegrationPartitionProjector",
@@ -108,6 +116,8 @@ __all__ = [
     "KnowledgeVerificationOverview",
     "KnowledgeVerificationTracker",
     "LedgerEvent",
+    "PartitionedBackpressureScheduler",
+    "PartitionedIntegrationContextRouter",
     "PendingEvidence",
     "ProjectedState",
     "PurposeContextRouter",
