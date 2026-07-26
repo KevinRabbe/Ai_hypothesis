@@ -1,0 +1,112 @@
+name: Indexed runtime architecture
+
+on:
+  push:
+    branches:
+      - 'agent/**'
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  indexed-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHONPATH: .
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Compile indexed runtime modules
+        run: |
+          python -m compileall -q \
+            ai_hypothesis/runtime/integration_index.py \
+            ai_hypothesis/runtime/knowledge_index.py \
+            ai_hypothesis/runtime/projection_tail.py \
+            ai_hypothesis/runtime/thread_state_index.py \
+            ai_hypothesis/runtime/indexed_control.py \
+            ai_hypothesis/runtime/partition_knowledge_index.py \
+            ai_hypothesis/runtime/indexed_thread_consolidation.py \
+            ai_hypothesis/runtime/indexed_thread_consolidation_control.py \
+            ai_hypothesis/runtime/indexed_integration_partitions.py
+
+      - name: Run indexed integration tests
+        shell: bash
+        run: |
+          set +e
+          python -m unittest \
+            tests/test_incremental_integration_index.py \
+            tests/test_incremental_integration_index_snapshot.py \
+            tests/test_indexed_integration_partitions.py \
+            > indexed-integration.log 2>&1
+          echo $? > indexed-integration.status
+          exit 0
+
+      - name: Run indexed knowledge tests
+        shell: bash
+        run: |
+          set +e
+          python -m unittest \
+            tests/test_projection_tail.py \
+            tests/test_incremental_knowledge_index.py \
+            tests/test_incremental_knowledge_index_integration.py \
+            > indexed-knowledge.log 2>&1
+          echo $? > indexed-knowledge.status
+          exit 0
+
+      - name: Run indexed thread-state tests
+        shell: bash
+        run: |
+          set +e
+          python -m unittest \
+            tests/test_incremental_thread_state.py \
+            tests/test_incremental_thread_state_ordering.py \
+            > indexed-thread-state.log 2>&1
+          echo $? > indexed-thread-state.status
+          exit 0
+
+      - name: Run indexed runtime and hierarchy tests
+        shell: bash
+        run: |
+          set +e
+          python -m unittest \
+            tests/test_indexed_runtime_control.py \
+            tests/test_indexed_runtime_snapshot_isolation.py \
+            tests/test_incremental_partition_knowledge_lineage.py \
+            tests/test_indexed_thread_consolidation.py \
+            tests/test_indexed_thread_consolidation_control.py \
+            > indexed-runtime-hierarchy.log 2>&1
+          echo $? > indexed-runtime-hierarchy.status
+          exit 0
+
+      - name: Upload indexed runtime qualification logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: indexed-runtime-qualification-logs
+          path: |
+            indexed-*.log
+            indexed-*.status
+          if-no-files-found: error
+
+      - name: Enforce indexed runtime qualification
+        shell: bash
+        run: |
+          failed=0
+          for status_file in indexed-*.status; do
+            status="$(cat "$status_file")"
+            if [ "$status" -ne 0 ]; then
+              echo "FAILED: $status_file (exit $status)"
+              failed=1
+            fi
+          done
+          exit "$failed"
