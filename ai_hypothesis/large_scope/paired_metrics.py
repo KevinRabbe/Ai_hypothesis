@@ -115,6 +115,13 @@ class _RunningPair:
         assert self.distractor_score_delta is not None
         assert self.target_gap_delta is not None
 
+        same_distractor = same.strongest_distractor_relevant_evidence
+        diverse_distractor = diverse.strongest_distractor_relevant_evidence
+        if (same_distractor is None) != (diverse_distractor is None):
+            raise ValueError("paired conditions disagree on distractor availability")
+        if same_distractor is not None and diverse_distractor is not None:
+            self.distractor_score_delta.add(diverse_distractor - same_distractor)
+
         if same.target_present:
             self.positive_world_count += 1
             self.positive_candidate_delta.add(candidate_delta)
@@ -147,16 +154,7 @@ class _RunningPair:
                     diverse.target_relevant_evidence - same.target_relevant_evidence
                 )
 
-                same_distractor = same.strongest_distractor_relevant_evidence
-                diverse_distractor = diverse.strongest_distractor_relevant_evidence
-                if (same_distractor is None) != (diverse_distractor is None):
-                    raise ValueError(
-                        "paired conditions disagree on distractor availability"
-                    )
                 if same_distractor is not None and diverse_distractor is not None:
-                    self.distractor_score_delta.add(
-                        diverse_distractor - same_distractor
-                    )
                     same_gap = same.target_relevant_evidence - same_distractor
                     diverse_gap = diverse.target_relevant_evidence - diverse_distractor
                     self.target_gap_delta.add(diverse_gap - same_gap)
