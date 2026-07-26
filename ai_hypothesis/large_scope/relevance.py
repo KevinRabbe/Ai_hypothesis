@@ -226,7 +226,7 @@ def same_worker_indices(
     """Scope-only control: one checkpoint inspects every selected window."""
 
     _validate_worker_plan(width=width, population_width=population_width, split=split)
-    worker = _scope_seed("same-worker", split, seed, population_width) % population_width
+    worker = _scope_seed("worker-plan", split, seed, population_width) % population_width
     return (worker,) * width
 
 
@@ -242,7 +242,7 @@ def diverse_worker_indices(
     _validate_worker_plan(width=width, population_width=population_width, split=split)
     if width > population_width:
         raise ValueError("diverse width cannot exceed available population width")
-    start = _scope_seed("diverse-workers", split, seed, population_width) % population_width
+    start = _scope_seed("worker-plan", split, seed, population_width) % population_width
     return tuple((start + offset) % population_width for offset in range(width))
 
 
