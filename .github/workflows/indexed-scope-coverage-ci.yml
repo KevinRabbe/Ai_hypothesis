@@ -1,0 +1,43 @@
+name: Indexed scope coverage
+
+on:
+  push:
+    branches:
+      - agent/indexed-scope-coverage-v0
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  indexed-scope-coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHONPATH: .
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install CPU Torch
+        run: |
+          python -m pip install --disable-pip-version-check torch --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Compile indexed scope modules
+        run: |
+          python -m compileall -q \
+            ai_hypothesis/runtime/scope_coverage.py \
+            ai_hypothesis/runtime/scope_coverage_index.py \
+            ai_hypothesis/large_scope/coverage_planner.py \
+            ai_hypothesis/large_scope/indexed_coverage_planner.py
+
+      - name: Run indexed scope regressions
+        run: |
+          python -m unittest tests/test_indexed_scope_coverage.py
