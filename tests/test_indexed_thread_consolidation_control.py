@@ -358,7 +358,7 @@ class IndexedThreadConsolidationControlTests(unittest.TestCase):
             projection_revision=state.revision,
         )
         forged.validate()
-        with self.assertRaisesRegex(ValueError, "not owned"):
+        with self.assertRaisesRegex(RuntimeError, "no longer matches"):
             self.adapter.context(state, forged)
 
     def test_domain_owned_stronger_synthesis_need_is_not_relabelled(self) -> None:
