@@ -92,6 +92,50 @@ class SharedPopulationCellTests(unittest.TestCase):
         )
         self.assertTrue(torch.all(output.final_shared.abs() <= 1.0))
 
+    def test_learned_hot_path_executes_only_active_states(self) -> None:
+        local_inputs = torch.randn(2, 4, self.config.local_input_width)
+        mask = torch.tensor(
+            [
+                [True, True, False, False],
+                [True, False, True, False],
+            ]
+        )
+        active_states = 4
+        seen: dict[str, list[int]] = {
+            "input_projection": [],
+            "update": [],
+            "message_gate": [],
+            "message_projection": [],
+        }
+
+        def record(name: str):
+            def hook(_module, args) -> None:
+                seen[name].append(int(args[0].shape[0]))
+
+            return hook
+
+        handles = [
+            self.model.input_projection.register_forward_pre_hook(record("input_projection")),
+            self.model.update.register_forward_pre_hook(record("update")),
+            self.model.message_gate.register_forward_pre_hook(record("message_gate")),
+            self.model.message_projection.register_forward_pre_hook(record("message_projection")),
+        ]
+        try:
+            self.model(
+                local_inputs,
+                mask,
+                recurrent_rounds=2,
+                communication_mode=CommunicationMode.SPARSE_SHARED_V0,
+            )
+        finally:
+            for handle in handles:
+                handle.remove()
+
+        self.assertEqual(seen["input_projection"], [active_states])
+        self.assertEqual(seen["update"], [active_states, active_states])
+        self.assertEqual(seen["message_gate"], [active_states, active_states])
+        self.assertEqual(seen["message_projection"], [active_states, active_states])
+
     def test_inactive_states_remain_zero(self) -> None:
         local_inputs = torch.randn(1, 4, self.config.local_input_width)
         mask = torch.tensor([[True, False, True, False]])
