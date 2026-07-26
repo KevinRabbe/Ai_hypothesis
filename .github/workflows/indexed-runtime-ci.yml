@@ -25,7 +25,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: pip
 
       - name: Compile indexed runtime modules
         run: |
@@ -43,22 +42,28 @@ jobs:
       - name: Run indexed integration tests
         run: |
           python -m unittest \
-            tests.test_incremental_integration_index \
-            tests.test_incremental_integration_index_snapshot \
-            tests.test_indexed_integration_partitions
+            tests/test_incremental_integration_index.py \
+            tests/test_incremental_integration_index_snapshot.py \
+            tests/test_indexed_integration_partitions.py
 
       - name: Run indexed knowledge tests
         run: |
           python -m unittest \
-            tests.test_projection_tail \
-            tests.test_incremental_knowledge_index \
-            tests.test_incremental_knowledge_index_integration
+            tests/test_projection_tail.py \
+            tests/test_incremental_knowledge_index.py \
+            tests/test_incremental_knowledge_index_integration.py
+
+      - name: Run indexed thread-state tests
+        run: |
+          python -m unittest \
+            tests/test_incremental_thread_state.py \
+            tests/test_incremental_thread_state_ordering.py
 
       - name: Run indexed runtime and hierarchy tests
         run: |
           python -m unittest \
-            tests.test_indexed_runtime_control \
-            tests.test_indexed_runtime_snapshot_isolation \
-            tests.test_incremental_partition_knowledge_lineage \
-            tests.test_indexed_thread_consolidation \
-            tests.test_indexed_thread_consolidation_control
+            tests/test_indexed_runtime_control.py \
+            tests/test_indexed_runtime_snapshot_isolation.py \
+            tests/test_incremental_partition_knowledge_lineage.py \
+            tests/test_indexed_thread_consolidation.py \
+            tests/test_indexed_thread_consolidation_control.py
