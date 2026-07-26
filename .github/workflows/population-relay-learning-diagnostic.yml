@@ -12,6 +12,16 @@ permissions:
 
 jobs:
   diagnostic:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: small-long
+            state_width: 32
+            message_width: 12
+          - name: reference-long
+            state_width: 64
+            message_width: 24
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
@@ -35,13 +45,13 @@ jobs:
             --device cpu \
             --training-seed 900 \
             --benchmark-seed 900 \
-            --train-steps 256 \
+            --train-steps 2048 \
             --train-batch-size 8 \
             --learning-rate 0.001 \
-            --state-width 32 \
-            --message-width 12 \
-            --development-world-count 128 \
-            --eval-batch-size 16 \
+            --state-width ${{ matrix.state_width }} \
+            --message-width ${{ matrix.message_width }} \
+            --development-world-count 512 \
+            --eval-batch-size 32 \
             --checkpoint diagnostic/relay.pt \
             --output diagnostic/development.json \
             > diagnostic/stdout.json
@@ -49,7 +59,7 @@ jobs:
       - name: Upload diagnostic result
         uses: actions/upload-artifact@v4
         with:
-          name: population-relay-learning-diagnostic
+          name: population-relay-learning-diagnostic-${{ matrix.name }}
           path: |
             diagnostic/development.json
           if-no-files-found: error
