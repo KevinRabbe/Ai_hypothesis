@@ -10,6 +10,9 @@ from ai_hypothesis.population_compute import (
     RelayDifficulty,
     generate_relay_dataset,
     generate_relay_world,
+    information_complete_at,
+    relay_population_points,
+    relay_scope_thresholds,
     resolve_relay,
 )
 
@@ -36,16 +39,45 @@ class CollectiveRelayTests(unittest.TestCase):
             (2, 4, 8),
         )
 
-    def test_chain_is_distributed_among_shuffled_worker_slots(self) -> None:
-        difficulty = RelayDifficulty(name="test", world_size=32, hop_count=4)
-        world = generate_relay_world(9, difficulty)
-        chain_slots = tuple(
-            record.worker_slot for record in world.records if record.is_chain_edge
-        )
+    def test_scope_thresholds_cycle_exactly_over_admissible_population_points(self) -> None:
+        for difficulty in RELAY_DIFFICULTIES:
+            thresholds = relay_scope_thresholds(difficulty)
+            worlds = tuple(
+                generate_relay_world(seed, difficulty)
+                for seed in range(len(thresholds) * 2)
+            )
+            self.assertEqual(
+                tuple(world.scope_threshold for world in worlds),
+                thresholds * 2,
+            )
 
-        self.assertEqual(len(chain_slots), difficulty.hop_count)
-        self.assertEqual(len(set(chain_slots)), difficulty.hop_count)
-        self.assertNotEqual(chain_slots, tuple(range(difficulty.hop_count)))
+    def test_world_becomes_complete_at_declared_threshold_not_previous_point(self) -> None:
+        for difficulty in RELAY_DIFFICULTIES:
+            population_points = relay_population_points(difficulty)
+            thresholds = relay_scope_thresholds(difficulty)
+            for seed, threshold in enumerate(thresholds):
+                world = generate_relay_world(seed, difficulty)
+                self.assertEqual(world.scope_threshold, threshold)
+                previous = max(size for size in population_points if size < threshold)
+                self.assertFalse(information_complete_at(world, previous))
+                self.assertTrue(information_complete_at(world, threshold))
+                self.assertTrue(
+                    all(
+                        information_complete_at(world, larger)
+                        for larger in population_points
+                        if larger >= threshold
+                    )
+                )
+
+    def test_smaller_custom_world_retains_nested_population_ladder(self) -> None:
+        difficulty = RelayDifficulty(name="test", world_size=32, hop_count=4)
+        self.assertEqual(relay_population_points(difficulty), (1, 4, 16, 32))
+        self.assertEqual(relay_scope_thresholds(difficulty), (4, 16, 32))
+
+        world = generate_relay_world(1, difficulty)
+        self.assertEqual(world.scope_threshold, 16)
+        self.assertFalse(information_complete_at(world, 4))
+        self.assertTrue(information_complete_at(world, 16))
 
     def test_record_keys_are_unique_and_cover_exact_world_size(self) -> None:
         difficulty = RELAY_DIFFICULTIES[-1]
