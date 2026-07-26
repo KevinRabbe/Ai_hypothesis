@@ -84,11 +84,13 @@ class RelayWorld:
 
         allowed_thresholds = relay_scope_thresholds(self.difficulty)
         if self.scope_threshold not in allowed_thresholds:
-            raise ValueError("scope_threshold is not a frozen relay population point")
+            raise ValueError("scope_threshold is not an admissible relay population point")
         if not information_complete_at(self, self.scope_threshold):
             raise ValueError("scope_threshold must contain the complete relay chain")
         previous_points = tuple(
-            size for size in DEVELOPMENT_POPULATION_SIZES if size < self.scope_threshold
+            size
+            for size in relay_population_points(self.difficulty)
+            if size < self.scope_threshold
         )
         if previous_points and information_complete_at(self, previous_points[-1]):
             raise ValueError("relay chain becomes complete before its declared scope_threshold")
@@ -97,22 +99,39 @@ class RelayWorld:
             raise ValueError("relay world does not resolve to its declared answer")
 
 
+def relay_population_points(difficulty: RelayDifficulty) -> tuple[int, ...]:
+    """Return the nested population ladder for this world size.
+
+    The frozen 256-slot benchmark uses exactly 1/4/16/64/256. Smaller regression worlds
+    retain the same intermediate points that fit and use their own world size as the
+    final full-scope endpoint.
+    """
+
+    difficulty.validate()
+    points = {
+        size for size in DEVELOPMENT_POPULATION_SIZES if size < difficulty.world_size
+    }
+    points.add(difficulty.world_size)
+    points.add(1)
+    return tuple(sorted(points))
+
+
 def relay_scope_thresholds(difficulty: RelayDifficulty) -> tuple[int, ...]:
     """Population points at which this hop count can first become information-complete.
 
     One worker holds one key/value record, so a h-hop chain cannot be complete below h
     active records. Population size 1 is intentionally never complete for this multi-hop
-    benchmark. The remaining frozen curve points are used as balanced scope thresholds.
+    benchmark. Consecutive seeds cycle through the remaining admissible thresholds.
     """
 
     difficulty.validate()
     thresholds = tuple(
         size
-        for size in DEVELOPMENT_POPULATION_SIZES
-        if size > 1 and size >= difficulty.hop_count and size <= difficulty.world_size
+        for size in relay_population_points(difficulty)
+        if size > 1 and size >= difficulty.hop_count
     )
     if not thresholds or thresholds[-1] != difficulty.world_size:
-        raise ValueError("development population curve cannot cover relay difficulty")
+        raise ValueError("population ladder cannot cover relay difficulty")
     return thresholds
 
 
@@ -131,9 +150,9 @@ def generate_relay_world(seed: int, difficulty: RelayDifficulty) -> RelayWorld:
     """Generate one collision-free multi-hop world with controlled scope availability.
 
     Consecutive seeds cycle over the admissible population thresholds. Required chain
-    edges are placed so the chain is incomplete at the previous frozen population point
-    and complete at the declared threshold. This prevents the 1/4/16/64/256 benchmark
-    from degenerating into a nearly all-or-nothing information jump at 256 workers.
+    edges are placed so the chain is incomplete at the previous population point and
+    complete at the declared threshold. This prevents the 1/4/16/64/256 benchmark from
+    degenerating into a nearly all-or-nothing information jump at 256 workers.
     """
 
     if seed < 0:
@@ -158,14 +177,15 @@ def generate_relay_world(seed: int, difficulty: RelayDifficulty) -> RelayWorld:
     if chain_keys.intersection(decoy_keys):
         raise AssertionError("generator produced a chain/decoy key collision")
 
+    population_points = relay_population_points(difficulty)
     thresholds = relay_scope_thresholds(difficulty)
     scope_threshold = thresholds[seed % len(thresholds)]
     previous_population = max(
-        size for size in DEVELOPMENT_POPULATION_SIZES if size < scope_threshold
+        size for size in population_points if size < scope_threshold
     )
 
-    # At least one required edge lives beyond the previous frozen population point,
-    # while all required edges remain inside the selected threshold.
+    # At least one required edge lives beyond the previous population point, while all
+    # required edges remain inside the selected threshold.
     frontier_slot = rng.randrange(previous_population, scope_threshold)
     remaining_chain_slots = [
         slot for slot in range(scope_threshold) if slot != frontier_slot
