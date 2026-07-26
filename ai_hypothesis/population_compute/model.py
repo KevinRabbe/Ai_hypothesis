@@ -118,6 +118,8 @@ class SharedPopulationCell(nn.Module):
         recurrent_rounds: int,
         communication_mode: CommunicationMode,
         shared_seed: torch.Tensor | None = None,
+        message_content: torch.Tensor | None = None,
+        reset_state_each_round: bool = False,
     ) -> PopulationForwardOutput:
         if local_inputs.ndim != 3:
             raise ValueError(
@@ -159,6 +161,22 @@ class SharedPopulationCell(nn.Module):
                 )
             seed = shared_seed.to(device=local_inputs.device, dtype=local_inputs.dtype)
 
+        if message_content is not None:
+            expected_message_shape = (
+                batch_size,
+                worker_count,
+                self.config.message_width,
+            )
+            if message_content.shape != expected_message_shape:
+                raise ValueError(
+                    "message_content must have shape "
+                    "[batch, workers, message_width]"
+                )
+            message_content = message_content.to(
+                device=local_inputs.device,
+                dtype=local_inputs.dtype,
+            )
+
         flat_mask = mask.reshape(-1)
         active_flat_indices = torch.nonzero(flat_mask, as_tuple=False).squeeze(1)
         flat_local_inputs = local_inputs.reshape(
@@ -166,6 +184,16 @@ class SharedPopulationCell(nn.Module):
             self.config.local_input_width,
         )
         active_local_inputs = flat_local_inputs.index_select(0, active_flat_indices)
+        active_message_content = None
+        if message_content is not None:
+            flat_message_content = message_content.reshape(
+                batch_size * worker_count,
+                self.config.message_width,
+            )
+            active_message_content = flat_message_content.index_select(
+                0,
+                active_flat_indices,
+            )
 
         flat_batch_indices = (
             torch.arange(batch_size, device=local_inputs.device)
@@ -174,7 +202,8 @@ class SharedPopulationCell(nn.Module):
             .reshape(-1)
         )
         active_batch_indices = flat_batch_indices.index_select(0, active_flat_indices)
-        active_states = torch.tanh(self.input_projection(active_local_inputs))
+        initial_states = torch.tanh(self.input_projection(active_local_inputs))
+        active_states = initial_states
         shared = seed
 
         active_states_per_batch = int(active_states.shape[0])
@@ -184,11 +213,16 @@ class SharedPopulationCell(nn.Module):
         for _ in range(recurrent_rounds):
             shared_for_active = shared.index_select(0, active_batch_indices)
             update_input = torch.cat((active_local_inputs, shared_for_active), dim=-1)
-            active_states = self.update(update_input, active_states)
+            recurrent_state = initial_states if reset_state_each_round else active_states
+            active_states = self.update(update_input, recurrent_state)
 
             if communication_mode is CommunicationMode.SPARSE_SHARED_V0:
                 gate = torch.sigmoid(self.message_gate(active_states))
-                messages = torch.tanh(self.message_projection(active_states)) * gate
+                if active_message_content is None:
+                    content = torch.tanh(self.message_projection(active_states))
+                else:
+                    content = active_message_content
+                messages = content * gate
                 message_sum = messages.new_zeros(
                     batch_size,
                     self.config.message_width,

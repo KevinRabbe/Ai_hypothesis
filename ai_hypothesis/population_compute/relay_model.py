@@ -104,12 +104,16 @@ class RelayPopulationModel(nn.Module):
         if rounds <= 0:
             raise ValueError("recurrent_rounds must be positive")
         seed = torch.tanh(self.query_projection(batch.start_bits))
+        value_bits = batch.local_inputs[..., NODE_BIT_WIDTH:]
+        message_content = torch.tanh(self.query_projection(value_bits))
         return self.cell(
             batch.local_inputs,
             batch.active_mask,
             recurrent_rounds=rounds,
             communication_mode=communication_mode,
             shared_seed=seed,
+            message_content=message_content,
+            reset_state_each_round=True,
         )
 
     def trainable_parameter_count(self) -> int:
