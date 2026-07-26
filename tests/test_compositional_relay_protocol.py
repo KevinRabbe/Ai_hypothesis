@@ -29,6 +29,7 @@ class _RecordingCell(nn.Module):
         self.shared_seed: torch.Tensor | None = None
         self.message_content: torch.Tensor | None = None
         self.reset_state_each_round = False
+        self.competitive_message_weights = False
 
     def forward(
         self,
@@ -40,6 +41,7 @@ class _RecordingCell(nn.Module):
         shared_seed: torch.Tensor | None = None,
         message_content: torch.Tensor | None = None,
         reset_state_each_round: bool = False,
+        competitive_message_weights: bool = False,
     ) -> PopulationForwardOutput:
         del recurrent_rounds, communication_mode
         self.shared_seed = None if shared_seed is None else shared_seed.detach().clone()
@@ -47,6 +49,7 @@ class _RecordingCell(nn.Module):
             None if message_content is None else message_content.detach().clone()
         )
         self.reset_state_each_round = reset_state_each_round
+        self.competitive_message_weights = competitive_message_weights
         batch_size, worker_count, _ = local_inputs.shape
         if shared_seed is None:
             raise AssertionError("relay model must provide a shared query seed")
@@ -145,6 +148,7 @@ class CompositionalRelayProtocolTests(unittest.TestCase):
             torch.allclose(recorder.message_content, expected_content, atol=1e-7)
         )
         self.assertTrue(recorder.reset_state_each_round)
+        self.assertTrue(recorder.competitive_message_weights)
 
 
 if __name__ == "__main__":
