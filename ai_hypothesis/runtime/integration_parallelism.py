@@ -7,6 +7,7 @@ multiple homogeneous workers on non-overlapping integration partitions in one ne
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass, replace
 from typing import Protocol, Sequence
 
@@ -20,6 +21,10 @@ from .integration_partitions import (
 )
 from .ledger import SQLiteResearchLedger
 from .scheduler import SchedulableThread
+
+
+_PARTITION_ALLOCATION_EVENT = "INTEGRATION_PARTITION_ALLOCATION_RECORDED"
+_PARTITION_ALLOCATION_SCHEMA = "integration-partition-allocation-v0"
 
 
 class SchedulerLike(Protocol):
@@ -195,11 +200,70 @@ class PartitionedIntegrationContextRouter:
             return self.fallback(state, decision)
 
         plan = self.allocator.plan(self.ledger)
-        return self.allocator.prepare_batch(
+        batch = self.allocator.prepare_batch(
             plan,
             state.thread_id,
             width=decision.width,
         )
+        selected = self.allocator.ordered_for_thread(plan, state.thread_id)[: decision.width]
+        self._record_partition_allocation(state, decision, plan, selected)
+        return batch
+
+    def _record_partition_allocation(
+        self,
+        state: ProjectedState,
+        decision: SchedulerDecision,
+        plan: IntegrationPartitionPlan,
+        partitions: Sequence[IntegrationPartition],
+    ) -> None:
+        if len(partitions) != decision.width:
+            raise ValueError("partition provenance width does not match scheduler decision")
+
+        event_id = self._allocation_event_id(decision.decision_id)
+        reference_ids = tuple(partition.partition_id for partition in partitions)
+        payload = {
+            "schema": _PARTITION_ALLOCATION_SCHEMA,
+            "decision_id": decision.decision_id,
+            "decision_projection_revision": decision.projection_revision,
+            "partition_plan_revision": plan.revision,
+            "shard_count": plan.shard_count,
+            "batch_limit": plan.batch_limit,
+            "width": decision.width,
+            "partitions": [
+                {
+                    "partition_id": partition.partition_id,
+                    "shard_index": partition.shard_index,
+                    "backlog_count": partition.backlog_count,
+                    "oldest_pending_sequence": partition.oldest_pending_sequence,
+                    "evidence_ids": list(partition.evidence_ids),
+                }
+                for partition in partitions
+            ],
+        }
+
+        existing = self.ledger.get_event(event_id)
+        if existing is not None:
+            if (
+                existing.event_type != _PARTITION_ALLOCATION_EVENT
+                or existing.thread_id != state.thread_id
+                or existing.reference_ids != reference_ids
+                or dict(existing.payload) != payload
+            ):
+                raise ValueError("conflicting durable partition allocation provenance")
+            return
+
+        self.ledger.append_event(
+            event_type=_PARTITION_ALLOCATION_EVENT,
+            event_id=event_id,
+            thread_id=state.thread_id,
+            reference_ids=reference_ids,
+            payload=payload,
+        )
+
+    @staticmethod
+    def _allocation_event_id(decision_id: str) -> str:
+        digest = hashlib.sha256(decision_id.encode("utf-8")).hexdigest()
+        return f"integration-partition-allocation-v0:{digest}"
 
     @staticmethod
     def _is_partitioned_integration(decision: SchedulerDecision) -> bool:
