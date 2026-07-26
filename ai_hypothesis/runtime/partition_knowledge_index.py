@@ -22,6 +22,15 @@ from .projection_tail import LedgerProjectionTail, ProjectionCheckpoint
 _INDEX_SCHEMA_VERSION = "partition-knowledge-lineage-index-v0"
 _ALLOCATION_EVENT = "INTEGRATION_PARTITION_ALLOCATION_RECORDED"
 _ALLOCATION_SCHEMA = "integration-partition-allocation-v0"
+_TERMINAL_ATTEMPT_TYPES = frozenset(
+    {
+        "ATTEMPT_COMPLETED",
+        "ATTEMPT_PARTIAL",
+        "ATTEMPT_FAILED",
+        "ATTEMPT_CRASHED",
+        "ATTEMPT_INVALID_RESULT",
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -155,6 +164,7 @@ class SQLiteIndexedPartitionKnowledgeLineage:
     def rebuild(self, *, page_size: int = 1000) -> int:
         with self._lock:
             with self._connection:
+                self._connection.execute("DELETE FROM partition_attempt_terminal")
                 self._connection.execute("DELETE FROM partition_knowledge_source")
                 self._connection.execute("DELETE FROM partition_attempt")
                 self._connection.execute("DELETE FROM partition_assignment")
@@ -207,8 +217,12 @@ class SQLiteIndexedPartitionKnowledgeLineage:
             self._apply_provenance(event)
         elif event.event_type == "ATTEMPT_STARTED":
             self._apply_attempt_started(event)
+        elif event.event_type == "INTEGRATION_DISPOSITION_RECORDED":
+            self._guard_attempt_output(event)
         elif event.event_type == "KNOWLEDGE_DELTA_RECORDED":
             self._apply_knowledge_delta(event)
+        elif event.event_type in _TERMINAL_ATTEMPT_TYPES:
+            self._apply_terminal(event)
 
     def _apply_decision(self, event: LedgerEvent) -> None:
         action = event.payload.get("action")
@@ -310,16 +324,8 @@ class SQLiteIndexedPartitionKnowledgeLineage:
             if not isinstance(raw, Mapping):
                 raise ValueError("partition allocation entry must be an object")
             partition_id = self._text(raw, "partition_id", "partition allocation entry")
-            shard_index = self._non_negative_int(
-                raw,
-                "shard_index",
-                "partition allocation entry",
-            )
-            backlog_count = self._positive_int(
-                raw,
-                "backlog_count",
-                "partition allocation entry",
-            )
+            shard_index = self._non_negative_int(raw, "shard_index", "partition allocation entry")
+            backlog_count = self._positive_int(raw, "backlog_count", "partition allocation entry")
             oldest = self._non_negative_int(
                 raw,
                 "oldest_pending_sequence",
@@ -456,35 +462,59 @@ class SQLiteIndexedPartitionKnowledgeLineage:
         except sqlite3.IntegrityError as error:
             raise ValueError("partitioned attempt ID was started more than once") from error
 
-    def _apply_knowledge_delta(self, event: LedgerEvent) -> None:
+    def _guard_attempt_output(self, event: LedgerEvent) -> sqlite3.Row | None:
+        if event.attempt_id is None:
+            return None
+        attempt = self._connection.execute(
+            "SELECT * FROM partition_attempt WHERE attempt_id = ?",
+            (event.attempt_id,),
+        ).fetchone()
+        if attempt is None:
+            return None
+        if event.sequence <= int(attempt["started_sequence"]):
+            raise ValueError("partitioned attempt output precedes ATTEMPT_STARTED")
+        terminal = self._connection.execute(
+            "SELECT terminal_sequence FROM partition_attempt_terminal WHERE attempt_id = ?",
+            (event.attempt_id,),
+        ).fetchone()
+        if terminal is not None:
+            raise ValueError("partitioned attempt produced output after terminal event")
+        return attempt
+
+    def _apply_terminal(self, event: LedgerEvent) -> None:
         if event.attempt_id is None:
             return
         attempt = self._connection.execute(
-            """
-            SELECT attempt_id, decision_id, partition_id
-            FROM partition_attempt
-            WHERE attempt_id = ?
-            """,
+            "SELECT started_sequence FROM partition_attempt WHERE attempt_id = ?",
             (event.attempt_id,),
         ).fetchone()
         if attempt is None:
             return
+        if event.sequence <= int(attempt["started_sequence"]):
+            raise ValueError("partitioned attempt terminal precedes ATTEMPT_STARTED")
+        try:
+            self._connection.execute(
+                """
+                INSERT INTO partition_attempt_terminal(
+                    attempt_id, terminal_sequence, terminal_event_type
+                ) VALUES (?, ?, ?)
+                """,
+                (event.attempt_id, event.sequence, event.event_type),
+            )
+        except sqlite3.IntegrityError as error:
+            raise ValueError("partitioned attempt has more than one terminal event") from error
+
+    def _apply_knowledge_delta(self, event: LedgerEvent) -> None:
+        attempt = self._guard_attempt_output(event)
+        if attempt is None:
+            return
         delta_id = self._text(event.payload, "delta_id", "KNOWLEDGE_DELTA_RECORDED")
         if attempt["partition_id"] is None:
-            # Legacy partitioned attempts without durable allocation provenance remain unmapped.
             return
         decision = self._decision_row(str(attempt["decision_id"]))
         assert decision is not None
         if event.thread_id != str(decision["thread_id"]):
             raise ValueError("partition-produced knowledge targets another Work Thread")
-        started_sequence = int(
-            self._connection.execute(
-                "SELECT started_sequence FROM partition_attempt WHERE attempt_id = ?",
-                (event.attempt_id,),
-            ).fetchone()["started_sequence"]
-        )
-        if event.sequence <= started_sequence:
-            raise ValueError("partition-produced knowledge precedes ATTEMPT_STARTED")
         try:
             self._connection.execute(
                 """
@@ -521,8 +551,7 @@ class SQLiteIndexedPartitionKnowledgeLineage:
             if complete:
                 for row in self._connection.execute(
                     """
-                    SELECT a.*,
-                           p.attempt_id
+                    SELECT a.*, p.attempt_id
                     FROM partition_assignment AS a
                     LEFT JOIN partition_attempt AS p
                       ON p.decision_id = a.decision_id
@@ -676,6 +705,16 @@ class SQLiteIndexedPartitionKnowledgeLineage:
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_partition_attempt_once
                 ON partition_attempt(decision_id, partition_id)
                 WHERE partition_id IS NOT NULL
+                """
+            )
+            self._connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS partition_attempt_terminal(
+                    attempt_id TEXT PRIMARY KEY,
+                    terminal_sequence INTEGER NOT NULL,
+                    terminal_event_type TEXT NOT NULL,
+                    FOREIGN KEY(attempt_id) REFERENCES partition_attempt(attempt_id) ON DELETE CASCADE
+                )
                 """
             )
             self._connection.execute(
