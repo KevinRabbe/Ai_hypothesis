@@ -37,6 +37,13 @@ from .integration import (
     IntegrationTracker,
     PendingEvidence,
 )
+from .integration_allocation_outcomes import (
+    IntegrationAllocationOutcome,
+    IntegrationAllocationOutcomeProjector,
+    IntegrationAttemptOutcome,
+    IntegrationWidthSummary,
+    summarize_integration_allocations_by_width,
+)
 from .integration_parallelism import (
     IntegrationParallelismConfig,
     IntegrationPartitionAllocator,
@@ -90,6 +97,9 @@ __all__ = [
     "FollowupMaterializer",
     "FollowupRequest",
     "FollowupSnapshot",
+    "IntegrationAllocationOutcome",
+    "IntegrationAllocationOutcomeProjector",
+    "IntegrationAttemptOutcome",
     "IntegrationBackpressureConfig",
     "IntegrationBandwidthWindow",
     "IntegrationBatch",
@@ -105,6 +115,7 @@ __all__ = [
     "IntegrationTelemetryProjector",
     "IntegrationTelemetrySnapshot",
     "IntegrationTracker",
+    "IntegrationWidthSummary",
     "KnowledgeAssessment",
     "KnowledgeAssessmentKind",
     "KnowledgeDelta",
@@ -147,4 +158,5 @@ __all__ = [
     "prepare_bounded_integration_work",
     "prepare_bounded_knowledge_work",
     "prepare_partition_integration_work",
+    "summarize_integration_allocations_by_width",
 ]
