@@ -71,8 +71,8 @@ class SchedulerConfig:
         ):
             if not 0.0 <= value <= 1.0:
                 raise ValueError(f"{name} must be in [0, 1]")
-        if not 0.0 < self.backpressure_exploration_probability <= 1.0:
-            raise ValueError("backpressure_exploration_probability must be in (0, 1]")
+        if not 0.0 < self.backpressure_exploration_probability < 1.0:
+            raise ValueError("backpressure_exploration_probability must be in (0, 1)")
 
 
 @dataclass(frozen=True, slots=True)
