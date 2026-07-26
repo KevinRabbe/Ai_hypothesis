@@ -1,0 +1,45 @@
+name: Large-scope benchmark qualification
+
+on:
+  push:
+    branches:
+      - agent/large-scope-benchmark-ci-v0
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  large-scope:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHONPATH: .
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install CPU Torch
+        run: |
+          python -m pip install --disable-pip-version-check torch --index-url https://download.pytorch.org/whl/cpu
+          python -c "import torch; print('torch', torch.__version__)"
+
+      - name: Compile large-scope modules
+        run: |
+          python -m compileall -q ai_hypothesis/large_scope
+
+      - name: Run large-scope mechanics and runtime-bridge regressions
+        run: |
+          python -m unittest \
+            tests/test_large_scope_relevance.py \
+            tests/test_large_scope_evaluate.py \
+            tests/test_large_scope_metrics.py \
+            tests/test_large_scope_runtime_bridge.py \
+            tests/test_large_scope_run_relevance.py
