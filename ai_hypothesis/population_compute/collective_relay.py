@@ -99,7 +99,7 @@ def generate_relay_world(seed: int, difficulty: RelayDifficulty) -> RelayWorld:
     chain_keys = set(chain_nodes[:-1])
 
     raw_records: list[tuple[int, int, bool]] = []
-    for key, value in zip(chain_nodes, chain_nodes[1:], strict=True):
+    for key, value in zip(chain_nodes[:-1], chain_nodes[1:], strict=True):
         raw_records.append((key, value, True))
 
     decoy_count = difficulty.world_size - difficulty.hop_count
