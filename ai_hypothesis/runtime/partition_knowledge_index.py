@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import threading
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -166,9 +166,11 @@ class SQLiteIndexedPartitionKnowledgeLineage:
             with self._connection:
                 self._connection.execute("DELETE FROM partition_attempt_terminal")
                 self._connection.execute("DELETE FROM partition_knowledge_source")
+                self._connection.execute("DELETE FROM partition_attempt_reference")
                 self._connection.execute("DELETE FROM partition_attempt")
                 self._connection.execute("DELETE FROM partition_assignment")
                 self._connection.execute("DELETE FROM partition_decision")
+                self._connection.execute("DELETE FROM partition_known_evidence")
                 self._set_checkpoint(ProjectionCheckpoint())
             return self._sync_to(target_sequence=None, page_size=page_size)
 
@@ -211,7 +213,9 @@ class SQLiteIndexedPartitionKnowledgeLineage:
             return checkpoint.sequence
 
     def _apply_event(self, event: LedgerEvent) -> None:
-        if event.event_type == "SCHEDULER_DECISION_RECORDED":
+        if event.event_type == "EVIDENCE_ADDED":
+            self._apply_evidence(event)
+        elif event.event_type == "SCHEDULER_DECISION_RECORDED":
             self._apply_decision(event)
         elif event.event_type == _ALLOCATION_EVENT:
             self._apply_provenance(event)
@@ -223,6 +227,33 @@ class SQLiteIndexedPartitionKnowledgeLineage:
             self._apply_knowledge_delta(event)
         elif event.event_type in _TERMINAL_ATTEMPT_TYPES:
             self._apply_terminal(event)
+
+    def _apply_evidence(self, event: LedgerEvent) -> None:
+        evidence_id = self._text(event.payload, "evidence_id", "EVIDENCE_ADDED")
+        future_reference = self._connection.execute(
+            """
+            SELECT r.attempt_id, a.started_sequence
+            FROM partition_attempt_reference AS r
+            JOIN partition_attempt AS a ON a.attempt_id = r.attempt_id
+            WHERE r.reference_id = ? AND a.started_sequence <= ?
+            LIMIT 1
+            """,
+            (evidence_id, event.sequence),
+        ).fetchone()
+        if future_reference is not None:
+            raise ValueError(
+                "partitioned ATTEMPT_STARTED references evidence created after attempt start"
+            )
+        try:
+            self._connection.execute(
+                """
+                INSERT INTO partition_known_evidence(evidence_id, created_sequence)
+                VALUES (?, ?)
+                """,
+                (evidence_id, event.sequence),
+            )
+        except sqlite3.IntegrityError as error:
+            raise ValueError(f"duplicate durable evidence ID {evidence_id!r}") from error
 
     def _apply_decision(self, event: LedgerEvent) -> None:
         action = event.payload.get("action")
@@ -411,8 +442,22 @@ class SQLiteIndexedPartitionKnowledgeLineage:
                 "partitioned scheduler decision started more attempts than allocated width"
             )
 
+        known_references = {
+            str(row["evidence_id"])
+            for row in self._connection.execute(
+                "SELECT evidence_id FROM partition_known_evidence WHERE evidence_id IN ({})".format(
+                    ",".join("?" for _ in event.reference_ids)
+                ),
+                tuple(event.reference_ids),
+            ).fetchall()
+        } if event.reference_ids else set()
+
         partition_id: str | None = None
         if decision["provenance_event_id"] is not None:
+            if len(known_references) != len(event.reference_ids):
+                raise ValueError(
+                    "partitioned attempt input does not match durable partition allocation"
+                )
             matches = []
             for row in self._connection.execute(
                 """
@@ -459,6 +504,15 @@ class SQLiteIndexedPartitionKnowledgeLineage:
                     self._encode_tuple(tuple(event.reference_ids)),
                 ),
             )
+            for ordinal, reference_id in enumerate(event.reference_ids):
+                self._connection.execute(
+                    """
+                    INSERT INTO partition_attempt_reference(
+                        attempt_id, ordinal, reference_id
+                    ) VALUES (?, ?, ?)
+                    """,
+                    (event.attempt_id, ordinal, reference_id),
+                )
         except sqlite3.IntegrityError as error:
             raise ValueError("partitioned attempt ID was started more than once") from error
 
@@ -658,6 +712,14 @@ class SQLiteIndexedPartitionKnowledgeLineage:
             )
             self._connection.execute(
                 """
+                CREATE TABLE IF NOT EXISTS partition_known_evidence(
+                    evidence_id TEXT PRIMARY KEY,
+                    created_sequence INTEGER NOT NULL
+                )
+                """
+            )
+            self._connection.execute(
+                """
                 CREATE TABLE IF NOT EXISTS partition_decision(
                     decision_id TEXT PRIMARY KEY,
                     thread_id TEXT NOT NULL,
@@ -706,6 +768,20 @@ class SQLiteIndexedPartitionKnowledgeLineage:
                 ON partition_attempt(decision_id, partition_id)
                 WHERE partition_id IS NOT NULL
                 """
+            )
+            self._connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS partition_attempt_reference(
+                    attempt_id TEXT NOT NULL,
+                    ordinal INTEGER NOT NULL,
+                    reference_id TEXT NOT NULL,
+                    PRIMARY KEY(attempt_id, ordinal),
+                    FOREIGN KEY(attempt_id) REFERENCES partition_attempt(attempt_id) ON DELETE CASCADE
+                )
+                """
+            )
+            self._connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_partition_attempt_reference_id ON partition_attempt_reference(reference_id)"
             )
             self._connection.execute(
                 """
