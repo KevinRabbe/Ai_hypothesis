@@ -187,13 +187,20 @@ class SharedPopulationCell(nn.Module):
         )
 
     def parameter_fingerprint(self) -> str:
-        """Stable SHA-256 over exact state-dict names, metadata and tensor bytes."""
+        """Stable SHA-256 over exact state-dict names, metadata and tensor bytes.
+
+        The byte path intentionally uses PyTorch storage directly so the scientific
+        identity check does not acquire a hidden NumPy runtime dependency.
+        """
 
         digest = hashlib.sha256()
         for name, tensor in sorted(self.state_dict().items()):
-            detached = tensor.detach().cpu().contiguous()
+            # Clone after making the tensor contiguous so the storage contains
+            # exactly this tensor's bytes rather than a potentially larger shared
+            # backing allocation from a view.
+            detached = tensor.detach().cpu().contiguous().clone()
             digest.update(name.encode("utf-8"))
             digest.update(str(detached.dtype).encode("ascii"))
             digest.update(str(tuple(detached.shape)).encode("ascii"))
-            digest.update(detached.numpy().tobytes(order="C"))
+            digest.update(bytes(detached.untyped_storage()))
         return digest.hexdigest()
