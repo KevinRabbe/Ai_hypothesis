@@ -83,7 +83,7 @@ class PopulationComputeContractTests(unittest.TestCase):
         run = self._run(
             64,
             CommunicationMode.SPARSE_SHARED_V0,
-            solved=50,
+            solved=95,
             information_complete=20,
             solved_information_complete=10,
         )
