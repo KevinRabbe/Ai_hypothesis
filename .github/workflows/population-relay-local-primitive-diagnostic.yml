@@ -1,0 +1,45 @@
+name: Population relay local primitive diagnostic
+
+on:
+  push:
+    branches:
+      - agent/population-relay-local-primitive-diagnostic-v0
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: .
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install CPU Torch
+        run: |
+          python -m pip install --disable-pip-version-check torch --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Run local primitive decomposition
+        run: |
+          mkdir -p diagnostic
+          python experiments/population_compute_scaling_v0/diagnose_local_primitive.py \
+            --device cpu \
+            --seed 1234 \
+            --output diagnostic/local-primitive.json \
+            > diagnostic/stdout.json
+
+      - name: Upload diagnostic result
+        uses: actions/upload-artifact@v4
+        with:
+          name: population-relay-local-primitive-diagnostic
+          path: diagnostic/local-primitive.json
+          if-no-files-found: error
