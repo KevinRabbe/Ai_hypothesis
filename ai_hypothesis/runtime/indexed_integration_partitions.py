@@ -8,8 +8,9 @@ normal scheduler cycles then use indexed pending counts and bounded canonical pa
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Mapping, Protocol, Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
+from typing import Protocol
 
 from .contracts import ProjectedState, SchedulerAction, SchedulerDecision
 from .control import ContextProvider, WorkPreparation, WorkPreparationBatch

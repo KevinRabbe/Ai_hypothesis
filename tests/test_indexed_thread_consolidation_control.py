@@ -265,7 +265,7 @@ class IndexedThreadConsolidationControlTests(unittest.TestCase):
             rng=random.Random(1),
         )
         routed = ThreadConsolidationScheduler(base, control=self.adapter)
-        self.scheduler = TracingScheduler(routed, ledger=self.ledger)
+        self.scheduler = TracingScheduler(self.ledger, routed)
         self.bank = ConsolidationBank()
         self.loop = IndexedRuntimeControlLoop(
             ledger=self.ledger,
