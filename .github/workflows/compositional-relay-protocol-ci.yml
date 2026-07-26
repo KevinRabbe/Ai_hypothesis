@@ -43,8 +43,10 @@ jobs:
             tests/test_compositional_relay_protocol.py
 
       - name: Run relay-2 development diagnostic
+        shell: bash
         run: |
           mkdir -p diagnostic
+          set +e
           python experiments/population_compute_scaling_v0/diagnose_compositional_relay.py \
             --device cpu \
             --seed 303 \
@@ -52,7 +54,10 @@ jobs:
             --batch-size 8 \
             --heldout-world-count 512 \
             --output diagnostic/compositional-relay-2.json \
-            > diagnostic/stdout.json
+            > diagnostic/stdout.json \
+            2> diagnostic/stderr.log
+          echo $? > diagnostic/status
+          exit 0
 
       - name: Upload relay-2 diagnostic result
         if: always()
@@ -62,4 +67,15 @@ jobs:
           path: |
             diagnostic/compositional-relay-2.json
             diagnostic/stdout.json
+            diagnostic/stderr.log
+            diagnostic/status
           if-no-files-found: error
+
+      - name: Enforce relay-2 diagnostic execution
+        shell: bash
+        run: |
+          status="$(cat diagnostic/status)"
+          if [ "$status" -ne 0 ]; then
+            echo "Relay-2 diagnostic execution failed with exit $status"
+            exit "$status"
+          fi
