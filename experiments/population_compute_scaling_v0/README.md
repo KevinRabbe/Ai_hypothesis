@@ -4,7 +4,7 @@
 
 This experiment replaces the previous immediate objective of finding the smallest independently useful worker.
 
-The new primary question is:
+The primary question is:
 
 > **With learned parameters held fixed, does increasing population computation produce increasing system-level capability?**
 
@@ -40,7 +40,7 @@ Compiler optimization remains a separate systems variable and is not mixed into 
 
 ## First benchmark family — collective relay
 
-The first benchmark should require information to move across weak local processors rather than reward independent majority voting.
+The first benchmark requires information to move across weak local processors rather than reward independent majority voting.
 
 Each world contains many local key/value relationships. A query begins at one key. The answer is reached only after following a multi-hop chain whose required relationships are distributed across local worker contexts among distractors.
 
@@ -48,13 +48,33 @@ A single local worker never receives the complete chain.
 
 The task separates three quantities:
 
-1. **scope** — which local relationships become inspected;
-2. **communication** — whether a discovered intermediate key reaches the worker/context containing the next relationship;
+1. **scope availability** — whether every required chain relationship is present inside the active worker prefix;
+2. **communication/utilization** — whether the population can turn the available distributed relationships into the answer;
 3. **recurrent depth** — how many population updates are available to continue the chain.
 
 Difficulty is controlled independently by world size, distractor count, and required hop count.
 
 This is a synthetic architectural benchmark, not a claim about language intelligence. Its job is to test whether the population substrate can turn additional runtime states/updates into additional capability before larger learned workloads are attempted.
+
+## Controlled scope thresholds
+
+The original uniform shuffle made the 1/4/16/64/256 curve scientifically weak: for multi-hop chains, almost every smaller prefix was information-incomplete and the full chain appeared almost entirely at 256 workers.
+
+`collective-relay-v0` therefore freezes a controlled first-complete population threshold for every world.
+
+For the 256-slot benchmark:
+
+- relay-2 and relay-4 cycle through thresholds `4, 16, 64, 256`;
+- relay-8 cycles through thresholds `16, 64, 256` because eight distinct chain records cannot fit below eight active slots;
+- consecutive world seeds cycle deterministically through the admissible thresholds;
+- all required chain edges are inside the declared threshold;
+- at least one required edge lies beyond the previous frozen population point.
+
+Therefore a world is guaranteed to be information-incomplete at the previous population point and information-complete at its declared threshold and every larger point.
+
+This creates a graded scope curve instead of an accidental endpoint cliff while keeping the placement rule deterministic and model-independent.
+
+The threshold is benchmark metadata only. It is never supplied as neural input.
 
 ## Population counts
 
@@ -79,9 +99,9 @@ The project does not jump directly to 10K-100K workers merely because those coun
 
 ### A — no communication
 
-Workers receive local context and run the same shared neural update, but cannot exchange population state.
+Workers receive local context and run the same shared neural update, but population-produced state cannot move between workers during recurrent updates.
 
-Purpose: determine how much of any gain comes only from additional local coverage/independent attempts.
+A final pooled readout is still required to produce one system answer. This condition therefore measures what can be achieved from additional scope and a one-shot set-style aggregation without recurrent inter-worker information flow.
 
 ### B — sparse shared communication
 
@@ -106,11 +126,47 @@ Only two population communication designs may be tried before reassessing the hy
 
 Do not iterate through unlimited routing designs until one produces a desirable graph.
 
+## Mandatory scope/capability decomposition
+
+Raw solve rate is not sufficient evidence because increasing worker count also exposes more source records.
+
+Every run must record:
+
+- `task_count`;
+- `information_complete_count`;
+- `solved_information_complete_count`;
+- `solved_count`.
+
+Derived measurements are:
+
+- **information-complete rate** = fraction of worlds whose full required chain is inside the active prefix;
+- **solve rate given complete information** = how often the system solves worlds it actually has enough information to solve;
+- **solve rate given incomplete information** = diagnostic only; exact success here should be near accidental guessing and must not be interpreted as genuine relay capability;
+- **raw solve rate** = the end-to-end result after both scope availability and neural utilization are applied.
+
+Communication and no-communication conditions at the same population point must have exactly the same information-complete count. A curve is invalid if this scope identity does not hold.
+
+The primary interpretation is therefore:
+
+```text
+more population
+    -> more required information becomes available
+    -> shared population either does or does not exploit that information
+    -> raw system capability changes
+```
+
+A positive raw curve with flat/poor conditional solve rate means **scope scaling exists but the neural population is not becoming better at using available distributed information**.
+
+A communication advantage on the same complete-information worlds is stronger evidence that the shared population computation itself matters.
+
 ## Measurements
 
 For every condition record:
 
 - task count and solved count;
+- information-complete count/rate;
+- solved count/rate conditional on information being complete;
+- solved count/rate conditional on information being incomplete;
 - solve rate by difficulty;
 - learned parameter count and exact parameter fingerprint;
 - active workers;
@@ -124,25 +180,30 @@ For every condition record:
 - device execution time when measurable;
 - compiler/execution mode as provenance only.
 
-The primary graph is:
+The primary graph remains:
 
 > **capability vs population compute at fixed learned parameters**
 
-Secondary graphs are capability vs worker count, capability vs worker updates, and capability vs communication volume.
+It must be shown together with the information-complete curve so scope exposure is visible rather than hidden.
 
-## Preregistered Gate-v0 interpretation
+Secondary graphs are conditional capability vs worker count, capability vs worker updates, and capability vs communication volume.
 
-The exact numeric thresholds below are provisional until the first neural implementation is runnable. They must be frozen before looking at a trained development scaling curve.
+## Frozen Gate-v0 interpretation
+
+The criteria below are now **frozen before any trained development scaling curve is inspected**.
 
 A communication variant is considered to show a useful scaling signal only when all of the following hold on frozen confirmation worlds across at least three independent training seeds:
 
-1. the 256-worker endpoint improves solve rate over the 1-worker condition by at least **5 percentage points** on at least two nontrivial difficulty tiers;
+1. the 256-worker endpoint improves raw solve rate over the 1-worker condition by at least **5 percentage points** on at least two nontrivial difficulty tiers;
 2. the curve is not a single isolated spike: at least three of the four adjacent population steps are non-decreasing within a 1-point tolerance;
 3. the communicating condition beats its matched no-communication endpoint by at least **5 percentage points** on at least one multi-hop tier;
 4. learned parameter count and parameter fingerprint are identical for every point in the compared curve;
-5. no result is accepted if malformed accounting makes worker updates, communication volume, or benchmark scope incomparable.
+5. communication and no-communication points use identical benchmark worlds and identical information-complete counts;
+6. no result is accepted if malformed accounting makes worker updates, communication volume, benchmark scope, or the scope/capability decomposition incomparable.
 
 These thresholds are not claims of optimality. They define the minimum effect worth continuing to investigate.
+
+Conditional solve rate is reported and interpreted alongside the frozen pass/fail criteria. It is not given a post-hoc success threshold after results are visible.
 
 ## Kill criterion
 
@@ -150,13 +211,15 @@ Stop or redirect the weak-unit population-computation hypothesis for this benchm
 
 In particular, a flat curve where 1, 4, 16, 64, and 256 workers have essentially the same capability while worker updates and communication keep growing is a negative result, not a prompt to keep adding architecture.
 
+Likewise, a raw curve that rises only because the information-complete rate rises, while conditional utilization remains weak and communication provides no advantage, does not establish the intended population-computation effect.
+
 A positive population curve does **not** yet establish superiority over a 1B dense model. It only earns the next experiment.
 
 ## Sequential plan
 
 ### Gate 0A — executable benchmark contract
 
-Build deterministic world generation, population conditions, exact accounting, and result validation without claiming neural performance.
+Build deterministic world generation, controlled scope thresholds, population conditions, exact accounting, and result validation without claiming neural performance.
 
 ### Gate 0B — minimal shared-weight population
 
@@ -164,11 +227,11 @@ Implement one shared neural update cell with many runtime states. No specialized
 
 ### Gate 0C — sparse communication v0
 
-Add the smallest bounded shared signal path required for multi-hop relay. Run the development curve.
+Connect the relay encoder/training runner to the shared population cell and run the development curve with mandatory scope/capability decomposition.
 
 ### Gate 0D — frozen confirmation
 
-Freeze training/configuration/criteria and run untouched confirmation worlds across at least three training seeds.
+Freeze training/configuration and run untouched confirmation worlds across at least three training seeds. Gate criteria are already frozen before development results.
 
 ### Gate 0E — one allowed rescue variant
 
@@ -182,4 +245,16 @@ Only if `sparse_shared_v0` fails despite correct training and mechanics, test `h
 
 ## Current implementation slice
 
-The first code slice freezes the experiment schema and accounting rules in `ai_hypothesis.population_compute`. It deliberately does not train a neural model yet. That keeps scientific bookkeeping independent from model tuning and gives the later runner a contract that cannot silently change after results are visible.
+Gate 0A and the minimal Gate 0B substrate are now constructed:
+
+- deterministic relay worlds;
+- controlled first-complete scope thresholds;
+- exact scope/capability accounting contract;
+- fixed bit encoding without a learned identity table;
+- one shared recurrent population cell;
+- bounded `sparse_shared_v0` communication;
+- fixed-parameter fingerprint/accounting invariants.
+
+No trained development curve has been inspected yet.
+
+The next implementation boundary is the training/evaluation runner that uses this frozen benchmark and emits the first development curves without changing the contract above.

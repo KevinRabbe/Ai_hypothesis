@@ -63,6 +63,34 @@ class PopulationComputeContractTests(unittest.TestCase):
 
         self.assertEqual(condition.worker_updates, 256)
 
+    def test_scope_decomposition_reports_available_and_conditional_capability(self) -> None:
+        run = self._run(
+            64,
+            CommunicationMode.SPARSE_SHARED_V0,
+            solved=50,
+            information_complete=60,
+            solved_information_complete=45,
+        )
+        run.validate()
+
+        self.assertAlmostEqual(run.solve_rate, 0.5)
+        self.assertAlmostEqual(run.information_complete_rate, 0.6)
+        self.assertAlmostEqual(run.solve_rate_given_information_complete, 0.75)
+        self.assertEqual(run.solved_information_incomplete_count, 5)
+        self.assertAlmostEqual(run.solve_rate_given_information_incomplete, 0.125)
+
+    def test_scope_decomposition_rejects_impossible_solved_partition(self) -> None:
+        run = self._run(
+            64,
+            CommunicationMode.SPARSE_SHARED_V0,
+            solved=95,
+            information_complete=20,
+            solved_information_complete=10,
+        )
+
+        with self.assertRaisesRegex(ValueError, "information-complete decomposition"):
+            run.validate()
+
     def test_positive_curve_passes_preregistered_per_curve_rules(self) -> None:
         communicating = self._curve(
             CommunicationMode.SPARSE_SHARED_V0,
@@ -80,6 +108,11 @@ class PopulationComputeContractTests(unittest.TestCase):
         self.assertAlmostEqual(assessment.communication_endpoint_advantage, 0.14)
         self.assertEqual(assessment.nondecreasing_steps, 4)
         self.assertEqual(assessment.reasons, ())
+        self.assertEqual(assessment.information_complete_rates, (1.0,) * 5)
+        self.assertEqual(
+            assessment.solve_rates_given_information_complete,
+            assessment.solve_rates,
+        )
 
     def test_flat_curve_is_negative_result(self) -> None:
         communicating = self._curve(
@@ -124,6 +157,28 @@ class PopulationComputeContractTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "share training/benchmark scope"):
             assess_scaling_curve(communicating, no_communication)
 
+    def test_curve_rejects_mismatched_information_scope_between_modes(self) -> None:
+        communicating = list(
+            self._curve(
+                CommunicationMode.SPARSE_SHARED_V0,
+                solved=(30, 34, 38, 43, 48),
+            )
+        )
+        communicating[2] = self._run(
+            16,
+            CommunicationMode.SPARSE_SHARED_V0,
+            solved=38,
+            information_complete=99,
+            solved_information_complete=38,
+        )
+        no_communication = self._curve(
+            CommunicationMode.NO_COMMUNICATION,
+            solved=(30, 31, 32, 33, 34),
+        )
+
+        with self.assertRaisesRegex(ValueError, "do not share information scope"):
+            assess_scaling_curve(communicating, no_communication)
+
     def _curve(
         self,
         mode: CommunicationMode,
@@ -145,9 +200,13 @@ class PopulationComputeContractTests(unittest.TestCase):
         training_seed: int = 0,
         learned_parameter_count: int = 50_000,
         parameter_fingerprint: str = "frozen-model",
+        information_complete: int = 100,
+        solved_information_complete: int | None = None,
         messages_emitted: int | None = None,
         communicated_scalar_count: int | None = None,
     ) -> PopulationRunMetrics:
+        if solved_information_complete is None:
+            solved_information_complete = solved
         if messages_emitted is None:
             messages_emitted = 0 if mode is CommunicationMode.NO_COMMUNICATION else population
         if communicated_scalar_count is None:
@@ -168,6 +227,8 @@ class PopulationComputeContractTests(unittest.TestCase):
             ),
             task_count=100,
             solved_count=solved,
+            information_complete_count=information_complete,
+            solved_information_complete_count=solved_information_complete,
             messages_emitted=messages_emitted,
             communicated_scalar_count=communicated_scalar_count,
             peak_worker_state_bytes=population * 64,

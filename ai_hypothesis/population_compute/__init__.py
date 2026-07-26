@@ -9,6 +9,9 @@ from .collective_relay import (
     RelayWorld,
     generate_relay_dataset,
     generate_relay_world,
+    information_complete_at,
+    relay_population_points,
+    relay_scope_thresholds,
     resolve_relay,
 )
 from .contract import (
@@ -48,6 +51,9 @@ __all__ = [
     "assess_scaling_curve",
     "generate_relay_dataset",
     "generate_relay_world",
+    "information_complete_at",
+    "relay_population_points",
+    "relay_scope_thresholds",
     "resolve_relay",
     "validate_fixed_parameter_identity",
 ]
