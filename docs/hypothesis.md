@@ -1,302 +1,316 @@
-# Population Model Hypothesis
+# Neural Population Compute Hypothesis
 
 ## Problem statement
 
-Conventional dense neural networks generally apply a largely fixed model structure to every request. A simple task and a difficult task may use the same parameter set even when the simple task requires only a small fraction of the available learned capability.
+Conventional neural models usually bind learned parameters, runtime state, and computation structure tightly together. A model with more stored parameters generally has more learned capacity, while additional test-time computation is often limited to longer sequences, more generated tokens, or repeated passes through essentially the same architecture.
 
-This project explores a different organization of learned computation.
+This project asks whether those quantities can be separated more aggressively.
 
-Instead of asking one large dense network to process all information, divide a fixed total parameter budget into many **architecturally identical tiny neural processing units**. The units are not autonomous agents and do not need to solve complete tasks independently. A unit only needs to perform a useful local learned transformation.
+The target is one computational organism with:
 
-Workers should use the same architecture but independently learned weights. Homogeneous architecture makes workers interchangeable and efficiently batchable; independent weights create different error surfaces, sensitivities, and candidate approaches.
+- a fixed learned parameter set;
+- a potentially very large population of temporary neural worker states;
+- shared/reused learned update machinery;
+- sparse information flow between workers;
+- recurrent computation;
+- dynamic activation according to problem difficulty.
 
-Examples of useful local transformations may include:
-
-- detecting a fuzzy pattern;
-- identifying relevance;
-- extracting a relationship;
-- recognizing an anomaly;
-- identifying ambiguity or conflict;
-- transforming a compact local representation into another useful representation.
-
-The runtime can allocate additional identical units when a region, subproblem, or evidence gap requires more learned processing.
-
-## Central mechanism
-
-The population is not expected to become useful merely because worker count is large.
-
-The mechanism being tested is:
-
-> **more genuinely different possibilities explored -> more useful evidence generated -> more important uncertainty removed -> stronger system-level knowledge and decisions**
-
-Different workers may:
-
-- inspect different source regions;
-- test different hypotheses;
-- use different decompositions;
-- search for supporting evidence;
-- search for counterexamples;
-- independently replicate a result;
-- discover that an apparently promising path fails.
-
-A failed attempt is not automatically wasted. It is useful when it rules out a possibility, identifies a condition under which a hypothesis fails, exposes a contradiction, or prevents the population from repeating the same dead end.
-
-The system therefore optimizes for **useful information produced by the population**, not for every worker being individually correct.
-
-## Factorio analogy
-
-Think of each neural unit as the smallest useful subfactory.
-
-A subfactory does not build the entire rocket. It performs one useful production step. When more throughput is needed, more identical subfactories are assigned to the production line.
-
-The analogy is incomplete in one important way: research work can branch. Thousands of workers may test different paths rather than simply duplicating the same transformation. The runtime must preserve the useful outputs of those branches and redirect resources as the search space becomes better understood.
-
-The research question is therefore not "how many tiny models can we create?" It is:
-
-> What practical worker granularity, population organization, and information-integration architecture produces the most useful system-level knowledge under real resource constraints?
-
-## Fixed-budget framing
-
-A long-term reference experiment may use approximately 1 billion total learned parameters.
-
-Possible organizations are illustrative, not predetermined:
-
-- 1 × 1B
-- 10 × 100M
-- 100 × 10M
-- 1,000 × 1M
-- 10,000 × 100K
-
-The project does **not** assume that any of these is optimal. The useful unit size may be much larger or smaller, and the optimum depends on worker capability, diversity, batching efficiency, hardware, memory movement, coordination cost, knowledge-integration cost, and task type.
-
-Very large populations are a later scaling possibility rather than a current target. A million small workers would be useless if their combined information cannot be organized and exploited.
-
-## Dynamic allocation
-
-The total population represents available neural capacity.
-
-A task may activate only a small subset:
-
-- easy local transformation → few units;
-- noisy or ambiguous region → more units;
-- large divisible input → many units working on different regions;
-- missing discriminating evidence → targeted additional units;
-- important hypothesis → independent challenge and verification attempts;
-- deterministic task → zero additional neural units when ordinary logic can solve it.
-
-The system should scale compute by need rather than activating the entire parameter population for every request.
-
-The scheduler controls at least four useful dimensions:
-
-- **width** — number of independent attempts;
-- **depth** — number of bounded passes on a persistent Work Thread;
-- **scope** — which information or regions are inspected;
-- **purpose** — explore, progress, challenge, verify, or synthesize.
-
-## Persistent work, disposable workers
-
-Workers do not own long-lived goals or unbounded loops.
-
-Persistent Work Threads hold objectives, evidence, hypotheses, failures, open questions, dependencies, and progress. Workers temporarily execute bounded attempts against those threads.
-
-This allows the runtime to:
-
-- pause work safely;
-- rotate a stuck worker while retaining useful progress;
-- fork competing approaches;
-- merge compatible findings;
-- resume work after interruption;
-- reassign compute as priorities change.
-
-The intended invariant is:
-
-> **Workers are disposable; useful work is not.**
-
-## Exploration and exploitation
-
-The population should not place all compute behind the current best-known solution.
-
-Some capacity should progress promising work while another share continues to discover alternatives, challenge assumptions, and inspect under-covered possibilities.
-
-The balance changes with evidence:
-
-- early uncertainty favors broad exploration;
-- promising branches receive more progression compute;
-- important claims receive challenge and independent verification;
-- synthesis increases when the remaining search space becomes small;
-- a nonzero exploration budget protects against premature convergence.
-
-The first scheduler should use explicit deterministic rules plus structured random exploration rather than another learned controller.
-
-## Evidence, not voting
-
-Worker count is not truth.
-
-If 8,000 units do not observe a decisive fact and 200 units process the only region containing that fact, the smaller group may hold the important evidence.
-
-Therefore aggregation must preserve:
-
-- source provenance;
-- local observations;
-- unique findings;
-- contradictions;
-- evidence coverage;
-- evidence strength;
-- failed and falsified hypotheses where they constrain future search.
-
-Population disagreement may indicate uncertainty or a need for more investigation, but majority vote must not be the final decision rule.
-
-Discovery and verification intentionally use opposite redundancy policies:
-
-> **Diversity for discovery; independent redundancy for verification.**
-
-## Knowledge state
-
-Claims, evidence, and accepted knowledge must remain distinct.
-
-A worker may propose a hypothesis or record an observation. That does not automatically become a global fact.
-
-The runtime should preserve a durable event/history layer from which it can derive current:
-
-- Work Threads;
-- hypotheses;
-- supporting and contradicting evidence;
-- verification status;
-- coverage;
-- unresolved questions;
-- accepted knowledge.
-
-Summaries may compress this state for efficient use, but the original evidence must remain recoverable by stable provenance references.
-
-## Information generation and knowledge integration
-
-At sufficiently large populations, worker compute may not be the dominant scaling constraint.
-
-Many workers can generate candidate information in parallel. The system must still:
-
-- preserve useful observations;
-- deduplicate repeated findings;
-- connect related evidence;
-- detect contradictions;
-- verify important claims;
-- route changes to affected Work Threads;
-- summarize without losing decisive minority evidence;
-- turn accumulated evidence into actionable knowledge.
-
-This motivates two separate throughput concepts.
-
-### Exploration throughput
-
-How many meaningfully different evidence-producing attempts can the population execute per unit wall-clock time?
-
-### Knowledge integration bandwidth
-
-How much useful evidence can be converted into persistent, connected, actionable shared knowledge per unit wall-clock time without losing decisive information?
-
-The useful population limit may be reached when marginal workers generate useful information faster than the integration path can absorb it. At that point an integration backlog grows even though more neural compute remains available.
-
-This is a future scaling hypothesis. It is not assumed to be the bottleneck at the current 16-worker scale.
-
-## Hierarchical integration
-
-A large population should not send every raw output to one global reducer.
-
-Prefer a hierarchy:
-
-```text
-worker attempts
-    -> local/thread evidence
-    -> branch/topic integration
-    -> cross-topic integration
-    -> global knowledge changes
-```
-
-Only information that materially changes a higher-level state needs to propagate upward. Raw details can remain local or archived while staying addressable by reference.
-
-The same worker architecture may execute integration Work Threads. The project does not assume a separate large global integration model.
-
-The core scaling rule is:
-
-> **Massive global state must not force massive local context.**
-
-No worker, scheduler decision, or integration step should have to read the complete system merely because the total population is large.
-
-## Knowledge deltas
-
-Information movement should emphasize changes rather than complete retransmission.
-
-Examples:
-
-- a hypothesis was invalidated;
-- a new contradiction appeared;
-- a source region became covered;
-- a replication succeeded or failed;
-- an unresolved question became the highest-value discriminator;
-- one thread solved a dependency of several others.
-
-The historical record can be large. Active context should remain bounded and purpose-specific.
-
-## Deterministic computation boundary
-
-Learned computation should be used where learning adds value.
-
-Deterministic algorithms should handle tasks such as:
-
-- arithmetic;
-- exact comparisons;
-- sorting;
-- coordinates;
-- identity and provenance;
-- deduplication;
-- state transitions;
-- routing rules;
-- permissions;
-- queue management;
-- resource limits;
-- schema validation;
-- durable event ordering;
-- scheduler budgets.
-
-The research should explicitly identify the lower boundary where a neural unit becomes either:
-
-1. mostly noise; or
-2. so simple that deterministic logic performs the same transformation more reliably and cheaply.
-
-Worker shrinking is already closed for the current phase; this boundary is reopened only if later population results provide a concrete reason.
-
-## Hardware hypothesis
-
-The architecture should treat CPU and GPU as complementary resources.
-
-The CPU is suited to orchestration, deterministic logic, Work Thread projections, evidence tracking, queues, scheduling, persistence, and data preparation.
-
-The GPU is suited to batched execution of many identical neural units through efficient matrix operations.
-
-The architecture succeeds only if batching, memory movement, evidence transport, and knowledge integration remain cheaper than the value gained from sparse, parallel, and adaptive learned computation.
+The individual worker is not intended to be a complete model or autonomous agent. It may know almost nothing. Useful capability may exist mainly in the collective dynamics.
 
 ## Primary hypothesis
 
-> For at least some workloads, a fixed neural parameter and hardware budget can produce more useful information and system-level capability per unit of active compute when organized as a dynamically allocated population of independently weighted, architecturally identical small learned processing units than when organized as one fixed dense network.
+> **For at least some workloads, a fixed learned-parameter budget can produce increasing system-level capability as additional population computation is made available through many weak runtime neural states, recurrent updates, and bounded communication.**
 
-A stronger long-term form is also testable:
+The immediate question is intentionally narrower than proving superiority over a conventional 1B model:
 
-> Population scale remains useful only while additional possibility coverage produces useful evidence that the information-integration architecture can preserve, verify, connect, and exploit at acceptable cost.
+> **At fixed learned parameters, does capability rise when population compute rises?**
 
-## Null / failure outcomes
+If not, the architecture does not earn larger-scale investment.
 
-The hypothesis should be considered unsupported for a tested configuration when any of the following dominate:
+## What an artificial worker is
 
-- individual units become too weak and produce mostly noise;
-- additional workers add correlated errors rather than useful possibilities;
-- additional workers mostly duplicate existing work;
-- rare decisive evidence cannot be distinguished from harmful outliers;
-- routing and aggregation cost exceeds saved neural compute;
-- GPU utilization collapses because workloads are too granular;
-- memory movement dominates execution;
-- useful evidence is generated faster than it can be integrated;
-- integration backlog grows without bound;
-- hierarchical compression loses decisive information or provenance;
-- verification cannot keep up with consequential claims;
-- a conventional dense model reaches better end-to-end quality under the same resource budget.
+A worker is best treated as a temporary computational state, not a miniature AI.
 
-Negative results are useful: they define the boundary of the architecture and narrow the search for the viable operating region.
+A minimal worker may contain:
+
+- local input/context;
+- a bounded hidden state;
+- a shared neural update function;
+- a bounded output/message;
+- optional local history represented only in its state.
+
+The learned update machinery may be identical across thousands of worker states.
+
+This means:
+
+> **runtime population size != learned parameter count**
+
+A system may contain 100,000 active or available worker states while still reusing a much smaller fixed set of learned weights.
+
+## Why ants are relevant but not prescriptive
+
+Ant colonies demonstrate that strong collective behavior does not require every component to possess a global model of the problem.
+
+The useful lesson is:
+
+> **weak local processors can participate in strong global behavior while each processor sees and communicates only a small amount of information.**
+
+The project does not attempt to copy pheromones, castes, nests, or biological ant algorithms literally.
+
+Artificial systems can use mechanisms biology does not have, including exact numeric messages, learned routing, differentiable state updates, GPU batching, deterministic algorithms, and explicit memory structures.
+
+## Central scaling idea
+
+The architecture tries to turn additional runtime resources into additional capability without adding learned weights.
+
+Conceptually:
+
+```text
+fixed learned weights
+        |
+        v
+shared neural update machinery
+        |
+        +---- worker state 1
+        +---- worker state 2
+        +---- worker state 3
+        +---- ...
+        +---- worker state N
+
+worker states <-> bounded communication
+        |
+        v
+population-level computation
+```
+
+A difficult problem may activate more states or more recurrent rounds than an easy problem.
+
+The system therefore has at least three independent resource axes:
+
+1. **learned parameters** — stored learned machinery;
+2. **runtime population state** — temporary memory/capacity distributed across workers;
+3. **population compute** — worker updates, recurrent rounds, communication, and deterministic orchestration.
+
+The research must measure all three rather than treating runtime state or communication as free.
+
+## Why shared weights are now the default
+
+Earlier project work explored homogeneous small workers with independently trained weights. That remains useful evidence about how small a local learned transformation can become, but independent checkpoints make total learned capacity grow with population size.
+
+That is not the cleanest test of the new question.
+
+The primary population-compute experiment therefore uses **shared/reused learned machinery** so the learned parameter count and exact parameter fingerprint can remain identical while population size changes.
+
+Independent specialist parameters may be revisited later only if a fixed-budget comparison justifies them.
+
+## Communication hypothesis
+
+The likely limiting problem is not raw multiplication throughput alone. It is information transport.
+
+A population of 100,000 workers cannot afford to send every worker state to every other worker.
+
+The architecture should therefore prefer:
+
+- bounded local reads/writes;
+- small shared signals;
+- sparse routing;
+- decaying/replaceable working state;
+- hierarchy only when flat communication stops scaling;
+- summaries or deltas instead of complete histories.
+
+The core systems rule is:
+
+> **Do not solve the large-population communication problem by moving all information. Design the computation so most information never needs to move.**
+
+## Population state as computation
+
+Information may be represented not only in explicit messages, but also in:
+
+- which workers are active;
+- worker hidden states;
+- local specialization that emerges during a problem;
+- signal strengths;
+- activation/recruitment patterns;
+- competing or inhibited state trajectories;
+- topology of temporary connections;
+- recurrent persistence over time.
+
+The population is therefore not merely a set of processors connected by plumbing. The evolving population state may itself be part of the representation.
+
+## Recurrent computation
+
+The same learned parameters can be reused repeatedly.
+
+This gives a second way to increase capability without increasing stored parameters:
+
+```text
+population state t0
+      -> shared update
+population state t1
+      -> shared update
+population state t2
+      -> ...
+```
+
+The experiment must distinguish:
+
+- wider population state;
+- deeper recurrent processing;
+- total worker-update budget.
+
+A serial compute control is required so a population gain is not automatically interpreted as evidence for width when the same benefit could come from simply spending more recurrent FLOPs.
+
+## First benchmark requirement
+
+The first benchmark should force information integration across local processors.
+
+The initial family is **collective relay**:
+
+- a world contains local key/value relations and distractors;
+- a query starts from one key;
+- the answer requires following a multi-hop chain;
+- required links are distributed across worker-local contexts;
+- no worker receives the complete chain;
+- communication and recurrent depth are required to propagate intermediate state.
+
+This benchmark is intentionally synthetic. It tests the computational substrate before language, world knowledge, or broad benchmark memorization can obscure the result.
+
+## Controls
+
+A population result is uninterpretable without controls.
+
+### No communication
+
+Run the same number of local workers without inter-worker information flow.
+
+This measures independent coverage/attempt benefits.
+
+### Sparse communication
+
+Run the primary architecture with bounded shared information flow.
+
+This measures whether population interaction adds capability beyond isolated workers.
+
+### Serial compute control
+
+Spend a matched worker-update budget through a small number of recurrent states.
+
+This measures whether the important resource is genuinely population state/organization or simply additional test-time compute.
+
+## Fixed-parameter experimental invariant
+
+Every point on one population-scaling curve must share:
+
+- exact learned parameter count;
+- exact parameter fingerprint;
+- model architecture;
+- training data/procedure;
+- benchmark worlds;
+- decoder;
+- hardware;
+- compiler/execution mode.
+
+Changing any of these creates a different experiment.
+
+Compiler optimization remains a separate systems variable.
+
+## Primary measurement
+
+The primary graph is:
+
+> **capability vs population compute at fixed learned parameters**
+
+Secondary measurements include:
+
+- solve rate by task difficulty;
+- active/available worker count;
+- recurrent rounds;
+- total worker updates;
+- communication messages/scalars/bytes;
+- peak runtime worker-state memory;
+- wall time and device time;
+- utilization/batching efficiency.
+
+A population architecture is not successful merely because a larger count can be executed.
+
+## Falsification rule
+
+The architecture must be allowed to fail.
+
+Only two communication designs are preregistered before a kill/redirect decision:
+
+1. a minimal sparse shared-signal design;
+2. one hierarchical-summary design if the first fails despite correct mechanics/training.
+
+If capability remains essentially flat as population compute increases under both variants, while compute and communication costs rise, the weak-unit population-compute hypothesis is considered unsupported for this benchmark family.
+
+The response is to stop or redirect, not to add unlimited routing complexity until a graph appears.
+
+## Positive result interpretation
+
+A positive population curve would establish only that:
+
+> **fixed learned machinery can convert additional population runtime state/compute into additional capability on the tested task.**
+
+It would not yet prove:
+
+- superiority over a dense model;
+- superiority per FLOP;
+- superiority per joule;
+- language intelligence;
+- general intelligence;
+- scaling to 1B learned parameters;
+- scaling to 100K workers.
+
+Those are later questions.
+
+## Long-term 1B reference
+
+Approximately 1 billion learned parameters remains a useful long-term reference budget because it is large enough to compare with practical small language-model regimes while remaining potentially local-hardware relevant.
+
+The intended question is not how to split 1B parameters into 10,000 independent models.
+
+It is:
+
+> **How much effective computational intelligence can one fixed ~1B-parameter learned system produce when it can instantiate, route, and recurrently update a very large population of weak neural states?**
+
+Population size may eventually reach thousands or tens of thousands if the measured scaling curve and local hardware behavior justify it.
+
+## Hardware boundary
+
+Initial research is single-machine only.
+
+Do not spend experiments simulating geographic or multi-machine latency tolerance. Distributed hardware is not a current research question.
+
+The relevant local measurements are:
+
+- batching;
+- CPU/GPU orchestration;
+- memory behavior;
+- communication/state movement;
+- activation sparsity;
+- recurrent depth;
+- compiler effect as a separate variable.
+
+## Relationship to previous worker-size work
+
+The previous worker-size experiments remain useful background:
+
+- ~10K parameters became difficult;
+- ~25K was the smallest strong candidate region;
+- ~50K was a practical reference worker;
+- larger 75K/100K workers provided reference points.
+
+Those results answered a different question: whether a tiny learned network can perform a useful local transformation.
+
+The new primary objective is not to keep shrinking that worker.
+
+The new objective is to test whether **population computation itself scales intelligence at fixed learned parameters**.
+
+## Research value
+
+The project treats negative results as progress.
+
+If the scaling graph fails, we have learned that this is not the mechanism to pursue under the tested conditions.
+
+If it succeeds, the next work is to identify **why** it succeeds, how long the scaling persists, what communication structure is actually necessary, and whether the advantage survives fair compute/resource comparisons against simpler recurrent or dense alternatives.
