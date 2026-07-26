@@ -33,7 +33,8 @@ jobs:
           python -m compileall -q \
             ai_hypothesis/population_compute/model.py \
             ai_hypothesis/population_compute/relay_model.py \
-            experiments/population_compute_scaling_v0/diagnose_compositional_relay.py
+            experiments/population_compute_scaling_v0/diagnose_compositional_relay.py \
+            experiments/population_compute_scaling_v0/diagnose_compositional_relay_fixed4.py
 
       - name: Run protocol structural regressions
         run: |
@@ -42,7 +43,7 @@ jobs:
             tests/test_relay_population_model.py \
             tests/test_compositional_relay_protocol.py
 
-      - name: Run relay-2 development diagnostic
+      - name: Run mixed-population relay-2 diagnostic
         shell: bash
         run: |
           mkdir -p diagnostic
@@ -54,28 +55,44 @@ jobs:
             --batch-size 8 \
             --heldout-world-count 512 \
             --output diagnostic/compositional-relay-2.json \
-            > diagnostic/stdout.json \
-            2> diagnostic/stderr.log
-          echo $? > diagnostic/status
+            > diagnostic/mixed-stdout.json \
+            2> diagnostic/mixed-stderr.log
+          echo $? > diagnostic/mixed-status
           exit 0
 
-      - name: Upload relay-2 diagnostic result
+      - name: Run fixed-four relay-2 diagnostic
+        shell: bash
+        run: |
+          set +e
+          python experiments/population_compute_scaling_v0/diagnose_compositional_relay_fixed4.py \
+            --device cpu \
+            --seed 404 \
+            --steps 2048 \
+            --batch-size 32 \
+            --heldout-world-count 512 \
+            --output diagnostic/compositional-relay-2-fixed4.json \
+            > diagnostic/fixed4-stdout.json \
+            2> diagnostic/fixed4-stderr.log
+          echo $? > diagnostic/fixed4-status
+          exit 0
+
+      - name: Upload relay-2 diagnostic results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: compositional-relay-2-diagnostic
-          path: |
-            diagnostic/compositional-relay-2.json
-            diagnostic/stdout.json
-            diagnostic/stderr.log
-            diagnostic/status
+          path: diagnostic/
           if-no-files-found: error
 
-      - name: Enforce relay-2 diagnostic execution
+      - name: Enforce diagnostic execution
         shell: bash
         run: |
-          status="$(cat diagnostic/status)"
-          if [ "$status" -ne 0 ]; then
-            echo "Relay-2 diagnostic execution failed with exit $status"
-            exit "$status"
-          fi
+          failed=0
+          for status_file in diagnostic/*-status; do
+            status="$(cat "$status_file")"
+            if [ "$status" -ne 0 ]; then
+              echo "Diagnostic failed: $status_file (exit $status)"
+              failed=1
+            fi
+          done
+          exit "$failed"
