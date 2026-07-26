@@ -35,17 +35,22 @@ jobs:
             experiments/population_compute_scaling_v0/diagnose_competitive_aggregation.py
 
       - name: Run competitive aggregation regressions
+        shell: bash
         run: |
+          mkdir -p diagnostic
+          set +e
           python -m unittest \
             tests/test_shared_population_cell.py \
             tests/test_compositional_relay_protocol.py \
             tests/test_population_state_reset_policy.py \
-            tests/test_competitive_population_aggregation.py
+            tests/test_competitive_population_aggregation.py \
+            > diagnostic/tests.log 2>&1
+          echo $? > diagnostic/tests.status
+          exit 0
 
       - name: Run fixed-width competitive aggregation diagnostic
         shell: bash
         run: |
-          mkdir -p diagnostic
           set +e
           python experiments/population_compute_scaling_v0/diagnose_competitive_aggregation.py \
             --device cpu \
@@ -54,7 +59,7 @@ jobs:
             --output diagnostic/competitive-aggregation.json \
             > diagnostic/stdout.json \
             2> diagnostic/stderr.log
-          echo $? > diagnostic/status
+          echo $? > diagnostic/experiment.status
           exit 0
 
       - name: Upload competitive aggregation result
@@ -65,11 +70,15 @@ jobs:
           path: diagnostic/
           if-no-files-found: error
 
-      - name: Enforce diagnostic execution
+      - name: Enforce qualification and diagnostic execution
         shell: bash
         run: |
-          status="$(cat diagnostic/status)"
-          if [ "$status" -ne 0 ]; then
-            echo "Competitive aggregation diagnostic failed with exit $status"
-            exit "$status"
-          fi
+          failed=0
+          for status_file in diagnostic/*.status; do
+            status="$(cat "$status_file")"
+            if [ "$status" -ne 0 ]; then
+              echo "FAILED: $status_file (exit $status)"
+              failed=1
+            fi
+          done
+          exit "$failed"
