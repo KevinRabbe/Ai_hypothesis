@@ -119,19 +119,21 @@ def main(argv: list[str] | None = None) -> int:
             CommunicationMode.NO_COMMUNICATION,
             CommunicationMode.SPARSE_SHARED_V0,
         ):
-            metrics = evaluate_relay_condition(
+            evaluation = evaluate_relay_condition(
                 model,
                 worlds,
                 training_seed=args.seed,
                 benchmark_seed=6_000,
-                difficulty=difficulty,
-                population_size=population,
+                active_workers=population,
                 communication_mode=mode,
                 batch_size=32,
-                expected_parameter_count=parameter_count,
-                expected_fingerprint=fingerprint,
                 device=device,
             )
+            metrics = evaluation.metrics
+            if metrics.learned_parameter_count != parameter_count:
+                raise RuntimeError("diagnostic changed learned parameter count")
+            if metrics.parameter_fingerprint != fingerprint:
+                raise RuntimeError("diagnostic changed parameter fingerprint")
             by_mode[mode.value] = {
                 "solve_rate": metrics.solve_rate,
                 "information_complete_rate": metrics.information_complete_rate,
