@@ -183,7 +183,7 @@ class ThreadConsolidationPlanner:
         consumed = self._active_consolidation_sources(
             knowledge,
             thread_id=thread_id,
-            candidate_ids=set(active_sources),
+            candidate_records=active_sources,
         )
 
         pending_by_partition: dict[str, list[KnowledgeRecord]] = {}
@@ -221,7 +221,7 @@ class ThreadConsolidationPlanner:
         knowledge: KnowledgeSnapshot,
         *,
         thread_id: str,
-        candidate_ids: set[str],
+        candidate_records: dict[str, KnowledgeRecord],
     ) -> set[str]:
         consumed: set[str] = set()
         for record in knowledge.records:
@@ -231,11 +231,15 @@ class ThreadConsolidationPlanner:
                 continue
             if record.status is KnowledgeStatus.RETRACTED:
                 continue
-            consumed.update(
-                reference_id
-                for reference_id in record.source_reference_ids
-                if reference_id in candidate_ids
-            )
+            for reference_id in record.source_reference_ids:
+                candidate = candidate_records.get(reference_id)
+                if candidate is None:
+                    continue
+                if candidate.created_sequence >= record.created_sequence:
+                    raise ValueError(
+                        "thread consolidation references knowledge created after consolidation"
+                    )
+                consumed.add(reference_id)
         return consumed
 
     def _round_robin_select(
