@@ -1,0 +1,58 @@
+name: Fix competitive test contract
+
+on:
+  push:
+    branches:
+      - agent/relay-competitive-aggregation-diagnostic-v0
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/relay-competitive-aggregation-diagnostic-v0
+      - name: Align relay recording fake
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('tests/test_compositional_relay_protocol.py')
+          text = path.read_text(encoding='utf-8')
+          replacements = (
+              (
+                  '        self.reset_state_each_round = False\n',
+                  '        self.reset_state_each_round = False\n        self.competitive_message_weights = False\n',
+              ),
+              (
+                  '        reset_state_each_round: bool = False,\n    ) -> PopulationForwardOutput:\n',
+                  '        reset_state_each_round: bool = False,\n        competitive_message_weights: bool = False,\n    ) -> PopulationForwardOutput:\n',
+              ),
+              (
+                  '        self.reset_state_each_round = reset_state_each_round\n',
+                  '        self.reset_state_each_round = reset_state_each_round\n        self.competitive_message_weights = competitive_message_weights\n',
+              ),
+              (
+                  '        self.assertTrue(recorder.reset_state_each_round)\n',
+                  '        self.assertTrue(recorder.reset_state_each_round)\n        self.assertTrue(recorder.competitive_message_weights)\n',
+              ),
+          )
+          for old, new in replacements:
+              if new in text:
+                  continue
+              if old not in text:
+                  raise RuntimeError(f'test patch target missing: {old!r}')
+              text = text.replace(old, new, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tests/test_compositional_relay_protocol.py
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Align relay competitive test contract [skip ci]"
+          git push origin HEAD:agent/relay-competitive-aggregation-diagnostic-v0
