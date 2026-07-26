@@ -50,6 +50,13 @@ from .integration_parallelism import (
     PartitionedBackpressureScheduler,
     PartitionedIntegrationContextRouter,
 )
+from .integration_partition_lineage import (
+    HistoricalIntegrationPartition,
+    PartitionAttemptLineage,
+    PartitionedIntegrationLineage,
+    PartitionedIntegrationLineageProjector,
+    PartitionedIntegrationLineageSnapshot,
+)
 from .integration_partitions import (
     IntegrationPartition,
     IntegrationPartitionConfig,
@@ -97,6 +104,7 @@ __all__ = [
     "FollowupMaterializer",
     "FollowupRequest",
     "FollowupSnapshot",
+    "HistoricalIntegrationPartition",
     "IntegrationAllocationOutcome",
     "IntegrationAllocationOutcomeProjector",
     "IntegrationAttemptOutcome",
@@ -127,8 +135,12 @@ __all__ = [
     "KnowledgeVerificationOverview",
     "KnowledgeVerificationTracker",
     "LedgerEvent",
+    "PartitionAttemptLineage",
     "PartitionedBackpressureScheduler",
     "PartitionedIntegrationContextRouter",
+    "PartitionedIntegrationLineage",
+    "PartitionedIntegrationLineageProjector",
+    "PartitionedIntegrationLineageSnapshot",
     "PendingEvidence",
     "ProjectedState",
     "PurposeContextRouter",
