@@ -133,15 +133,28 @@ class ThreadConsolidationPlanner:
         if not thread_id or not thread_id.strip():
             raise ValueError("thread_id must be non-empty")
 
-        lineage = self.lineage_projector.project(events).require_complete()
+        lineage = self.lineage_projector.project(events)
+        relevant_lineage = tuple(
+            allocation
+            for allocation in lineage.records
+            if allocation.allocation.thread_id == thread_id
+        )
+        missing_relevant = tuple(
+            allocation.allocation.decision_id
+            for allocation in relevant_lineage
+            if not allocation.provenance_complete
+        )
+        if missing_relevant:
+            raise ValueError(
+                "selected Work Thread is missing durable allocation provenance"
+            )
+
         knowledge = self.knowledge_projector.project(events)
         record_by_id = {record.delta_id: record for record in knowledge.records}
 
         source_partition: dict[str, str] = {}
         source_records: dict[str, KnowledgeRecord] = {}
-        for allocation in lineage.records:
-            if allocation.allocation.thread_id != thread_id:
-                continue
+        for allocation in relevant_lineage:
             for partition_attempt in allocation.partition_attempts:
                 partition_id = partition_attempt.partition.partition_id
                 for delta_id in partition_attempt.knowledge_delta_ids:
