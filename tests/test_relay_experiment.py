@@ -80,13 +80,28 @@ class RelayExperimentTests(unittest.TestCase):
             {row.metrics.learned_parameter_count for row in results},
             {model.trainable_parameter_count()},
         )
+        for row in results:
+            row.validate()
+            self.assertEqual(
+                sum(cohort.task_count for cohort in row.scope_cohorts),
+                row.metrics.task_count,
+            )
+            self.assertEqual(
+                sum(
+                    cohort.task_count
+                    for cohort in row.scope_cohorts
+                    if cohort.scope_threshold
+                    <= row.metrics.condition.nominal_population_size
+                ),
+                row.metrics.information_complete_count,
+            )
 
         by_key = {
             (
                 row.metrics.difficulty,
                 row.metrics.condition.nominal_population_size,
                 row.metrics.condition.communication_mode,
-            ): row.metrics
+            ): row
             for row in results
         }
         for difficulty in (difficulty.name for difficulty in RELAY_DIFFICULTIES):
@@ -99,16 +114,26 @@ class RelayExperimentTests(unittest.TestCase):
                     (difficulty, population, CommunicationMode.NO_COMMUNICATION)
                 ]
                 self.assertEqual(
-                    sparse.information_complete_count,
-                    control.information_complete_count,
+                    sparse.metrics.information_complete_count,
+                    control.metrics.information_complete_count,
                 )
                 self.assertGreaterEqual(
-                    sparse.information_complete_count,
+                    sparse.metrics.information_complete_count,
                     previous_complete,
                 )
-                previous_complete = sparse.information_complete_count
-                self.assertEqual(control.messages_emitted, 0)
-                self.assertEqual(control.communicated_scalar_count, 0)
+                previous_complete = sparse.metrics.information_complete_count
+                self.assertEqual(
+                    tuple(
+                        (cohort.scope_threshold, cohort.task_count)
+                        for cohort in sparse.scope_cohorts
+                    ),
+                    tuple(
+                        (cohort.scope_threshold, cohort.task_count)
+                        for cohort in control.scope_cohorts
+                    ),
+                )
+                self.assertEqual(control.metrics.messages_emitted, 0)
+                self.assertEqual(control.metrics.communicated_scalar_count, 0)
 
         assessments = assess_relay_results(results)
         self.assertEqual(
