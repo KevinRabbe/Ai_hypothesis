@@ -150,7 +150,7 @@ The scheduler controls four primary dimensions:
 - **scope** — which source regions or information are examined;
 - **purpose** — `EXPLORE`, `PROGRESS`, `CHALLENGE`, `VERIFY`, or `SYNTHESIZE`.
 
-Construction note: [`benchmarks/large_scope_relevance_v0.md`](../benchmarks/large_scope_relevance_v0.md) implements the controlled scope-only versus diverse-weight benchmark interface needed to measure this dimension later. Its existence does **not** activate Gate 5, and no empirical result is claimed yet.
+Construction note: [`benchmarks/large_scope_relevance_v0.md`](../benchmarks/large_scope_relevance_v0.md) implements and mechanically qualifies the controlled scope-only versus diverse-weight benchmark, including an exact shared-base width-1 control and paired diverse-minus-same statistics. This does **not** activate Gate 5: the frozen Worker-v1 development result is still pending, and no adaptive-allocation result is claimed.
 
 Scheduler v0 should:
 

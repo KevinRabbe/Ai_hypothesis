@@ -2,7 +2,7 @@
 
 ## Status
 
-**Construction artifact only. Gate 5 (adaptive allocation) is not being declared active by this document. No result is claimed until the frozen Worker v1 checkpoints are executed against the benchmark.**
+**Mechanically qualified, empirical Worker-v1 result pending.** The benchmark mechanics, persistent-runtime bridge, shared-base worker control, paired statistics, and CLI artifact path are executable-green on Python 3.11 + CPU Torch. Gate 5 is still not active, and no neural-performance result is claimed until the frozen Worker v1 checkpoints are executed on the development split.
 
 This benchmark exists to make the next architecture-specific scope question executable without retraining Worker v1 or inventing a second neural task.
 
@@ -123,29 +123,28 @@ Every condition at a given width inspects **the same window indices**.
 
 ### A. Scope-only control — `same_worker`
 
-Choose one checkpoint deterministically for that world and use the same worker weights for every inspected window.
+Choose one deterministic base checkpoint for that world and use the same worker weights for every inspected window. The base checkpoint is shared with the `diverse_workers` condition.
 
 ```text
 W inspected windows
 ×
-one repeated worker checkpoint
+one repeated base checkpoint
 ```
 
 This spends W local neural transformations and measures the effect of inspecting more scope without adding weight diversity.
 
 ### B. Scope + population diversity — `diverse_workers`
 
-Assign a distinct independently weighted checkpoint to each inspected window when `W <= population_width`.
+Start from the exact same deterministic base checkpoint used by `same_worker`, then assign distinct independently weighted checkpoints to the additional inspected windows when `W <= population_width`.
 
 ```text
-W inspected windows
-×
-W distinct worker checkpoints
+first inspected window  -> shared base checkpoint
+additional windows      -> distinct worker checkpoints
 ```
 
-The assignment is deterministic and nested across widths.
+The assignment is deterministic and nested across widths. At width 1 the two worker modes are therefore exactly identical; any nonzero width-1 mode difference is a benchmark/runtime bug.
 
-This condition has the same inspected scope and number of local neural transformations as the scope-only control. The intended difference is independently learned weights.
+At larger widths the two modes have the same inspected scope and number of local neural transformations. The intended difference is only whether additional regions reuse the base weights or use independently learned weights.
 
 ## Why this comparison matters
 
@@ -222,6 +221,41 @@ The conditional metric is particularly important because it removes the trivial 
 - maximum observed negative-world candidate evidence.
 
 These expose the false-positive competition created by inspecting more distractors without prematurely choosing an acceptance threshold.
+
+## Paired diversity comparison
+
+The same-worker and diverse-worker conditions are evaluated on the **same world and exact inspection prefix**, so their primary diversity comparison is paired by `(split, world seed, width)`.
+
+The result artifact retains the existing per-condition `summaries` and additionally emits bounded streaming `paired_summaries`. Every paired delta is defined as:
+
+```text
+diverse_workers - same_worker
+```
+
+Paired summaries report:
+
+- retrieval-given-inspection for both modes and the paired rate delta;
+- both-retrieved / same-only / diverse-only / neither-retrieved counts;
+- exact two-sided retrieval-discordance probability from the discordant pairs;
+- mean and standard error of target-rank delta when the target was inspected;
+- mean and standard error of target RELEVANT-evidence delta when inspected;
+- paired strongest-distractor RELEVANT-evidence delta;
+- paired target-minus-distractor evidence-gap delta when inspected;
+- paired positive-world candidate-evidence delta;
+- paired negative-world candidate-evidence delta.
+
+This preserves the causal control instead of throwing away pairing and comparing only unrelated aggregate means. No raw world dump is required; the accumulator keeps only bounded pending pairs for the current world batch and running moments/counts.
+
+Interpret signs carefully:
+
+- retrieval delta: positive favors diverse workers;
+- target-rank delta: negative favors diverse workers;
+- target-evidence delta: positive favors diverse workers;
+- strongest-distractor delta: negative favors diverse workers;
+- target-minus-distractor gap delta: positive favors diverse workers;
+- negative-world candidate-evidence delta: negative means lower false-positive pressure under diverse workers.
+
+Width 1 is the exact causal sanity check: because both modes inspect the same window with the same checkpoint, all paired neural-output deltas must be zero apart from impossible numerical-path divergence.
 
 ## Key decomposition
 
@@ -306,7 +340,9 @@ The CLI records:
 - Worker v1 architecture configuration;
 - evidence configuration;
 - total elapsed wall time with CUDA synchronization at run boundaries;
-- exact number of local neural window evaluations.
+- exact number of local neural window evaluations;
+- per-condition threshold-free summaries;
+- paired same-scope diversity summaries when both worker modes are requested.
 
 It deliberately does not sum heterogeneous per-attempt resource maps or manufacture a scalar efficiency score.
 
