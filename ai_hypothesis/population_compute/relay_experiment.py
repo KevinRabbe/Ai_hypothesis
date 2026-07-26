@@ -91,11 +91,64 @@ class RelayTrainingSummary:
 
 
 @dataclass(frozen=True, slots=True)
+class RelayScopeCohortResult:
+    """Exact solve behavior for worlds sharing one first-complete population threshold."""
+
+    scope_threshold: int
+    task_count: int
+    solved_count: int
+
+    def validate(self) -> None:
+        if self.scope_threshold <= 0:
+            raise ValueError("scope_threshold must be positive")
+        if self.task_count <= 0:
+            raise ValueError("scope cohort task_count must be positive")
+        if not 0 <= self.solved_count <= self.task_count:
+            raise ValueError("scope cohort solved_count must be within task_count")
+
+    @property
+    def solve_rate(self) -> float:
+        return self.solved_count / self.task_count
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "scope_threshold": self.scope_threshold,
+            "task_count": self.task_count,
+            "solved_count": self.solved_count,
+            "solve_rate": self.solve_rate,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class RelayEvaluationResult:
     metrics: PopulationRunMetrics
     bit_accuracy: float
+    scope_cohorts: tuple[RelayScopeCohortResult, ...]
+
+    def validate(self) -> None:
+        self.metrics.validate()
+        if not math.isfinite(self.bit_accuracy) or not 0.0 <= self.bit_accuracy <= 1.0:
+            raise ValueError("bit_accuracy must be finite and within [0, 1]")
+        if not self.scope_cohorts:
+            raise ValueError("relay evaluation must contain scope cohorts")
+        for cohort in self.scope_cohorts:
+            cohort.validate()
+        thresholds = tuple(cohort.scope_threshold for cohort in self.scope_cohorts)
+        if tuple(sorted(set(thresholds))) != thresholds:
+            raise ValueError("scope cohort thresholds must be unique and increasing")
+        if sum(cohort.task_count for cohort in self.scope_cohorts) != self.metrics.task_count:
+            raise ValueError("scope cohort task counts do not cover the evaluation")
+        expected_complete = sum(
+            cohort.task_count
+            for cohort in self.scope_cohorts
+            if cohort.scope_threshold
+            <= self.metrics.condition.nominal_population_size
+        )
+        if expected_complete != self.metrics.information_complete_count:
+            raise ValueError("scope cohorts disagree with information-complete accounting")
 
     def to_dict(self) -> dict[str, object]:
+        self.validate()
         run = self.metrics
         return {
             "training_seed": run.training_seed,
@@ -119,6 +172,7 @@ class RelayEvaluationResult:
             "solve_rate_given_information_complete": run.solve_rate_given_information_complete,
             "solved_information_incomplete_count": run.solved_information_incomplete_count,
             "solve_rate_given_information_incomplete": run.solve_rate_given_information_incomplete,
+            "scope_cohorts": [cohort.to_dict() for cohort in self.scope_cohorts],
             "bit_accuracy": self.bit_accuracy,
             "messages_emitted": run.messages_emitted,
             "communicated_scalar_count": run.communicated_scalar_count,
@@ -373,6 +427,10 @@ def evaluate_relay_condition(
     parameter_count = model.trainable_parameter_count()
     fingerprint = model.parameter_fingerprint()
 
+    thresholds = relay_scope_thresholds(difficulty)
+    cohort_counts: dict[int, list[int]] = {
+        threshold: [0, 0] for threshold in thresholds
+    }
     solved_count = 0
     information_complete_count = 0
     solved_complete_count = 0
@@ -402,6 +460,14 @@ def evaluate_relay_condition(
             solved_count += int(solved.sum().item())
             information_complete_count += int(complete.sum().item())
             solved_complete_count += int((solved & complete).sum().item())
+
+            solved_rows = tuple(bool(value) for value in solved.detach().cpu().tolist())
+            for world, row_solved in zip(world_batch, solved_rows, strict=True):
+                cohort = cohort_counts.get(world.scope_threshold)
+                if cohort is None:
+                    raise RuntimeError("relay world used an unexpected scope threshold")
+                cohort[0] += 1
+                cohort[1] += int(row_solved)
 
             target_bits = batch.target_bits > 0
             predicted_bits = output.logits >= 0
@@ -441,10 +507,21 @@ def evaluate_relay_condition(
         elapsed_seconds=elapsed,
     )
     metrics.validate()
-    return RelayEvaluationResult(
+    scope_cohorts = tuple(
+        RelayScopeCohortResult(
+            scope_threshold=threshold,
+            task_count=cohort_counts[threshold][0],
+            solved_count=cohort_counts[threshold][1],
+        )
+        for threshold in thresholds
+    )
+    result = RelayEvaluationResult(
         metrics=metrics,
         bit_accuracy=correct_bits / total_bits,
+        scope_cohorts=scope_cohorts,
     )
+    result.validate()
+    return result
 
 
 def assess_relay_results(
