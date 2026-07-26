@@ -7,8 +7,9 @@ multiple homogeneous workers on non-overlapping integration partitions in one ne
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass, replace
-from typing import Protocol, Sequence
+from typing import Any, Mapping, Protocol, Sequence
 
 from .contracts import ProjectedState, SchedulerAction, SchedulerDecision
 from .control import ContextProvider, WorkPreparation, WorkPreparationBatch
@@ -20,6 +21,10 @@ from .integration_partitions import (
 )
 from .ledger import SQLiteResearchLedger
 from .scheduler import SchedulableThread
+
+
+_PARTITION_ALLOCATION_EVENT = "INTEGRATION_PARTITION_ALLOCATION_RECORDED"
+_PARTITION_ALLOCATION_SCHEMA = "integration-partition-allocation-v0"
 
 
 class SchedulerLike(Protocol):
@@ -195,11 +200,119 @@ class PartitionedIntegrationContextRouter:
             return self.fallback(state, decision)
 
         plan = self.allocator.plan(self.ledger)
-        return self.allocator.prepare_batch(
+        batch = self.allocator.prepare_batch(
             plan,
             state.thread_id,
             width=decision.width,
         )
+        selected = self.allocator.ordered_for_thread(plan, state.thread_id)[: decision.width]
+        self._record_partition_allocation(state, decision, plan, selected)
+        return batch
+
+    def _record_partition_allocation(
+        self,
+        state: ProjectedState,
+        decision: SchedulerDecision,
+        plan: IntegrationPartitionPlan,
+        partitions: Sequence[IntegrationPartition],
+    ) -> None:
+        if len(partitions) != decision.width:
+            raise ValueError("partition provenance width does not match scheduler decision")
+
+        event_id = self._allocation_event_id(decision.decision_id)
+        reference_ids = tuple(partition.partition_id for partition in partitions)
+        payload = {
+            "schema": _PARTITION_ALLOCATION_SCHEMA,
+            "decision_id": decision.decision_id,
+            "decision_projection_revision": decision.projection_revision,
+            "partition_plan_revision": plan.revision,
+            "shard_count": plan.shard_count,
+            "batch_limit": plan.batch_limit,
+            "width": decision.width,
+            "partitions": [
+                {
+                    "partition_id": partition.partition_id,
+                    "shard_index": partition.shard_index,
+                    "backlog_count": partition.backlog_count,
+                    "oldest_pending_sequence": partition.oldest_pending_sequence,
+                    "evidence_ids": list(partition.evidence_ids),
+                }
+                for partition in partitions
+            ],
+        }
+
+        existing = self.ledger.get_event(event_id)
+        if existing is not None:
+            if (
+                existing.event_type != _PARTITION_ALLOCATION_EVENT
+                or existing.thread_id != state.thread_id
+                or existing.reference_ids != reference_ids
+                or self._allocation_identity(existing.payload)
+                != self._allocation_identity(payload)
+            ):
+                raise ValueError("conflicting durable partition allocation provenance")
+            return
+
+        self.ledger.append_event(
+            event_type=_PARTITION_ALLOCATION_EVENT,
+            event_id=event_id,
+            thread_id=state.thread_id,
+            reference_ids=reference_ids,
+            payload=payload,
+        )
+
+    @staticmethod
+    def _allocation_identity(payload: Mapping[str, Any]) -> tuple[object, ...]:
+        if payload.get("schema") != _PARTITION_ALLOCATION_SCHEMA:
+            raise ValueError("invalid durable partition allocation schema")
+        decision_id = payload.get("decision_id")
+        shard_count = payload.get("shard_count")
+        batch_limit = payload.get("batch_limit")
+        width = payload.get("width")
+        raw_partitions = payload.get("partitions")
+        if not isinstance(decision_id, str) or not decision_id:
+            raise ValueError("partition allocation provenance is missing decision_id")
+        for name, value in (
+            ("shard_count", shard_count),
+            ("batch_limit", batch_limit),
+            ("width", width),
+        ):
+            if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+                raise ValueError(f"partition allocation provenance has invalid {name}")
+        if not isinstance(raw_partitions, list) or len(raw_partitions) != width:
+            raise ValueError("partition allocation provenance has invalid partition list")
+
+        partitions: list[tuple[object, ...]] = []
+        for raw in raw_partitions:
+            if not isinstance(raw, Mapping):
+                raise ValueError("partition allocation entry must be an object")
+            partition_id = raw.get("partition_id")
+            shard_index = raw.get("shard_index")
+            evidence_ids = raw.get("evidence_ids")
+            if not isinstance(partition_id, str) or not partition_id:
+                raise ValueError("partition allocation entry is missing partition_id")
+            if isinstance(shard_index, bool) or not isinstance(shard_index, int) or shard_index < 0:
+                raise ValueError("partition allocation entry has invalid shard_index")
+            if (
+                not isinstance(evidence_ids, list)
+                or not evidence_ids
+                or any(not isinstance(evidence_id, str) or not evidence_id for evidence_id in evidence_ids)
+            ):
+                raise ValueError("partition allocation entry has invalid evidence_ids")
+            partitions.append((partition_id, shard_index, tuple(evidence_ids)))
+
+        return (
+            decision_id,
+            shard_count,
+            batch_limit,
+            width,
+            tuple(partitions),
+        )
+
+    @staticmethod
+    def _allocation_event_id(decision_id: str) -> str:
+        digest = hashlib.sha256(decision_id.encode("utf-8")).hexdigest()
+        return f"integration-partition-allocation-v0:{digest}"
 
     @staticmethod
     def _is_partitioned_integration(decision: SchedulerDecision) -> bool:
