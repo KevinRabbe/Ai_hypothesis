@@ -20,6 +20,12 @@ from .contract import (
     assess_scaling_curve,
     validate_fixed_parameter_identity,
 )
+from .model import (
+    PopulationForwardOutput,
+    PopulationTelemetry,
+    SharedPopulationCell,
+    SharedPopulationConfig,
+)
 
 __all__ = [
     "COLLECTIVE_RELAY_VERSION",
@@ -29,10 +35,14 @@ __all__ = [
     "CurveAssessment",
     "GateCriteria",
     "PopulationCondition",
+    "PopulationForwardOutput",
     "PopulationRunMetrics",
+    "PopulationTelemetry",
     "RelayDifficulty",
     "RelayRecord",
     "RelayWorld",
+    "SharedPopulationCell",
+    "SharedPopulationConfig",
     "assess_scaling_curve",
     "generate_relay_dataset",
     "generate_relay_world",
