@@ -67,10 +67,14 @@ class IntegrationPartition:
             raise ValueError("non-empty partition must buffer at least one pending record")
         if len(self.records) > batch_limit:
             raise ValueError("partition buffered records exceed batch_limit")
+        if len(self.records) > self.backlog_count:
+            raise ValueError("partition cannot buffer more evidence than its backlog count")
         if len({record.evidence_id for record in self.records}) != len(self.records):
             raise ValueError("partition buffered evidence IDs must be unique")
         if any(record.thread_id != self.thread_id for record in self.records):
             raise ValueError("partition contains evidence owned by another Work Thread")
+        if any(record.sequence < self.oldest_pending_sequence for record in self.records):
+            raise ValueError("partition record precedes oldest_pending_sequence")
 
 
 @dataclass(frozen=True, slots=True)
@@ -95,10 +99,14 @@ class IntegrationPartitionPlan:
         partition_ids = [partition.partition_id for partition in self.partitions]
         if len(set(partition_ids)) != len(partition_ids):
             raise ValueError("partition IDs must be unique")
+        buffered_evidence_ids: list[str] = []
         for partition in self.partitions:
             if partition.shard_count != self.shard_count:
                 raise ValueError("partition shard_count does not match plan")
             partition.validate(batch_limit=self.batch_limit)
+            buffered_evidence_ids.extend(partition.evidence_ids)
+        if len(set(buffered_evidence_ids)) != len(buffered_evidence_ids):
+            raise ValueError("buffered evidence IDs must not appear in multiple partitions")
 
     def for_thread(self, thread_id: str) -> tuple[IntegrationPartition, ...]:
         if not thread_id or not thread_id.strip():
