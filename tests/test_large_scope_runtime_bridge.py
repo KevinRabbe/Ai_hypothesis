@@ -227,7 +227,7 @@ class LargeScopeRuntimeBridgeTests(unittest.TestCase):
         self.assertEqual(first, second)
         self.assertEqual(len(set(first)), sample.config.window_count)
         self.assertTrue(all(region.startswith("scope-") for region in first))
-        self.assertTrue(all(str(sample.seed) not in region for region in first))
+        self.assertTrue(all(len(region) == 30 and all(char in "0123456789abcdef" for char in region[6:]) for region in first))
 
     def test_worker_index_lookup_rejects_negative_and_out_of_range_indices(self) -> None:
         runtime_bank = LargeScopeRuntimeWorkerBank(_DeterministicSelectedBank(population_width=4))
