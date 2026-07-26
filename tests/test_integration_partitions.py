@@ -160,15 +160,12 @@ class IntegrationPartitionProjectorTests(unittest.TestCase):
         ).project(events)
         partition = plan.partitions[0]
 
-        preparation = prepare_partition_integration_work(
-            partition,
-            revision=plan.revision,
-            batch_limit=plan.batch_limit,
-        )
+        preparation = prepare_partition_integration_work(plan, partition.partition_id)
 
         self.assertEqual(preparation.reference_ids, partition.evidence_ids)
         self.assertEqual(preparation.context["context_view"], "SYNTHESIZE")
         self.assertEqual(preparation.context["synthesis_mode"], "INTEGRATION_PARTITION")
+        self.assertEqual(preparation.context["integration_revision"], plan.revision)
         self.assertEqual(
             preparation.context["integration_partition"]["partition_id"],
             partition.partition_id,
@@ -182,7 +179,16 @@ class IntegrationPartitionProjectorTests(unittest.TestCase):
             preparation.context["causal_event_ids"],
             list(partition.causal_event_ids),
         )
+        self.assertEqual(preparation.constraints["max_pending_evidence"], plan.batch_limit)
         self.assertTrue(preparation.constraints["preserve_source_thread_ownership"])
+
+    def test_partition_work_rejects_partition_from_another_plan(self) -> None:
+        plan = IntegrationPartitionProjector(
+            IntegrationPartitionConfig(shard_count=2, batch_limit=2)
+        ).project((_evidence(1, "evidence-a", "thread-a"),))
+
+        with self.assertRaisesRegex(ValueError, "unknown integration partition ID"):
+            prepare_partition_integration_work(plan, "integration-partition-v0:not-this-plan")
 
     def test_unknown_disposition_reference_does_not_remove_real_backlog(self) -> None:
         events = (
