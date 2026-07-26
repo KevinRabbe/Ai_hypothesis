@@ -1,0 +1,40 @@
+name: Reset-only relay ablation
+
+on:
+  push:
+    branches:
+      - agent/compositional-relay-protocol-v0
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reset-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install CPU Torch
+        run: python -m pip install --disable-pip-version-check torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Run reset-only fixed-four relay diagnostic
+        run: |
+          mkdir -p diagnostic
+          python experiments/population_compute_scaling_v0/diagnose_reset_only_relay_fixed4.py \
+            --device cpu \
+            --seed 606 \
+            --steps 2048 \
+            --batch-size 32 \
+            --heldout-world-count 512 \
+            --output diagnostic/reset-only-relay-2-fixed4.json
+      - name: Upload result
+        uses: actions/upload-artifact@v4
+        with:
+          name: reset-only-relay-ablation
+          path: diagnostic/reset-only-relay-2-fixed4.json
+          if-no-files-found: error
