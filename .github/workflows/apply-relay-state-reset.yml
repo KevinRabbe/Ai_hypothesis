@@ -1,0 +1,86 @@
+name: Apply relay state reset policy
+
+on:
+  push:
+    branches:
+      - agent/compositional-relay-protocol-v0
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/compositional-relay-protocol-v0
+      - name: Apply relay-local reset policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              file = Path(path)
+              text = file.read_text(encoding='utf-8')
+              if new in text:
+                  return
+              if old not in text:
+                  raise RuntimeError(f'patch target not found in {path}')
+              file.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          model = 'ai_hypothesis/population_compute/model.py'
+          replace_once(
+              model,
+              '''        shared_seed: torch.Tensor | None = None,\n        message_content: torch.Tensor | None = None,\n    ) -> PopulationForwardOutput:\n''',
+              '''        shared_seed: torch.Tensor | None = None,\n        message_content: torch.Tensor | None = None,\n        reset_state_each_round: bool = False,\n    ) -> PopulationForwardOutput:\n''',
+          )
+          replace_once(
+              model,
+              '''        active_states = torch.tanh(self.input_projection(active_local_inputs))\n        shared = seed\n''',
+              '''        initial_states = torch.tanh(self.input_projection(active_local_inputs))\n        active_states = initial_states\n        shared = seed\n''',
+          )
+          replace_once(
+              model,
+              '''            shared_for_active = shared.index_select(0, active_batch_indices)\n            update_input = torch.cat((active_local_inputs, shared_for_active), dim=-1)\n            active_states = self.update(update_input, active_states)\n''',
+              '''            shared_for_active = shared.index_select(0, active_batch_indices)\n            update_input = torch.cat((active_local_inputs, shared_for_active), dim=-1)\n            recurrent_state = initial_states if reset_state_each_round else active_states\n            active_states = self.update(update_input, recurrent_state)\n''',
+          )
+
+          relay = 'ai_hypothesis/population_compute/relay_model.py'
+          replace_once(
+              relay,
+              '''            shared_seed=seed,\n            message_content=message_content,\n        )\n''',
+              '''            shared_seed=seed,\n            message_content=message_content,\n            reset_state_each_round=True,\n        )\n''',
+          )
+
+          test = 'tests/test_compositional_relay_protocol.py'
+          replace_once(
+              test,
+              '''        shared_seed: torch.Tensor | None = None,\n        message_content: torch.Tensor | None = None,\n    ) -> PopulationForwardOutput:\n''',
+              '''        shared_seed: torch.Tensor | None = None,\n        message_content: torch.Tensor | None = None,\n        reset_state_each_round: bool = False,\n    ) -> PopulationForwardOutput:\n''',
+          )
+          replace_once(
+              test,
+              '''        self.message_content: torch.Tensor | None = None\n''',
+              '''        self.message_content: torch.Tensor | None = None\n        self.reset_state_each_round = False\n''',
+          )
+          replace_once(
+              test,
+              '''        self.message_content = (\n            None if message_content is None else message_content.detach().clone()\n        )\n''',
+              '''        self.message_content = (\n            None if message_content is None else message_content.detach().clone()\n        )\n        self.reset_state_each_round = reset_state_each_round\n''',
+          )
+          replace_once(
+              test,
+              '''        self.assertTrue(\n            torch.allclose(recorder.message_content, expected_content, atol=1e-7)\n        )\n''',
+              '''        self.assertTrue(\n            torch.allclose(recorder.message_content, expected_content, atol=1e-7)\n        )\n        self.assertTrue(recorder.reset_state_each_round)\n''',
+          )
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ai_hypothesis/population_compute/model.py ai_hypothesis/population_compute/relay_model.py tests/test_compositional_relay_protocol.py
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Reset relay worker state between hops [skip ci]"
+          git push origin HEAD:agent/compositional-relay-protocol-v0
