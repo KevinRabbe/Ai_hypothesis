@@ -1,0 +1,61 @@
+name: Apply competitive relay aggregation
+
+on:
+  push:
+    branches:
+      - agent/relay-competitive-aggregation-diagnostic-v0
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/relay-competitive-aggregation-diagnostic-v0
+
+      - name: Apply parameter-free competitive gating
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              file = Path(path)
+              text = file.read_text(encoding='utf-8')
+              if new in text:
+                  return
+              if old not in text:
+                  raise RuntimeError(f'patch target not found in {path}')
+              file.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          model = 'ai_hypothesis/population_compute/model.py'
+          replace_once(
+              model,
+              '''        message_content: torch.Tensor | None = None,\n        reset_state_each_round: bool = False,\n    ) -> PopulationForwardOutput:\n''',
+              '''        message_content: torch.Tensor | None = None,\n        reset_state_each_round: bool = False,\n        competitive_message_weights: bool = False,\n    ) -> PopulationForwardOutput:\n''',
+          )
+          replace_once(
+              model,
+              '''            if communication_mode is CommunicationMode.SPARSE_SHARED_V0:\n                gate = torch.sigmoid(self.message_gate(active_states))\n                if active_message_content is None:\n''',
+              '''            if communication_mode is CommunicationMode.SPARSE_SHARED_V0:\n                gate_logits = self.message_gate(active_states).squeeze(-1)\n                if competitive_message_weights:\n                    max_per_batch = gate_logits.new_full((batch_size,), float("-inf"))\n                    max_per_batch.scatter_reduce_(\n                        0,\n                        active_batch_indices,\n                        gate_logits,\n                        reduce="amax",\n                        include_self=True,\n                    )\n                    exp_gate = torch.exp(\n                        gate_logits - max_per_batch.index_select(0, active_batch_indices)\n                    )\n                    gate_sum = exp_gate.new_zeros(batch_size).index_add(\n                        0,\n                        active_batch_indices,\n                        exp_gate,\n                    )\n                    gate = (\n                        exp_gate\n                        / gate_sum.index_select(0, active_batch_indices).clamp_min(1e-12)\n                    ).unsqueeze(-1)\n                else:\n                    gate = torch.sigmoid(gate_logits).unsqueeze(-1)\n                if active_message_content is None:\n''',
+          )
+
+          relay = 'ai_hypothesis/population_compute/relay_model.py'
+          replace_once(
+              relay,
+              '''            message_content=message_content,\n            reset_state_each_round=True,\n        )\n''',
+              '''            message_content=message_content,\n            reset_state_each_round=True,\n            competitive_message_weights=True,\n        )\n''',
+          )
+          PY
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ai_hypothesis/population_compute/model.py ai_hypothesis/population_compute/relay_model.py
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Normalize relay message competition [skip ci]"
+          git push origin HEAD:agent/relay-competitive-aggregation-diagnostic-v0
