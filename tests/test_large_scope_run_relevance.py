@@ -84,6 +84,23 @@ class LargeScopeRunRelevanceTests(unittest.TestCase):
                 )
         checkpoint_loader.assert_not_called()
 
+    def test_duplicate_modes_are_rejected_before_checkpoint_loading(self) -> None:
+        with patch.object(
+            run_relevance.HomogeneousWorkerBank,
+            "from_checkpoints",
+        ) as checkpoint_loader:
+            with self.assertRaisesRegex(SystemExit, "--modes must be unique"):
+                run_relevance.main(
+                    [
+                        "--checkpoints",
+                        "unused.pt",
+                        "--modes",
+                        "same_worker",
+                        "same_worker",
+                    ]
+                )
+        checkpoint_loader.assert_not_called()
+
     def test_successful_cli_path_writes_threshold_free_result_artifact(self) -> None:
         bank = _FakeCheckpointBank()
         with tempfile.TemporaryDirectory() as tempdir:
@@ -132,6 +149,22 @@ class LargeScopeRunRelevanceTests(unittest.TestCase):
             self.assertEqual(payload["population_width"], 16)
             self.assertEqual(payload["local_window_evaluations"], 40)
             self.assertEqual(len(payload["summaries"]), 4)
+            self.assertEqual(len(payload["paired_summaries"]), 2)
+            paired = {row["width"]: row for row in payload["paired_summaries"]}
+            self.assertEqual(
+                paired[1]["delta_definition"],
+                "diverse_workers_minus_same_worker",
+            )
+            self.assertAlmostEqual(
+                paired[1]["mean_candidate_relevant_evidence_positive_delta"],
+                0.0,
+                places=7,
+            )
+            self.assertAlmostEqual(
+                paired[1]["mean_candidate_relevant_evidence_negative_delta"],
+                0.0,
+                places=7,
+            )
             self.assertGreater(bank.calls, 0)
             self.assertNotIn("acceptance_threshold", payload)
 
