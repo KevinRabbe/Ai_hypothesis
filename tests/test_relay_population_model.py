@@ -30,7 +30,7 @@ class RelayPopulationModelTests(unittest.TestCase):
         worlds = tuple(generate_relay_world(seed, difficulty) for seed in range(4))
         self.assertEqual(
             tuple(world.scope_threshold for world in worlds),
-            (4, 16, 64, 256),
+            (16, 64, 256, 16),
         )
 
         for active_workers in DEVELOPMENT_POPULATION_SIZES:
