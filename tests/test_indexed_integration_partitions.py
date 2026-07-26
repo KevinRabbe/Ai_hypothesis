@@ -215,8 +215,8 @@ class IndexedPartitionedIntegrationRuntimeTests(unittest.TestCase):
             config=IntegrationParallelismConfig(max_integration_width=3),
         )
         self.scheduler = TracingScheduler(
+            self.ledger,
             self.partition_scheduler,
-            ledger=self.ledger,
         )
         self.router = IndexedPartitionedIntegrationContextRouter(
             ledger=self.ledger,
