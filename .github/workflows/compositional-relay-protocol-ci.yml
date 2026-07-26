@@ -1,0 +1,65 @@
+name: Compositional relay protocol qualification
+
+on:
+  push:
+    branches:
+      - agent/compositional-relay-protocol-v0
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compositional-relay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: .
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install CPU Torch
+        run: |
+          python -m pip install --disable-pip-version-check torch --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Compile protocol modules
+        run: |
+          python -m compileall -q \
+            ai_hypothesis/population_compute/model.py \
+            ai_hypothesis/population_compute/relay_model.py \
+            experiments/population_compute_scaling_v0/diagnose_compositional_relay.py
+
+      - name: Run protocol structural regressions
+        run: |
+          python -m unittest \
+            tests/test_shared_population_cell.py \
+            tests/test_relay_population_model.py \
+            tests/test_compositional_relay_protocol.py
+
+      - name: Run relay-2 development diagnostic
+        run: |
+          mkdir -p diagnostic
+          python experiments/population_compute_scaling_v0/diagnose_compositional_relay.py \
+            --device cpu \
+            --seed 303 \
+            --steps 2048 \
+            --batch-size 8 \
+            --heldout-world-count 512 \
+            --output diagnostic/compositional-relay-2.json \
+            > diagnostic/stdout.json
+
+      - name: Upload relay-2 diagnostic result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compositional-relay-2-diagnostic
+          path: |
+            diagnostic/compositional-relay-2.json
+            diagnostic/stdout.json
+          if-no-files-found: error
