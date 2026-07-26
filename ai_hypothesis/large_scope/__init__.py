@@ -33,6 +33,12 @@ from .relevance import (
     inspection_prefix,
     same_worker_indices,
 )
+from .result_audit import (
+    LargeScopeResultAudit,
+    ResultAuditIssue,
+    audit_large_scope_result,
+    render_large_scope_audit_markdown,
+)
 from .runtime_bridge import (
     FixedScopeScheduler,
     LargeScopeRuntimeContextProvider,
@@ -51,6 +57,7 @@ __all__ = [
     "LARGE_SCOPE_SPLIT_SEED_RANGES",
     "LargeScopeRelevanceConfig",
     "LargeScopeRelevanceSample",
+    "LargeScopeResultAudit",
     "LargeScopeRuntimeContextProvider",
     "LargeScopeRuntimeWorkerBank",
     "PersistentScopeEvaluation",
@@ -58,6 +65,7 @@ __all__ = [
     "PersistentScopeExperiment",
     "PersistentScopeWorkerSelector",
     "PlannedScopeWorkerSelector",
+    "ResultAuditIssue",
     "ScopeConditionSummary",
     "ScopeEvaluation",
     "ScopeMetricsAccumulator",
@@ -65,6 +73,7 @@ __all__ = [
     "ScopePairedSummary",
     "ScopeWorkerMode",
     "WindowEvidence",
+    "audit_large_scope_result",
     "diverse_worker_indices",
     "evaluate_scope_batch",
     "evaluate_scope_sample",
@@ -76,6 +85,7 @@ __all__ = [
     "large_scope_region_id",
     "large_scope_worker_id",
     "planned_scope_worker_selector",
+    "render_large_scope_audit_markdown",
     "same_worker_indices",
     "summarize_scope_evaluations",
 ]
