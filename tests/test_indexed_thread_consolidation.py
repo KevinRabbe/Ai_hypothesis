@@ -340,7 +340,7 @@ class IndexedThreadConsolidationTests(unittest.TestCase):
             },
         )
         history = self.ledger.read_all_events()
-        with self.assertRaisesRegex(ValueError, "without durable provenance"):
+        with self.assertRaisesRegex(ValueError, "missing durable allocation provenance"):
             ThreadConsolidationPlanner(self.config).plan(
                 history,
                 thread_id="thread-a",
