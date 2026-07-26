@@ -10,6 +10,7 @@ from typing import Any, Mapping, Sequence
 EXPECTED_BENCHMARK_VERSION = "large-scope-relevance-v0"
 _ALLOWED_SPLITS = frozenset({"development", "confirmation", "test"})
 _ALLOWED_MODES = ("same_worker", "diverse_workers")
+_PAIRED_DELTA_DEFINITION = "diverse_workers_minus_same_worker"
 _WIDTH1_ZERO_FIELDS = (
     "retrieval_given_inspected_delta",
     "mean_target_rank_delta_when_inspected",
@@ -49,8 +50,10 @@ class LargeScopeResultAudit:
 
     def require_valid(self) -> "LargeScopeResultAudit":
         if self.errors:
-            joined = "; ".join(f"{issue.code}: {issue.message}" for issue in self.errors)
-            raise ValueError(f"large-scope result audit failed: {joined}")
+            detail = "; ".join(
+                f"{issue.code}: {issue.message}" for issue in self.errors
+            )
+            raise ValueError(f"large-scope result audit failed: {detail}")
         return self
 
 
@@ -60,7 +63,7 @@ def audit_large_scope_result(
     allow_test_split: bool = False,
     zero_tolerance: float = 1e-6,
 ) -> LargeScopeResultAudit:
-    """Validate benchmark-integrity invariants without deciding scientific success."""
+    """Validate benchmark integrity without deciding scientific success."""
 
     if zero_tolerance < 0 or not math.isfinite(zero_tolerance):
         raise ValueError("zero_tolerance must be finite and non-negative")
@@ -68,98 +71,100 @@ def audit_large_scope_result(
     errors: list[ResultAuditIssue] = []
     warnings: list[ResultAuditIssue] = []
 
-    benchmark_version = _text(payload, "benchmark_version", errors)
-    split = _text(payload, "split", errors)
-    world_count = _positive_int(payload, "world_count", errors)
+    benchmark_version = _required_text(payload, "benchmark_version", errors)
+    split = _required_text(payload, "split", errors)
+    world_count = _required_positive_int(payload, "world_count", errors)
     widths = _positive_int_tuple(payload.get("widths"), "widths", errors)
     modes = _string_tuple(payload.get("modes"), "modes", errors)
 
     if benchmark_version and benchmark_version != EXPECTED_BENCHMARK_VERSION:
-        errors.append(
-            ResultAuditIssue(
-                "BENCHMARK_VERSION",
-                f"expected {EXPECTED_BENCHMARK_VERSION!r}, got {benchmark_version!r}",
-            )
+        _error(
+            errors,
+            "BENCHMARK_VERSION",
+            f"expected {EXPECTED_BENCHMARK_VERSION!r}, got {benchmark_version!r}",
         )
     if split and split not in _ALLOWED_SPLITS:
-        errors.append(ResultAuditIssue("SPLIT", f"unknown split {split!r}"))
+        _error(errors, "SPLIT", f"unknown split {split!r}")
     if split == "test" and not allow_test_split:
-        errors.append(
-            ResultAuditIssue(
-                "TEST_SPLIT_LOCKED",
-                "test-split result requires explicit allow_test_split=True",
-            )
+        _error(
+            errors,
+            "TEST_SPLIT_LOCKED",
+            "test-split result requires explicit allow_test_split=True",
         )
+
     if widths and tuple(sorted(set(widths))) != widths:
-        errors.append(
-            ResultAuditIssue(
-                "WIDTH_ORDER",
-                "widths must be unique and supplied in strictly increasing order",
-            )
+        _error(
+            errors,
+            "WIDTH_ORDER",
+            "widths must be unique and supplied in strictly increasing order",
         )
     if modes:
         if len(set(modes)) != len(modes):
-            errors.append(ResultAuditIssue("MODE_DUPLICATE", "modes must be unique"))
-        unknown_modes = tuple(mode for mode in modes if mode not in _ALLOWED_MODES)
-        if unknown_modes:
-            errors.append(
-                ResultAuditIssue("MODE_UNKNOWN", f"unknown modes: {unknown_modes!r}")
-            )
+            _error(errors, "MODE_DUPLICATE", "modes must be unique")
+        unknown = tuple(mode for mode in modes if mode not in _ALLOWED_MODES)
+        if unknown:
+            _error(errors, "MODE_UNKNOWN", f"unknown modes: {unknown!r}")
 
     config = payload.get("config")
     if not isinstance(config, Mapping):
-        errors.append(ResultAuditIssue("CONFIG", "config must be an object"))
+        _error(errors, "CONFIG", "config must be an object")
         window_count = 0
     else:
-        window_count = _positive_int(config, "window_count", errors, prefix="config.")
+        window_count = _required_positive_int(
+            config,
+            "window_count",
+            errors,
+            prefix="config.",
+        )
     if widths and window_count and widths[-1] > window_count:
-        errors.append(
-            ResultAuditIssue(
-                "WIDTH_WINDOW_COUNT",
-                "largest width exceeds configured window_count",
-            )
+        _error(
+            errors,
+            "WIDTH_WINDOW_COUNT",
+            "largest width exceeds configured window_count",
         )
 
-    population_width = _positive_int(payload, "population_width", errors)
+    population_width = _required_positive_int(payload, "population_width", errors)
     if (
         widths
         and "diverse_workers" in modes
         and population_width
         and widths[-1] > population_width
     ):
-        errors.append(
-            ResultAuditIssue(
-                "DIVERSE_POPULATION_WIDTH",
-                "diverse width exceeds loaded checkpoint population",
-            )
+        _error(
+            errors,
+            "DIVERSE_POPULATION_WIDTH",
+            "diverse width exceeds loaded checkpoint population",
         )
 
-    local_evaluations = _non_negative_int(payload, "local_window_evaluations", errors)
+    local_evaluations = _required_non_negative_int(
+        payload,
+        "local_window_evaluations",
+        errors,
+    )
     if world_count and widths and modes:
-        expected_evaluations = world_count * len(modes) * sum(widths)
-        if local_evaluations != expected_evaluations:
-            errors.append(
-                ResultAuditIssue(
-                    "LOCAL_EVALUATION_COUNT",
-                    f"expected {expected_evaluations}, got {local_evaluations}",
-                )
+        expected = world_count * len(modes) * sum(widths)
+        if local_evaluations != expected:
+            _error(
+                errors,
+                "LOCAL_EVALUATION_COUNT",
+                f"expected {expected}, got {local_evaluations}",
             )
 
     if "acceptance_threshold" in payload:
-        errors.append(
-            ResultAuditIssue(
-                "UNEXPECTED_THRESHOLD",
-                "v0 result unexpectedly contains a world-level acceptance_threshold",
-            )
+        _error(
+            errors,
+            "UNEXPECTED_THRESHOLD",
+            "v0 result unexpectedly contains a world-level acceptance_threshold",
         )
 
-    conditions = _summary_index(
+    conditions = _condition_index(
         payload.get("summaries"),
         split=split,
         world_count=world_count,
         widths=widths,
         modes=modes,
         errors=errors,
+        tolerance=zero_tolerance,
     )
     _audit_scope_equivalence(
         conditions,
@@ -181,8 +186,10 @@ def audit_large_scope_result(
         widths=widths,
         modes=modes,
         errors=errors,
+        tolerance=zero_tolerance,
     )
-    if {"same_worker", "diverse_workers"}.issubset(set(modes)):
+    both_modes = {"same_worker", "diverse_workers"}.issubset(set(modes))
+    if both_modes:
         _audit_paired_against_conditions(
             paired,
             conditions,
@@ -221,7 +228,7 @@ def render_large_scope_audit_markdown(
     payload: Mapping[str, Any],
     audit: LargeScopeResultAudit,
 ) -> str:
-    """Render observations only; deliberately does not declare hypothesis success/failure."""
+    """Render measured diagnostics only; never declare hypothesis success/failure."""
 
     lines = [
         "# Large-Scope Relevance Result Audit",
@@ -245,6 +252,15 @@ def render_large_scope_audit_markdown(
         lines.extend(f"- `{issue.code}` — {issue.message}" for issue in audit.warnings)
         lines.append("")
 
+    if not audit.valid:
+        lines.extend(
+            (
+                "Result tables are omitted because benchmark-integrity validation failed.",
+                "",
+            )
+        )
+        return "\n".join(lines)
+
     conditions = _rows_by_key(payload.get("summaries"), "mode", "width")
     if conditions:
         lines.extend(
@@ -256,7 +272,8 @@ def render_large_scope_audit_markdown(
             )
         )
         for (mode, width), row in sorted(
-            conditions.items(), key=lambda item: (int(item[0][1]), str(item[0][0]))
+            conditions.items(),
+            key=lambda item: (int(item[0][1]), str(item[0][0])),
         ):
             lines.append(
                 "| "
@@ -289,17 +306,26 @@ def render_large_scope_audit_markdown(
                 "| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
             )
         )
-        for (width,), row in sorted(paired.items(), key=lambda item: int(item[0][0])):
+        for (width,), row in sorted(
+            paired.items(),
+            key=lambda item: int(item[0][0]),
+        ):
             lines.append(
                 "| "
                 + " | ".join(
                     (
                         str(width),
-                        _fmt_rate(row.get("retrieval_given_inspected_delta"), signed=True),
+                        _fmt_rate(
+                            row.get("retrieval_given_inspected_delta"),
+                            signed=True,
+                        ),
                         str(row.get("same_only_retrieved_count", "?")),
                         str(row.get("diverse_only_retrieved_count", "?")),
                         _fmt_number(row.get("exact_retrieval_discordance_p_value")),
-                        _fmt_number(row.get("mean_target_rank_delta_when_inspected"), signed=True),
+                        _fmt_number(
+                            row.get("mean_target_rank_delta_when_inspected"),
+                            signed=True,
+                        ),
                         _fmt_number(
                             row.get("mean_target_relevant_evidence_delta_when_inspected"),
                             signed=True,
@@ -333,7 +359,7 @@ def render_large_scope_audit_markdown(
     return "\n".join(lines)
 
 
-def _summary_index(
+def _condition_index(
     raw: object,
     *,
     split: str,
@@ -341,6 +367,7 @@ def _summary_index(
     widths: tuple[int, ...],
     modes: tuple[str, ...],
     errors: list[ResultAuditIssue],
+    tolerance: float,
 ) -> dict[tuple[str, int], Mapping[str, Any]]:
     rows = _mapping_rows(raw, "summaries", errors)
     index: dict[tuple[str, int], Mapping[str, Any]] = {}
@@ -348,25 +375,21 @@ def _summary_index(
         mode = row.get("mode")
         width = row.get("width")
         if not isinstance(mode, str) or isinstance(width, bool) or not isinstance(width, int):
-            errors.append(ResultAuditIssue("SUMMARY_KEY", "summary has invalid mode/width"))
+            _error(errors, "SUMMARY_KEY", "summary has invalid mode/width")
             continue
         key = (mode, width)
         if key in index:
-            errors.append(ResultAuditIssue("SUMMARY_DUPLICATE", f"duplicate summary {key!r}"))
+            _error(errors, "SUMMARY_DUPLICATE", f"duplicate summary {key!r}")
             continue
         index[key] = row
-        _audit_common_row(row, split, world_count, errors, f"summary {key!r}")
-        _audit_rate_fields(
+        _validate_common_row(row, split, world_count, errors, f"summary {key!r}")
+        _validate_condition_arithmetic(
             row,
-            (
-                "target_coverage_rate",
-                "target_retrieval_rate",
-                "retrieval_given_inspected",
-            ),
-            errors,
-            f"summary {key!r}",
+            errors=errors,
+            label=f"summary {key!r}",
+            tolerance=tolerance,
         )
-        _audit_finite_fields(
+        _validate_finite_fields(
             row,
             (
                 "mean_target_rank_when_inspected",
@@ -380,13 +403,14 @@ def _summary_index(
             errors,
             f"summary {key!r}",
         )
+
     expected = {(mode, width) for mode in modes for width in widths}
     missing = expected - set(index)
     extra = set(index) - expected
     if missing:
-        errors.append(ResultAuditIssue("SUMMARY_MISSING", f"missing summaries: {sorted(missing)!r}"))
+        _error(errors, "SUMMARY_MISSING", f"missing summaries: {sorted(missing)!r}")
     if extra:
-        errors.append(ResultAuditIssue("SUMMARY_EXTRA", f"unexpected summaries: {sorted(extra)!r}"))
+        _error(errors, "SUMMARY_EXTRA", f"unexpected summaries: {sorted(extra)!r}")
     return index
 
 
@@ -398,40 +422,35 @@ def _paired_index(
     widths: tuple[int, ...],
     modes: tuple[str, ...],
     errors: list[ResultAuditIssue],
+    tolerance: float,
 ) -> dict[int, Mapping[str, Any]]:
     rows = _mapping_rows(raw, "paired_summaries", errors)
     index: dict[int, Mapping[str, Any]] = {}
     for row in rows:
         width = row.get("width")
         if isinstance(width, bool) or not isinstance(width, int):
-            errors.append(ResultAuditIssue("PAIRED_KEY", "paired summary has invalid width"))
+            _error(errors, "PAIRED_KEY", "paired summary has invalid width")
             continue
         if width in index:
-            errors.append(ResultAuditIssue("PAIRED_DUPLICATE", f"duplicate paired width {width}"))
+            _error(errors, "PAIRED_DUPLICATE", f"duplicate paired width {width}")
             continue
         index[width] = row
-        _audit_common_row(row, split, world_count, errors, f"paired width {width}")
-        if row.get("delta_definition") != "diverse_workers_minus_same_worker":
-            errors.append(
-                ResultAuditIssue(
-                    "PAIRED_DELTA_DEFINITION",
-                    f"paired width {width} has invalid delta_definition",
-                )
+        _validate_common_row(row, split, world_count, errors, f"paired width {width}")
+        if row.get("delta_definition") != _PAIRED_DELTA_DEFINITION:
+            _error(
+                errors,
+                "PAIRED_DELTA_DEFINITION",
+                f"paired width {width} has invalid delta_definition",
             )
-        _audit_rate_fields(
+        _validate_paired_arithmetic(
             row,
-            (
-                "retrieval_given_inspected_same",
-                "retrieval_given_inspected_diverse",
-            ),
-            errors,
-            f"paired width {width}",
+            errors=errors,
+            label=f"paired width {width}",
+            tolerance=tolerance,
         )
-        _audit_finite_fields(
+        _validate_finite_fields(
             row,
             (
-                "retrieval_given_inspected_delta",
-                "exact_retrieval_discordance_p_value",
                 "mean_target_rank_delta_when_inspected",
                 "se_target_rank_delta_when_inspected",
                 "mean_target_relevant_evidence_delta_when_inspected",
@@ -448,30 +467,170 @@ def _paired_index(
             errors,
             f"paired width {width}",
         )
-        p_value = row.get("exact_retrieval_discordance_p_value")
-        if p_value is not None and _finite_number(p_value) and not 0.0 <= float(p_value) <= 1.0:
-            errors.append(
-                ResultAuditIssue(
-                    "PAIRED_P_VALUE",
-                    f"paired width {width} exact discordance p-value is outside [0, 1]",
+        for field, value in row.items():
+            if (
+                field.startswith("se_")
+                and value is not None
+                and _finite_number(value)
+                and float(value) < 0
+            ):
+                _error(
+                    errors,
+                    "PAIRED_STANDARD_ERROR",
+                    f"paired width {width} has negative {field}",
                 )
-            )
-        for key, value in row.items():
-            if key.startswith("se_") and value is not None and _finite_number(value) and float(value) < 0:
-                errors.append(
-                    ResultAuditIssue(
-                        "PAIRED_STANDARD_ERROR",
-                        f"paired width {width} has negative {key}",
-                    )
-                )
+
     if {"same_worker", "diverse_workers"}.issubset(set(modes)):
         missing = set(widths) - set(index)
         extra = set(index) - set(widths)
         if missing:
-            errors.append(ResultAuditIssue("PAIRED_MISSING", f"missing paired widths: {sorted(missing)!r}"))
+            _error(errors, "PAIRED_MISSING", f"missing paired widths: {sorted(missing)!r}")
         if extra:
-            errors.append(ResultAuditIssue("PAIRED_EXTRA", f"unexpected paired widths: {sorted(extra)!r}"))
+            _error(errors, "PAIRED_EXTRA", f"unexpected paired widths: {sorted(extra)!r}")
     return index
+
+
+def _validate_condition_arithmetic(
+    row: Mapping[str, Any],
+    *,
+    errors: list[ResultAuditIssue],
+    label: str,
+    tolerance: float,
+) -> None:
+    positive = _count(row, "positive_world_count", errors, label)
+    inspected = _count(row, "target_inspected_count", errors, label)
+    retrieved = _count(row, "target_retrieved_count", errors, label)
+    if None in (positive, inspected, retrieved):
+        return
+    assert positive is not None and inspected is not None and retrieved is not None
+    if inspected > positive:
+        _error(
+            errors,
+            "CONDITION_COUNT_ARITHMETIC",
+            f"{label} target_inspected_count exceeds positive worlds",
+        )
+    if retrieved > inspected:
+        _error(
+            errors,
+            "CONDITION_COUNT_ARITHMETIC",
+            f"{label} target_retrieved_count exceeds inspected targets",
+        )
+
+    expected = (
+        ("target_coverage_rate", _rate(inspected, positive)),
+        ("target_retrieval_rate", _rate(retrieved, positive)),
+        ("retrieval_given_inspected", _rate(retrieved, inspected)),
+    )
+    for field, expected_value in expected:
+        actual = row.get(field)
+        if actual is not None and not _rate_value(actual):
+            _error(errors, "RATE_RANGE", f"{label} has invalid {field}={actual!r}")
+        if not _close_optional(actual, expected_value, tolerance):
+            _error(
+                errors,
+                "CONDITION_RATE_ARITHMETIC",
+                f"{label} {field} does not match its counts",
+            )
+
+
+def _validate_paired_arithmetic(
+    row: Mapping[str, Any],
+    *,
+    errors: list[ResultAuditIssue],
+    label: str,
+    tolerance: float,
+) -> None:
+    names = (
+        "target_inspected_count",
+        "same_target_retrieved_count",
+        "diverse_target_retrieved_count",
+        "both_retrieved_count",
+        "same_only_retrieved_count",
+        "diverse_only_retrieved_count",
+        "neither_retrieved_count",
+        "retrieval_discordant_count",
+    )
+    counts = {name: _count(row, name, errors, label) for name in names}
+    if any(value is None for value in counts.values()):
+        return
+
+    inspected = int(counts["target_inspected_count"])
+    same_retrieved = int(counts["same_target_retrieved_count"])
+    diverse_retrieved = int(counts["diverse_target_retrieved_count"])
+    both = int(counts["both_retrieved_count"])
+    same_only = int(counts["same_only_retrieved_count"])
+    diverse_only = int(counts["diverse_only_retrieved_count"])
+    neither = int(counts["neither_retrieved_count"])
+    discordant = int(counts["retrieval_discordant_count"])
+
+    if both + same_only + diverse_only + neither != inspected:
+        _error(
+            errors,
+            "PAIRED_COUNT_ARITHMETIC",
+            f"{label} retrieval contingency does not cover inspected targets",
+        )
+    if both + same_only != same_retrieved:
+        _error(
+            errors,
+            "PAIRED_COUNT_ARITHMETIC",
+            f"{label} same-worker retrieval count disagrees with contingency",
+        )
+    if both + diverse_only != diverse_retrieved:
+        _error(
+            errors,
+            "PAIRED_COUNT_ARITHMETIC",
+            f"{label} diverse-worker retrieval count disagrees with contingency",
+        )
+    if same_only + diverse_only != discordant:
+        _error(
+            errors,
+            "PAIRED_COUNT_ARITHMETIC",
+            f"{label} discordant count disagrees with contingency",
+        )
+
+    same_rate = _rate(same_retrieved, inspected)
+    diverse_rate = _rate(diverse_retrieved, inspected)
+    expected_delta = (
+        diverse_rate - same_rate
+        if same_rate is not None and diverse_rate is not None
+        else None
+    )
+    for field, expected_value in (
+        ("retrieval_given_inspected_same", same_rate),
+        ("retrieval_given_inspected_diverse", diverse_rate),
+    ):
+        actual = row.get(field)
+        if actual is not None and not _rate_value(actual):
+            _error(errors, "RATE_RANGE", f"{label} has invalid {field}={actual!r}")
+        if not _close_optional(actual, expected_value, tolerance):
+            _error(
+                errors,
+                "PAIRED_RATE_ARITHMETIC",
+                f"{label} {field} does not match its counts",
+            )
+    if not _close_optional(
+        row.get("retrieval_given_inspected_delta"),
+        expected_delta,
+        tolerance,
+    ):
+        _error(
+            errors,
+            "PAIRED_RATE_ARITHMETIC",
+            f"{label} retrieval delta does not match its counts",
+        )
+
+    expected_p = _exact_discordance_probability(same_only, diverse_only)
+    actual_p = row.get("exact_retrieval_discordance_p_value")
+    if actual_p is not None and (
+        not _finite_number(actual_p) or not 0.0 <= float(actual_p) <= 1.0
+    ):
+        _error(errors, "PAIRED_P_VALUE", f"{label} has invalid exact discordance probability")
+    if not _close_optional(actual_p, expected_p, tolerance):
+        _error(
+            errors,
+            "PAIRED_P_ARITHMETIC",
+            f"{label} exact discordance probability does not match its counts",
+        )
 
 
 def _audit_scope_equivalence(
@@ -492,22 +651,20 @@ def _audit_scope_equivalence(
             "target_inspected_count",
         ):
             if same.get(field) != diverse.get(field):
-                errors.append(
-                    ResultAuditIssue(
-                        "SCOPE_MODE_MISMATCH",
-                        f"width {width} mode summaries disagree on {field}",
-                    )
+                _error(
+                    errors,
+                    "SCOPE_MODE_MISMATCH",
+                    f"width {width} mode summaries disagree on {field}",
                 )
         if not _close_optional(
             same.get("target_coverage_rate"),
             diverse.get("target_coverage_rate"),
             tolerance,
         ):
-            errors.append(
-                ResultAuditIssue(
-                    "SCOPE_COVERAGE_MISMATCH",
-                    f"width {width} worker modes disagree on deterministic target coverage",
-                )
+            _error(
+                errors,
+                "SCOPE_COVERAGE_MISMATCH",
+                f"width {width} worker modes disagree on deterministic target coverage",
             )
 
 
@@ -527,26 +684,25 @@ def _audit_nested_coverage(
                 continue
             count = row.get("target_inspected_count")
             rate = row.get("target_coverage_rate")
-            if isinstance(count, bool) or not isinstance(count, int):
+            if not _non_negative_int_value(count):
                 continue
-            if previous_count is not None and count < previous_count:
-                errors.append(
-                    ResultAuditIssue(
-                        "COVERAGE_NOT_NESTED",
-                        f"{mode} target-inspected count decreased at width {width}",
-                    )
+            numeric_count = int(count)
+            if previous_count is not None and numeric_count < previous_count:
+                _error(
+                    errors,
+                    "COVERAGE_NOT_NESTED",
+                    f"{mode} target-inspected count decreased at width {width}",
                 )
             if _finite_number(rate):
                 numeric_rate = float(rate)
                 if previous_rate is not None and numeric_rate + tolerance < previous_rate:
-                    errors.append(
-                        ResultAuditIssue(
-                            "COVERAGE_RATE_NOT_NESTED",
-                            f"{mode} coverage rate decreased at width {width}",
-                        )
+                    _error(
+                        errors,
+                        "COVERAGE_RATE_NOT_NESTED",
+                        f"{mode} coverage rate decreased at width {width}",
                     )
                 previous_rate = numeric_rate
-            previous_count = count
+            previous_count = numeric_count
 
 
 def _audit_paired_against_conditions(
@@ -570,30 +726,29 @@ def _audit_paired_against_conditions(
             ("same_target_retrieved_count", "target_retrieved_count"),
         ):
             if row.get(paired_field) != same.get(condition_field):
-                errors.append(
-                    ResultAuditIssue(
-                        "PAIRED_CONDITION_MISMATCH",
-                        f"width {width} {paired_field} disagrees with same_worker {condition_field}",
-                    )
+                _error(
+                    errors,
+                    "PAIRED_CONDITION_MISMATCH",
+                    f"width {width} {paired_field} disagrees with same_worker {condition_field}",
                 )
         if row.get("diverse_target_retrieved_count") != diverse.get("target_retrieved_count"):
-            errors.append(
-                ResultAuditIssue(
-                    "PAIRED_CONDITION_MISMATCH",
-                    f"width {width} diverse retrieval count disagrees with condition summary",
-                )
+            _error(
+                errors,
+                "PAIRED_CONDITION_MISMATCH",
+                f"width {width} diverse retrieval count disagrees with condition summary",
             )
-        same_rate = row.get("retrieval_given_inspected_same")
-        diverse_rate = row.get("retrieval_given_inspected_diverse")
-        delta = row.get("retrieval_given_inspected_delta")
-        if not _close_optional(same_rate, same.get("retrieval_given_inspected"), tolerance):
-            errors.append(ResultAuditIssue("PAIRED_RATE_MISMATCH", f"width {width} same retrieval rate mismatch"))
-        if not _close_optional(diverse_rate, diverse.get("retrieval_given_inspected"), tolerance):
-            errors.append(ResultAuditIssue("PAIRED_RATE_MISMATCH", f"width {width} diverse retrieval rate mismatch"))
-        if _finite_number(same_rate) and _finite_number(diverse_rate):
-            expected_delta = float(diverse_rate) - float(same_rate)
-            if not _close_optional(delta, expected_delta, tolerance):
-                errors.append(ResultAuditIssue("PAIRED_RATE_DELTA", f"width {width} retrieval delta is inconsistent"))
+        if not _close_optional(
+            row.get("retrieval_given_inspected_same"),
+            same.get("retrieval_given_inspected"),
+            tolerance,
+        ):
+            _error(errors, "PAIRED_RATE_MISMATCH", f"width {width} same retrieval rate mismatch")
+        if not _close_optional(
+            row.get("retrieval_given_inspected_diverse"),
+            diverse.get("retrieval_given_inspected"),
+            tolerance,
+        ):
+            _error(errors, "PAIRED_RATE_MISMATCH", f"width {width} diverse retrieval rate mismatch")
 
 
 def _audit_width1_control(
@@ -603,7 +758,7 @@ def _audit_width1_control(
     tolerance: float,
 ) -> None:
     if row is None:
-        errors.append(ResultAuditIssue("WIDTH1_MISSING", "paired width-1 summary is required"))
+        _error(errors, "WIDTH1_MISSING", "paired width-1 summary is required")
         return
     for field in (
         "same_only_retrieved_count",
@@ -611,41 +766,36 @@ def _audit_width1_control(
         "retrieval_discordant_count",
     ):
         if row.get(field) != 0:
-            errors.append(
-                ResultAuditIssue(
-                    "WIDTH1_CONTROL_RETRIEVAL",
-                    f"width-1 shared-worker control has nonzero {field}",
-                )
+            _error(
+                errors,
+                "WIDTH1_CONTROL_RETRIEVAL",
+                f"width-1 shared-worker control has nonzero {field}",
             )
     if row.get("same_target_retrieved_count") != row.get("diverse_target_retrieved_count"):
-        errors.append(
-            ResultAuditIssue(
-                "WIDTH1_CONTROL_RETRIEVAL",
-                "width-1 shared-worker retrieval counts differ between modes",
-            )
+        _error(
+            errors,
+            "WIDTH1_CONTROL_RETRIEVAL",
+            "width-1 shared-worker retrieval counts differ between modes",
         )
-    p_value = row.get("exact_retrieval_discordance_p_value")
-    if p_value is not None:
-        errors.append(
-            ResultAuditIssue(
-                "WIDTH1_CONTROL_P_VALUE",
-                "width-1 exact discordance p-value must be null when no discordance exists",
-            )
+    if row.get("exact_retrieval_discordance_p_value") is not None:
+        _error(
+            errors,
+            "WIDTH1_CONTROL_P_VALUE",
+            "width-1 exact discordance p-value must be null when no discordance exists",
         )
     for field in _WIDTH1_ZERO_FIELDS:
         value = row.get(field)
         if value is None:
             continue
         if not _finite_number(value) or abs(float(value)) > tolerance:
-            errors.append(
-                ResultAuditIssue(
-                    "WIDTH1_CONTROL_DELTA",
-                    f"width-1 shared-worker control has nonzero {field}: {value!r}",
-                )
+            _error(
+                errors,
+                "WIDTH1_CONTROL_DELTA",
+                f"width-1 shared-worker control has nonzero {field}: {value!r}",
             )
 
 
-def _audit_common_row(
+def _validate_common_row(
     row: Mapping[str, Any],
     split: str,
     world_count: int,
@@ -653,37 +803,23 @@ def _audit_common_row(
     label: str,
 ) -> None:
     if split and row.get("split") != split:
-        errors.append(ResultAuditIssue("ROW_SPLIT", f"{label} has a different split"))
-    if world_count and row.get("world_count", row.get("pair_count")) != world_count:
-        errors.append(ResultAuditIssue("ROW_WORLD_COUNT", f"{label} does not cover all worlds"))
-    positive = row.get("positive_world_count")
-    negative = row.get("negative_world_count")
-    if (
-        isinstance(positive, int)
-        and not isinstance(positive, bool)
-        and isinstance(negative, int)
-        and not isinstance(negative, bool)
-        and world_count
-        and positive + negative != world_count
-    ):
-        errors.append(ResultAuditIssue("ROW_CLASS_COUNT", f"{label} positive+negative count mismatch"))
+        _error(errors, "ROW_SPLIT", f"{label} has a different split")
+    row_world_count = row.get("world_count", row.get("pair_count"))
+    if world_count and row_world_count != world_count:
+        _error(errors, "ROW_WORLD_COUNT", f"{label} does not cover all worlds")
+
+    positive = _count(row, "positive_world_count", errors, label)
+    negative = _count(row, "negative_world_count", errors, label)
+    if positive is not None and negative is not None and world_count:
+        if positive + negative != world_count:
+            _error(
+                errors,
+                "ROW_CLASS_COUNT",
+                f"{label} positive+negative count mismatch",
+            )
 
 
-def _audit_rate_fields(
-    row: Mapping[str, Any],
-    fields: Sequence[str],
-    errors: list[ResultAuditIssue],
-    label: str,
-) -> None:
-    for field in fields:
-        value = row.get(field)
-        if value is None:
-            continue
-        if not _finite_number(value) or not 0.0 <= float(value) <= 1.0:
-            errors.append(ResultAuditIssue("RATE_RANGE", f"{label} has invalid {field}={value!r}"))
-
-
-def _audit_finite_fields(
+def _validate_finite_fields(
     row: Mapping[str, Any],
     fields: Sequence[str],
     errors: list[ResultAuditIssue],
@@ -692,7 +828,7 @@ def _audit_finite_fields(
     for field in fields:
         value = row.get(field)
         if value is not None and not _finite_number(value):
-            errors.append(ResultAuditIssue("NONFINITE", f"{label} has non-finite {field}"))
+            _error(errors, "NONFINITE", f"{label} has non-finite {field}")
 
 
 def _mapping_rows(
@@ -701,40 +837,43 @@ def _mapping_rows(
     errors: list[ResultAuditIssue],
 ) -> tuple[Mapping[str, Any], ...]:
     if not isinstance(raw, list):
-        errors.append(ResultAuditIssue("ROW_CONTAINER", f"{label} must be a list"))
+        _error(errors, "ROW_CONTAINER", f"{label} must be a list")
         return ()
     rows: list[Mapping[str, Any]] = []
     for index, row in enumerate(raw):
         if not isinstance(row, Mapping):
-            errors.append(ResultAuditIssue("ROW_TYPE", f"{label}[{index}] must be an object"))
+            _error(errors, "ROW_TYPE", f"{label}[{index}] must be an object")
             continue
         rows.append(row)
     return tuple(rows)
 
 
-def _rows_by_key(raw: object, *keys: str) -> dict[tuple[object, ...], Mapping[str, Any]]:
+def _rows_by_key(
+    raw: object,
+    *keys: str,
+) -> dict[tuple[object, ...], Mapping[str, Any]]:
     if not isinstance(raw, list):
         return {}
-    result: dict[tuple[object, ...], Mapping[str, Any]] = {}
-    for row in raw:
-        if isinstance(row, Mapping):
-            result[tuple(row.get(key) for key in keys)] = row
-    return result
+    return {
+        tuple(row.get(key) for key in keys): row
+        for row in raw
+        if isinstance(row, Mapping)
+    }
 
 
-def _text(
+def _required_text(
     payload: Mapping[str, Any],
     key: str,
     errors: list[ResultAuditIssue],
 ) -> str:
     value = payload.get(key)
     if not isinstance(value, str) or not value.strip():
-        errors.append(ResultAuditIssue("FIELD_TEXT", f"{key} must be non-empty text"))
+        _error(errors, "FIELD_TEXT", f"{key} must be non-empty text")
         return ""
     return value
 
 
-def _positive_int(
+def _required_positive_int(
     payload: Mapping[str, Any],
     key: str,
     errors: list[ResultAuditIssue],
@@ -742,22 +881,22 @@ def _positive_int(
     prefix: str = "",
 ) -> int:
     value = payload.get(key)
-    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
-        errors.append(ResultAuditIssue("FIELD_INT", f"{prefix}{key} must be a positive integer"))
+    if not _positive_int_value(value):
+        _error(errors, "FIELD_INT", f"{prefix}{key} must be a positive integer")
         return 0
-    return value
+    return int(value)
 
 
-def _non_negative_int(
+def _required_non_negative_int(
     payload: Mapping[str, Any],
     key: str,
     errors: list[ResultAuditIssue],
 ) -> int:
     value = payload.get(key)
-    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
-        errors.append(ResultAuditIssue("FIELD_INT", f"{key} must be a non-negative integer"))
+    if not _non_negative_int_value(value):
+        _error(errors, "FIELD_INT", f"{key} must be a non-negative integer")
         return -1
-    return value
+    return int(value)
 
 
 def _positive_int_tuple(
@@ -765,13 +904,10 @@ def _positive_int_tuple(
     label: str,
     errors: list[ResultAuditIssue],
 ) -> tuple[int, ...]:
-    if not isinstance(raw, list) or any(
-        isinstance(value, bool) or not isinstance(value, int) or value <= 0
-        for value in raw
-    ):
-        errors.append(ResultAuditIssue("FIELD_LIST", f"{label} must be a list of positive integers"))
+    if not isinstance(raw, list) or any(not _positive_int_value(value) for value in raw):
+        _error(errors, "FIELD_LIST", f"{label} must be a list of positive integers")
         return ()
-    return tuple(raw)
+    return tuple(int(value) for value in raw)
 
 
 def _string_tuple(
@@ -782,9 +918,46 @@ def _string_tuple(
     if not isinstance(raw, list) or any(
         not isinstance(value, str) or not value for value in raw
     ):
-        errors.append(ResultAuditIssue("FIELD_LIST", f"{label} must be a list of non-empty strings"))
+        _error(errors, "FIELD_LIST", f"{label} must be a list of non-empty strings")
         return ()
     return tuple(raw)
+
+
+def _count(
+    row: Mapping[str, Any],
+    field: str,
+    errors: list[ResultAuditIssue],
+    label: str,
+) -> int | None:
+    value = row.get(field)
+    if not _non_negative_int_value(value):
+        _error(errors, "COUNT_FIELD", f"{label} has invalid {field}={value!r}")
+        return None
+    return int(value)
+
+
+def _rate(numerator: int, denominator: int) -> float | None:
+    return numerator / denominator if denominator else None
+
+
+def _exact_discordance_probability(
+    same_only: int,
+    diverse_only: int,
+) -> float | None:
+    total = same_only + diverse_only
+    if total == 0:
+        return None
+    tail = min(same_only, diverse_only)
+    probability = sum(math.comb(total, value) for value in range(tail + 1)) / (2**total)
+    return min(1.0, 2.0 * probability)
+
+
+def _positive_int_value(value: object) -> bool:
+    return not isinstance(value, bool) and isinstance(value, int) and value > 0
+
+
+def _non_negative_int_value(value: object) -> bool:
+    return not isinstance(value, bool) and isinstance(value, int) and value >= 0
 
 
 def _finite_number(value: object) -> bool:
@@ -793,6 +966,10 @@ def _finite_number(value: object) -> bool:
         and isinstance(value, (int, float))
         and math.isfinite(float(value))
     )
+
+
+def _rate_value(value: object) -> bool:
+    return _finite_number(value) and 0.0 <= float(value) <= 1.0
 
 
 def _close_optional(left: object, right: object, tolerance: float) -> bool:
@@ -819,3 +996,11 @@ def _fmt_rate(value: object, *, signed: bool = False) -> str:
         return "invalid"
     numeric = float(value) * 100.0
     return f"{numeric:+.2f}%" if signed else f"{numeric:.2f}%"
+
+
+def _error(
+    errors: list[ResultAuditIssue],
+    code: str,
+    message: str,
+) -> None:
+    errors.append(ResultAuditIssue(code, message))
