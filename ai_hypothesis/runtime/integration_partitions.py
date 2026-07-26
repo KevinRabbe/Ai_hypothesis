@@ -135,10 +135,10 @@ class IntegrationPartitionProjector:
     def project(self, events: Sequence[LedgerEvent]) -> IntegrationPartitionPlan:
         revision = 0
         previous_sequence = -1
-        dispositioned: set[str] = set()
+        first_disposition_sequence: dict[str, int] = {}
 
-        # First pass resolves final disposition state. This prevents an early evidence record
-        # from occupying a bounded partition buffer after a later disposition removed it.
+        # First pass resolves final disposition state and remembers when an evidence ID was
+        # first dispositioned so causal inversions can be rejected on the evidence pass.
         for event in events:
             event.validate()
             if event.sequence <= previous_sequence:
@@ -146,7 +146,8 @@ class IntegrationPartitionProjector:
             previous_sequence = event.sequence
             revision = event.sequence
             if event.event_type == "INTEGRATION_DISPOSITION_RECORDED":
-                dispositioned.update(event.reference_ids)
+                for evidence_id in event.reference_ids:
+                    first_disposition_sequence.setdefault(evidence_id, event.sequence)
 
         partitions: dict[tuple[str | None, int], _MutablePartition] = {}
         seen_evidence: set[str] = set()
@@ -162,7 +163,11 @@ class IntegrationPartitionProjector:
             if evidence_id in seen_evidence:
                 raise ValueError(f"duplicate durable evidence ID {evidence_id!r}")
             seen_evidence.add(evidence_id)
-            if evidence_id in dispositioned:
+
+            disposition_sequence = first_disposition_sequence.get(evidence_id)
+            if disposition_sequence is not None:
+                if disposition_sequence < event.sequence:
+                    raise ValueError("evidence disposition precedes evidence creation")
                 continue
 
             shard_index = self._shard_for(evidence_id)
@@ -244,7 +249,7 @@ class IntegrationPartitionProjector:
 
     def _partition_id(self, thread_id: str | None, shard_index: int) -> str:
         owner = "<global>" if thread_id is None else thread_id
-        owner_digest = hashlib.sha256(owner.encode("utf-8")).hexdigest()[:16]
+        owner_digest = hashlib.sha256(owner.encode("utf-8")).hexdigest()
         return (
             f"integration-partition-v0:{owner_digest}:"
             f"{shard_index:04d}-of-{self.config.shard_count:04d}"
