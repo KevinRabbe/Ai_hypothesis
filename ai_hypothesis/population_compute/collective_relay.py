@@ -11,6 +11,7 @@ from random import Random
 
 
 COLLECTIVE_RELAY_VERSION = "collective-relay-v0"
+RELAY_WORLD_SIZE = 256
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,9 +35,9 @@ class RelayDifficulty:
 
 
 RELAY_DIFFICULTIES: tuple[RelayDifficulty, ...] = (
-    RelayDifficulty(name="relay-2", world_size=32, hop_count=2),
-    RelayDifficulty(name="relay-4", world_size=64, hop_count=4),
-    RelayDifficulty(name="relay-8", world_size=128, hop_count=8),
+    RelayDifficulty(name="relay-2", world_size=RELAY_WORLD_SIZE, hop_count=2),
+    RelayDifficulty(name="relay-4", world_size=RELAY_WORLD_SIZE, hop_count=4),
+    RelayDifficulty(name="relay-8", world_size=RELAY_WORLD_SIZE, hop_count=8),
 )
 
 
