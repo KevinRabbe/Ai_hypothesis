@@ -232,7 +232,7 @@ def assess_scaling_curve(
     endpoint_gain = rates[-1] - rates[0]
     nondecreasing_steps = sum(
         later >= earlier - criteria.adjacent_drop_tolerance
-        for earlier, later in zip(rates, rates[1:], strict=True)
+        for earlier, later in zip(rates, rates[1:])
     )
     communication_endpoint_advantage = (
         communicating[-1].solve_rate - no_communication[-1].solve_rate
