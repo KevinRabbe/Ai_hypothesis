@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass, replace
-from typing import Protocol, Sequence
+from typing import Any, Mapping, Protocol, Sequence
 
 from .contracts import ProjectedState, SchedulerAction, SchedulerDecision
 from .control import ContextProvider, WorkPreparation, WorkPreparationBatch
@@ -247,7 +247,8 @@ class PartitionedIntegrationContextRouter:
                 existing.event_type != _PARTITION_ALLOCATION_EVENT
                 or existing.thread_id != state.thread_id
                 or existing.reference_ids != reference_ids
-                or dict(existing.payload) != payload
+                or self._allocation_identity(existing.payload)
+                != self._allocation_identity(payload)
             ):
                 raise ValueError("conflicting durable partition allocation provenance")
             return
@@ -258,6 +259,54 @@ class PartitionedIntegrationContextRouter:
             thread_id=state.thread_id,
             reference_ids=reference_ids,
             payload=payload,
+        )
+
+    @staticmethod
+    def _allocation_identity(payload: Mapping[str, Any]) -> tuple[object, ...]:
+        if payload.get("schema") != _PARTITION_ALLOCATION_SCHEMA:
+            raise ValueError("invalid durable partition allocation schema")
+        decision_id = payload.get("decision_id")
+        shard_count = payload.get("shard_count")
+        batch_limit = payload.get("batch_limit")
+        width = payload.get("width")
+        raw_partitions = payload.get("partitions")
+        if not isinstance(decision_id, str) or not decision_id:
+            raise ValueError("partition allocation provenance is missing decision_id")
+        for name, value in (
+            ("shard_count", shard_count),
+            ("batch_limit", batch_limit),
+            ("width", width),
+        ):
+            if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+                raise ValueError(f"partition allocation provenance has invalid {name}")
+        if not isinstance(raw_partitions, list) or len(raw_partitions) != width:
+            raise ValueError("partition allocation provenance has invalid partition list")
+
+        partitions: list[tuple[object, ...]] = []
+        for raw in raw_partitions:
+            if not isinstance(raw, Mapping):
+                raise ValueError("partition allocation entry must be an object")
+            partition_id = raw.get("partition_id")
+            shard_index = raw.get("shard_index")
+            evidence_ids = raw.get("evidence_ids")
+            if not isinstance(partition_id, str) or not partition_id:
+                raise ValueError("partition allocation entry is missing partition_id")
+            if isinstance(shard_index, bool) or not isinstance(shard_index, int) or shard_index < 0:
+                raise ValueError("partition allocation entry has invalid shard_index")
+            if (
+                not isinstance(evidence_ids, list)
+                or not evidence_ids
+                or any(not isinstance(evidence_id, str) or not evidence_id for evidence_id in evidence_ids)
+            ):
+                raise ValueError("partition allocation entry has invalid evidence_ids")
+            partitions.append((partition_id, shard_index, tuple(evidence_ids)))
+
+        return (
+            decision_id,
+            shard_count,
+            batch_limit,
+            width,
+            tuple(partitions),
         )
 
     @staticmethod
