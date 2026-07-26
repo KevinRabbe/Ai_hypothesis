@@ -41,7 +41,7 @@ class PopulationTelemetry:
 
 
 class PopulationForwardOutput(tuple):
-    """Tuple-like output without importing a heavier result abstraction."""
+    """Tuple-like result for one recurrent population execution."""
 
     __slots__ = ()
 
@@ -49,9 +49,10 @@ class PopulationForwardOutput(tuple):
         cls,
         logits: torch.Tensor,
         final_states: torch.Tensor,
+        final_shared: torch.Tensor,
         telemetry: PopulationTelemetry,
     ) -> "PopulationForwardOutput":
-        return tuple.__new__(cls, (logits, final_states, telemetry))
+        return tuple.__new__(cls, (logits, final_states, final_shared, telemetry))
 
     @property
     def logits(self) -> torch.Tensor:
@@ -62,16 +63,22 @@ class PopulationForwardOutput(tuple):
         return self[1]
 
     @property
-    def telemetry(self) -> PopulationTelemetry:
+    def final_shared(self) -> torch.Tensor:
         return self[2]
+
+    @property
+    def telemetry(self) -> PopulationTelemetry:
+        return self[3]
 
 
 class SharedPopulationCell(nn.Module):
     """One learned update rule reused by every runtime worker state.
 
-    Communication is O(active_workers * message_width) per recurrent round rather
-    than pairwise O(N^2): active workers write bounded messages into one shared
-    mean field and read that same bounded field on the next update.
+    `sparse_shared_v0` uses a bounded gated shared field. Every active worker reads
+    one message-width field, updates locally, then produces one gated candidate
+    message. Candidate messages are summed and bounded with tanh. Communication is
+    therefore O(active_workers * message_width), not pairwise O(N^2), and one rare
+    useful emission is not divided by the total population size.
     """
 
     def __init__(self, config: SharedPopulationConfig) -> None:
@@ -83,16 +90,20 @@ class SharedPopulationCell(nn.Module):
             config.local_input_width,
             config.state_width,
         )
-        self.message_projection = nn.Linear(
-            config.state_width,
-            config.message_width,
-        )
         self.update = nn.GRUCell(
             config.local_input_width + config.message_width,
             config.state_width,
         )
-        self.output_norm = nn.LayerNorm(config.state_width)
-        self.output_head = nn.Linear(config.state_width, config.output_width)
+        self.message_projection = nn.Linear(
+            config.state_width,
+            config.message_width,
+        )
+        self.message_gate = nn.Linear(config.state_width, 1)
+        self.output_norm = nn.LayerNorm(config.state_width + config.message_width)
+        self.output_head = nn.Linear(
+            config.state_width + config.message_width,
+            config.output_width,
+        )
 
     def forward(
         self,
@@ -101,6 +112,7 @@ class SharedPopulationCell(nn.Module):
         *,
         recurrent_rounds: int,
         communication_mode: CommunicationMode,
+        shared_seed: torch.Tensor | None = None,
     ) -> PopulationForwardOutput:
         if local_inputs.ndim != 3:
             raise ValueError(
@@ -130,54 +142,65 @@ class SharedPopulationCell(nn.Module):
         if not torch.all(mask.any(dim=1)):
             raise ValueError("every sample must activate at least one worker state")
 
+        batch_size, worker_count, _ = local_inputs.shape
+        if shared_seed is None:
+            seed = local_inputs.new_zeros(batch_size, self.config.message_width)
+        else:
+            if shared_seed.ndim != 2:
+                raise ValueError("shared_seed must have shape [batch, message_width]")
+            if shared_seed.shape != (batch_size, self.config.message_width):
+                raise ValueError(
+                    "shared_seed must match the local-input batch and message width"
+                )
+            seed = shared_seed.to(device=local_inputs.device, dtype=local_inputs.dtype)
+
         state = torch.tanh(self.input_projection(local_inputs))
         state = state * mask.unsqueeze(-1).to(dtype=state.dtype)
+        shared = seed
 
-        batch_size, worker_count, _ = local_inputs.shape
         active_states_per_batch = int(mask.sum().item())
         messages_emitted = 0
         communicated_scalars = 0
+        state_mask = mask.unsqueeze(-1)
 
         for _ in range(recurrent_rounds):
-            if communication_mode is CommunicationMode.SPARSE_SHARED_V0:
-                messages = self.message_projection(state)
-                message_mask = mask.unsqueeze(-1).to(dtype=messages.dtype)
-                messages = messages * message_mask
-                denominator = message_mask.sum(dim=1).clamp_min(1.0)
-                shared = messages.sum(dim=1) / denominator
-                shared_per_worker = shared.unsqueeze(1).expand(
-                    batch_size,
-                    worker_count,
-                    self.config.message_width,
-                )
-                messages_emitted += active_states_per_batch
-                # Count one bounded write and one bounded read per active state.
-                communicated_scalars += (
-                    2 * active_states_per_batch * self.config.message_width
-                )
-            else:
-                shared_per_worker = local_inputs.new_zeros(
-                    batch_size,
-                    worker_count,
-                    self.config.message_width,
-                )
-
+            shared_per_worker = shared.unsqueeze(1).expand(
+                batch_size,
+                worker_count,
+                self.config.message_width,
+            )
             update_input = torch.cat((local_inputs, shared_per_worker), dim=-1)
             flat_input = update_input.reshape(batch_size * worker_count, -1)
             flat_state = state.reshape(batch_size * worker_count, -1)
             candidate = self.update(flat_input, flat_state).reshape_as(state)
-            state = torch.where(mask.unsqueeze(-1), candidate, torch.zeros_like(candidate))
+            state = torch.where(state_mask, candidate, torch.zeros_like(candidate))
 
-        weights = mask.unsqueeze(-1).to(dtype=state.dtype)
+            if communication_mode is CommunicationMode.SPARSE_SHARED_V0:
+                gate = torch.sigmoid(self.message_gate(state))
+                messages = torch.tanh(self.message_projection(state)) * gate
+                messages = messages * state_mask.to(dtype=messages.dtype)
+                shared = torch.tanh(messages.sum(dim=1))
+                messages_emitted += active_states_per_batch
+                # One bounded field read and one candidate write per active state.
+                communicated_scalars += (
+                    2 * active_states_per_batch * self.config.message_width
+                )
+            else:
+                # The externally supplied seed is available to each local worker,
+                # but population-produced state never moves between workers.
+                shared = seed
+
+        weights = state_mask.to(dtype=state.dtype)
         pooled = (state * weights).sum(dim=1) / weights.sum(dim=1).clamp_min(1.0)
-        logits = self.output_head(self.output_norm(pooled))
+        readout = torch.cat((pooled, shared), dim=-1)
+        logits = self.output_head(self.output_norm(readout))
 
         telemetry = PopulationTelemetry(
             active_state_updates=active_states_per_batch * recurrent_rounds,
             messages_emitted=messages_emitted,
             communicated_scalar_count=communicated_scalars,
         )
-        return PopulationForwardOutput(logits, state, telemetry)
+        return PopulationForwardOutput(logits, state, shared, telemetry)
 
     def trainable_parameter_count(self) -> int:
         return sum(
