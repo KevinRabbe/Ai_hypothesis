@@ -1,111 +1,138 @@
-# AI Hypothesis — Population Model Research
+# AI Hypothesis — Neural Population Compute Research
 
-This repository investigates whether a fixed neural parameter and hardware budget can be used more effectively by organizing learned computation as a dynamically allocated population of many identical small neural processing units instead of one conventional dense network.
+This repository investigates whether a **fixed learned-parameter budget** can produce more capability when the same learned machinery is reused across a large, dynamic population of weak neural processing states instead of relying on one fixed dense computation path.
 
 ## Core hypothesis
 
-The goal is **not** to build thousands of autonomous agents.
+The goal is **not** to build thousands of autonomous agents or thousands of miniature ChatGPTs.
 
-The goal is to use the smallest **practical** identical learned worker that can perform useful local information transformations at useful latency and cost, then test whether populations of those workers can improve capability and resource efficiency.
+The target is one computational organism:
 
-A unit may be individually weak. Useful system-level capability is expected to come from:
+- one fixed learned parameter set;
+- many temporary runtime worker states;
+- shared/reused neural update machinery;
+- sparse bounded communication;
+- recurrent population updates;
+- dynamic activation so hard problems can spend more population compute than easy ones.
 
-- distributing large inputs across many units;
-- allocating more units where uncertainty or information density is high;
-- preserving rare but decisive evidence rather than using majority voting;
-- recursively combining local findings into higher-level representations;
-- using deterministic algorithms for routing, exact logic, validation, arithmetic, coordinates, scheduling, and other tasks that do not require learned prediction;
-- batching identical neural units efficiently on GPU hardware;
-- using the CPU for orchestration, evidence management, deterministic logic, and resource scheduling.
+An individual worker may know almost nothing and may be useless as a standalone model. The research question is whether useful intelligence can exist primarily in the **organization and interaction of the population**.
 
-The long-term reference budget is approximately **1 billion total learned parameters**, but scale is not a current milestone. The project first has to demonstrate an advantage at small scale.
+Ant colonies are an existence proof that weak local units can participate in strong collective behavior. They are inspiration, not a biological blueprint.
 
-## Central research question
+The long-term reference budget is approximately **1 billion learned parameters**, but the immediate experiment is deliberately small enough to falsify the architecture before scaling toward that budget.
 
-> At a fixed hardware and parameter budget, can a population of practical small learned workers produce more useful capability per unit of active compute than a conventional fixed dense model?
+## Primary research question
 
-The current immediate empirical sub-question is narrower:
+> **With learned parameters held fixed, does increasing population computation produce increasing system-level capability?**
 
-> When additional workers contain correct minority evidence that the population mean suppresses, can the runtime identify and use that evidence without trusting noisy minority outliers?
+The primary graph is:
+
+> **capability vs population compute at fixed learned parameters**
+
+If that curve remains flat after the preregistered communication variants are implemented correctly, the population-compute path is stopped or redirected rather than expanded indefinitely.
+
+## What changes and what stays fixed
+
+Across one scaling curve, keep fixed:
+
+- learned parameter count;
+- exact parameter fingerprint/checkpoint;
+- neural update architecture;
+- training data and procedure;
+- benchmark examples;
+- output decoding;
+- hardware;
+- compiler/execution mode.
+
+Vary only architecture-specific runtime quantities such as:
+
+- active/available worker states;
+- recurrent rounds;
+- communication budget/topology;
+- total worker updates.
+
+Runtime state, activation memory, communication traffic, latency, and FLOPs are **not free**. They are measured as part of the architecture.
 
 ## Core principles
 
-1. Workers contribute **evidence and transformations, not votes**.
-2. More workers are allocated to obtain missing or discriminating information, not merely to repeat the same opinion.
-3. Rare evidence must never be averaged away because it is held by a minority of workers.
-4. Deterministic logic should replace neural prediction wherever the task can be solved reliably without learning.
-5. End-to-end cost matters: routing, memory movement, batching, aggregation, and synchronization count against the architecture.
-6. If organization costs more than the compute it saves, that configuration fails.
-7. The population size is dynamic. Total parameters represent available capacity, not mandatory compute for every task.
-8. Worker shrinking is useful only while it improves the practical system. Parameter count is not an objective by itself.
-9. Consumer hardware is a first-class target. Inefficiency should not be hidden behind datacenter-scale compute.
-10. Established engineering facts should be reused rather than re-proven; experiments are reserved for architecture-specific uncertainty.
-11. Compiler optimization is a separate systems variable and must not be silently mixed into neural-architecture results.
-12. **Final architecture from day 1; minimal implementation from day 1.** Scale should improve or split implementations behind stable contracts rather than repeatedly redesigning the system.
-13. **Construction does not wait for empirical results.** Record uncertainty, freeze a provisional assumption behind a stable contract, continue independent construction, and run the deferred experiment when its result becomes decision-relevant.
+1. **Workers are weak processing elements, not complete agents.**
+2. **Parameter count and runtime population are separate quantities.** More workers must not silently mean more learned weights.
+3. **Population state can carry information.** Which workers are active, their local states, and bounded shared signals may be part of the computation.
+4. **Communication must remain sparse and bounded.** The architecture should not solve scaling by broadcasting every worker state to every other worker.
+5. **Recurrent compute is a first-class resource.** The same weights may be reused repeatedly when a problem needs more depth.
+6. **Dynamic activation is preferred to mandatory full-population execution.**
+7. **Deterministic algorithms should replace learned computation where exact logic is sufficient.**
+8. **All systems costs count.** Memory movement, communication, synchronization, routing, batching, and latency belong in the result.
+9. **Consumer hardware is a first-class target.** Initial experiments remain local to one PC.
+10. **Compiler optimization is a separate systems variable.** Compiler gains must not be reported as neural-architecture gains.
+11. **Negative results are valuable.** A failed scaling curve removes an architectural uncertainty.
 
-## Population scaling and the information bottleneck
+## Current research sequence
 
-At sufficiently large population sizes, neural execution may stop being the dominant scaling constraint.
+The new primary gate is documented in:
 
-A large worker population can generate observations, hypotheses, failures, contradictions, and candidate evidence in parallel. The shared runtime must still preserve, deduplicate, connect, verify, route, summarize, and exploit the useful subset.
+- [`experiments/population_compute_scaling_v0/README.md`](experiments/population_compute_scaling_v0/README.md)
+- [`docs/roadmap.md`](docs/roadmap.md)
+- [`docs/hypothesis.md`](docs/hypothesis.md)
 
-The project therefore distinguishes:
+The first benchmark family is a synthetic **collective relay** task. Multi-hop information is distributed across local worker contexts so no single worker receives the complete solution path. This lets the project separately measure scope, communication, recurrent depth, worker updates, and runtime-state cost before moving to richer workloads.
 
-- **exploration throughput** — how many meaningfully different evidence-producing attempts are executed per unit wall-clock time;
-- **knowledge integration bandwidth** — how much useful evidence becomes persistent, connected, actionable shared knowledge per unit wall-clock time without losing decisive minority information.
+Development population points are initially:
 
-The useful population limit may be reached when marginal workers generate useful information faster than the integration path can absorb it, even if additional neural compute remains available.
+- 1;
+- 4;
+- 16;
+- 64;
+- 256.
 
-This is a future scaling hypothesis, not a claim that the current 16-worker experiment is integration-bound. The present empirical uncertainty remains evidence utilization.
+Larger counts are attempted only if the small-scale curve justifies them.
 
-The intended scaling strategy is hierarchical: keep raw/local results close to their Work Threads, propagate only meaningful knowledge changes upward, and preserve references to the original evidence rather than broadcasting all information to all workers.
+## Required controls
 
-## Research and construction proceed independently
+Every serious population curve must include:
 
-Research gates define the order in which empirical uncertainties should be resolved **when their answers are needed**. They are not construction blockers.
+- **no communication** — extra local workers without inter-worker information flow;
+- **sparse communication** — the primary population architecture;
+- **serial compute control** — matched worker-update budget spent through a small number of recurrent states.
 
-The research sequence remains:
+These controls separate population effects from simple extra FLOPs or extra input coverage.
 
-1. minority-evidence utilization;
-2. useful population-width region;
-3. fixed-budget worker organization;
-4. population versus dense baselines;
-5. adaptive allocation;
-6. knowledge-integration bandwidth when volume justifies measuring it;
-7. real workloads;
-8. larger-scale validation only after useful behavior exists.
+## Previous work
 
-Construction proceeds continuously in parallel. When an experiment is deferred, its exact question and provisional assumption are recorded, while implementation continues through stable interfaces. A later result may replace a reducer, policy, threshold, storage strategy, or scheduler heuristic without stopping unrelated work or changing the architecture.
+Earlier experiments established that useful learned local transformations can survive in very small networks. The previous Step 1 sweep found a practical region around roughly 25K–100K parameters per independently trained unit, with ~50K used as a reference in later experiments.
 
-See [`docs/construction_policy.md`](docs/construction_policy.md) for the explicit non-blocking development rule.
+That result remains useful background, but **finding the smallest individually useful worker is no longer the primary objective**.
+
+The repository also contains a substantial persistent runtime, evidence/integration, partitioning, and large-scope benchmark stack. Those components are retained as reusable infrastructure. They do not count as evidence for the new fixed-parameter population-scaling hypothesis until exercised under the new scientific contract.
+
+## Existing architecture documentation
 
 See:
 
-- [`docs/hypothesis.md`](docs/hypothesis.md)
 - [`docs/runtime_architecture.md`](docs/runtime_architecture.md)
 - [`docs/architecture_contracts.md`](docs/architecture_contracts.md)
 - [`docs/construction_policy.md`](docs/construction_policy.md)
 - [`docs/research_questions.md`](docs/research_questions.md)
-- [`docs/roadmap.md`](docs/roadmap.md)
-- [`experiments/step_02_population_scaling/README.md`](experiments/step_02_population_scaling/README.md)
-- [`experiments/step_02_population_scaling/minority_rescue_v0.md`](experiments/step_02_population_scaling/minority_rescue_v0.md)
 - [`benchmarks/step_01_benchmark_v0.md`](benchmarks/step_01_benchmark_v0.md)
-- [`benchmarks/large_scope_relevance_v0.md`](benchmarks/large_scope_relevance_v0.md) — mechanically qualified controlled scope benchmark with paired diversity controls; frozen Worker-v1 empirical result still pending and no Gate 5 result is claimed.
-- [`benchmarks/large_scope_runtime_bridge_v0.md`](benchmarks/large_scope_runtime_bridge_v0.md) — persistent-runtime equivalence contract for the same benchmark workload.
-- [`benchmarks/large_scope_result_audit_v0.md`](benchmarks/large_scope_result_audit_v0.md) — pure-Python result-integrity audit and threshold-free reporting contract for the eventual frozen-checkpoint benchmark artifact.
+- [`benchmarks/large_scope_relevance_v0.md`](benchmarks/large_scope_relevance_v0.md)
+- [`benchmarks/large_scope_runtime_bridge_v0.md`](benchmarks/large_scope_runtime_bridge_v0.md)
+- [`benchmarks/large_scope_result_audit_v0.md`](benchmarks/large_scope_result_audit_v0.md)
+
+Those documents describe prior research and reusable system infrastructure. Where they conflict with the fixed-parameter population-compute gate, the new gate is authoritative for the current research objective.
 
 ## Current status
 
-**Step 1 worker shrinking is closed for the current phase.** The project already established a practical small-worker region and Step 2 uses the ~50K architecture as the frozen reference worker.
+**Gate 0A is active.**
 
-The latest Step 2A validation checkpoint uses 16 independently trained 50K workers. On 20,000 validation samples:
+Implemented in the current slice:
 
-- one-worker oracle-any-correct coverage was 94.825%;
-- 16-worker oracle-any-correct coverage reached 97.770%;
-- majority accuracy was 95.340%;
-- reducer-v0 accuracy was 95.260%;
-- 463 samples contained a true minority opportunity;
-- reducer-v0 rescued 19 of those opportunities.
+- fixed parameter identity/accounting contract;
+- frozen development population sizes;
+- communication-mode/control vocabulary;
+- preregistered per-curve minimum-effect rules;
+- deterministic collective-relay world generation;
+- explicit negative-result semantics.
 
-The population therefore already contains additional useful information. The minority-rescue diagnostic remains a deferred empirical test until its answer is needed for a reducer decision; it does **not** block construction of the stable runtime.
+Next implementation boundary:
+
+> build the smallest shared-weight recurrent worker-state model that can run the collective-relay benchmark without introducing specialized workers, a learned router, external memory, or compiler-specific optimization.

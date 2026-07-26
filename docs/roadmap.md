@@ -1,317 +1,401 @@
 # Research Roadmap
 
-The roadmap contains only uncertainties that still require architecture-specific evidence. Established engineering capabilities are reused and profiled when needed rather than re-proven as standalone experiments.
+The primary research objective is now:
 
-The project follows one additional rule:
+> **Determine whether capability scales with population computation while learned parameters remain fixed.**
 
-> **Build the smallest mechanism that removes the next demonstrated bottleneck. Preserve interfaces that make later scaling possible, but do not implement scale infrastructure before measurements require it.**
+The project does not proceed to a 1B-scale implementation merely because it is technically possible. Each gate must earn the next one.
 
-## Completed foundation — practical small-worker regime
+## Completed background — tiny local learned transformations
 
-The initial worker-size sweep established that useful learned transformations survive deep into the small-parameter regime. Worker shrinking is closed for the current phase.
+Earlier work established that useful local neural transformations survive in a very small parameter regime.
 
-Current decision:
+Observed reference region:
 
-- ~50K is frozen as Worker v1 for Step 2A;
-- ~25K / ~50K / ~75K remain candidates for a later equal-budget organization comparison;
-- smaller workers are revisited only if later results create a concrete reason.
+- ~10K parameters: difficult;
+- ~25K: smallest strong candidate region;
+- ~50K: practical reference;
+- ~75K / ~100K: larger references.
 
-The project optimizes for a **practical worker**, not minimum parameter count. Capability, functional diversity, latency, throughput, memory, and total system cost all matter.
+That work remains useful, but worker shrinking is no longer the primary goal.
 
-## Gate 1 — Minority evidence utilization — ACTIVE
+## Gate 0 — Fixed-parameter population scaling — ACTIVE
 
-Goal: determine whether the population can convert rare correct evidence into final capability without trusting noisy minority outliers.
+### Question
 
-Current evidence at width 16 already shows a material oracle-any-correct gap. The immediate problem is therefore utilization rather than discovery of additional population signal.
+> With one frozen learned model, does increasing runtime population computation increase capability?
 
-Tasks:
+### Frozen invariants
 
-- keep the 16 frozen 50K workers unchanged;
-- propose strong protected non-primary candidates without using truth;
-- measure how many primary errors become recoverable candidates;
-- fit a tiny rescue gate on development validation data only;
-- select a threshold under an explicit harm budget;
-- evaluate once on untouched validation confirmation data;
-- keep the frozen test set unopened.
+Across one compared scaling curve keep identical:
 
-Exit criterion:
+- learned parameter count;
+- exact parameter fingerprint/checkpoint;
+- shared update architecture;
+- training data and procedure;
+- benchmark worlds;
+- decoder;
+- hardware;
+- compiler/execution mode.
 
-- either demonstrate reproducible net rescue under an acceptable harm rate;
-- or identify whether the failure is candidate proposal or inability to distinguish useful minority evidence from noise.
+Compiler behavior is recorded but not changed inside the neural comparison.
 
-See [`experiments/step_02_population_scaling/minority_rescue_v0.md`](../experiments/step_02_population_scaling/minority_rescue_v0.md).
+### Variable resources
 
-This gate remains narrow. Do not mix persistent-runtime, scheduler, or large-scale integration changes into the rescue experiment.
+Measure and vary only:
 
-## Gate 2 — Useful population-width region
+- available/active worker states;
+- recurrent population rounds;
+- communication mode/budget;
+- total worker updates.
 
-Goal: with Worker v1 and the evidence-utilization mechanism frozen, determine where additional workers stop providing enough **new useful information** to justify their full end-to-end cost.
+Runtime state and activation memory are resources and must be recorded.
 
-Candidate widths:
+## Gate 0A — Executable scientific contract — IN PROGRESS
+
+Build the model-independent experiment boundary before training the neural architecture.
+
+Required:
+
+- fixed parameter identity validation;
+- deterministic benchmark generation;
+- population condition schema;
+- exact worker-update accounting;
+- communication accounting;
+- runtime-state memory accounting;
+- explicit no-communication and serial controls;
+- frozen development population counts;
+- negative-result semantics.
+
+Development counts:
 
 - 1;
 - 4;
 - 16;
 - 64;
-- 256 only if the smaller widths justify it.
+- 256.
 
-Measure:
+Current benchmark family: **collective relay**.
 
-- final quality;
-- oracle-any-correct coverage;
-- unique/rare evidence;
-- functional correlation;
-- duplicate versus unique findings;
-- raw evidence production rate where measurable;
-- useful/knowledge-changing evidence rate where measurable;
-- aggregation/integration latency;
-- latency and throughput;
-- end-to-end organization cost.
+The task distributes a multi-hop key/value chain across local contexts among distractors. No worker receives the complete path.
 
 Exit criterion:
 
-- identify the useful width region and where marginal gains saturate, become redundant, or become impractical to integrate.
+- benchmark worlds and accounting are deterministic, validated, and independent of later model tuning.
 
-Do not interpret the largest runnable width as the best width.
+## Gate 0B — Minimal shared-weight population
 
-## Gate 3 — Fixed-budget worker organization
+Build the smallest architecture that can express the hypothesis.
 
-Goal: identify the practical worker-size/population-width sweet spot under equal total learned-parameter budgets.
+Allowed:
 
-Initial homogeneous candidates:
+- one shared neural update cell;
+- one bounded state per runtime worker;
+- one bounded shared signal;
+- recurrent rounds;
+- deterministic orchestration;
+- homogeneous batching.
 
-- populations of ~25K workers;
-- populations of ~50K workers;
-- populations of ~75K workers.
+Not allowed yet:
 
-Keep training data, hardware, evaluation data, and total learned budget as comparable as practical.
+- independently trained worker checkpoints;
+- specialized worker classes;
+- learned global router;
+- external knowledge database;
+- large language model components;
+- hierarchical communication;
+- compiler-specific optimization;
+- multi-machine execution.
 
-Measure system-level value, not only individual-worker accuracy:
-
-- final quality;
-- useful evidence coverage;
-- unique contributions;
-- functional correlation;
-- evidence utilization;
-- execution and integration cost.
+The architecture should be deliberately simple enough that a negative result is interpretable.
 
 Exit criterion:
 
-- identify whether one worker granularity gives a reproducible capability/resource/information advantage.
+- model trains and executes correctly;
+- parameter count is independent of runtime population size;
+- exact parameter fingerprint remains identical across the scaling curve;
+- collective-relay outputs are produced through population state rather than an oracle/deterministic resolver.
 
-## Gate 4 — Population versus dense baseline
+## Gate 0C — Sparse shared communication v0
 
-Goal: test the central small-scale hypothesis directly.
+Primary communication design:
 
-Compare the best population configuration against conventional dense baselines under normalized:
+> `sparse_shared_v0`
 
-- parameter budget;
+Workers exchange only a bounded signal/state through the minimal shared communication mechanism.
+
+Run the development scaling curve at 1, 4, 16, 64, 256 workers.
+
+For each population point record:
+
+- solve rate by difficulty;
+- worker updates;
+- recurrent rounds;
+- messages/signals;
+- communicated scalar values/bytes;
+- peak worker-state bytes;
+- wall time;
+- device time where measurable;
+- utilization/batching telemetry where measurable.
+
+Matched controls:
+
+1. `no_communication`;
+2. `serial_control` with matched worker-update budget.
+
+Exit criterion:
+
+- development results are mechanically valid and sufficient to freeze the neural/training configuration for confirmation;
+- no scientific pass claim is made from tuning data alone.
+
+## Gate 0D — Frozen confirmation
+
+Before confirmation:
+
+- freeze architecture;
+- freeze training recipe;
+- freeze benchmark generation/splits;
+- freeze population sizes;
+- freeze interpretation thresholds;
+- freeze communication budget.
+
+Confirmation uses untouched worlds and at least three independent training seeds.
+
+Provisional per-curve minimum effect, to be frozen before trained development curves are inspected:
+
+- 256-worker solve rate at least +5 percentage points over 1 worker on at least two nontrivial difficulty tiers;
+- at least 3/4 adjacent population steps non-decreasing within 1 percentage-point tolerance;
+- communicating 256-worker endpoint at least +5 points over matched no-communication on at least one multi-hop tier;
+- exact learned parameter identity across every compared point.
+
+These are minimum continuation thresholds, not claims of optimality.
+
+## Gate 0E — One allowed communication rescue
+
+Only if `sparse_shared_v0` fails despite correct mechanics/training, test one additional preregistered communication structure:
+
+> `hierarchical_summary_v0`
+
+This may add:
+
+- bounded local groups;
+- bounded group summaries;
+- sparse promotion between groups.
+
+It may not change the benchmark objective, learned-parameter budget, or turn workers into complete agents.
+
+No third, fourth, or tenth communication redesign is allowed before a research reset.
+
+## Gate 0 decision
+
+### Continue
+
+Continue if fixed learned machinery shows reproducible positive capability scaling with additional population computation.
+
+### Stop / redirect
+
+Stop or redirect if both communication variants produce essentially flat capability while worker updates and communication increase.
+
+A negative result is successful research because it eliminates this architecture path.
+
+### Bottleneck result
+
+If capability scales but communication/memory/runtime costs grow faster than useful capability, continue only into the information-transport problem. Do not respond by making each worker larger unless evidence requires it.
+
+# Gate 1 — Scaling frontier
+
+Activate only after Gate 0 passes.
+
+Question:
+
+> How long does the positive population-compute curve persist?
+
+Candidate counts, subject to local hardware and batching viability:
+
+- 1,024;
+- 4,096;
+- 16,384;
+- higher counts up to the practical single-machine limit.
+
+Measure marginal capability gain per:
+
+- worker update;
+- communicated byte/scalar;
+- wall-clock second;
+- peak activation/state memory.
+
+Exit criterion:
+
+- identify the useful population-compute region and the first meaningful saturation/bottleneck.
+
+# Gate 2 — Population state vs ordinary extra compute
+
+Question:
+
+> Is population organization useful, or is the result explained by simply spending more recurrent compute?
+
+Compare under matched end-to-end budgets:
+
+- wide population;
+- serial/recurrent control;
+- conventional recurrent baseline;
+- dense baseline where appropriate.
+
+Normalize:
+
+- learned parameters;
 - training data;
+- worker-update/FLOP budget as closely as practical;
 - hardware;
-- runtime budget;
-- evaluation set.
-
-Measure quality, useful information extracted, evidence recall, latency, throughput, memory, active parameters, coordination/integration cost, and compute efficiency.
+- benchmark worlds.
 
 Exit criterion:
 
-- establish whether a useful population advantage exists on any meaningful capability/resource frontier.
+- demonstrate a workload where population organization gives a real capability/resource advantage, or accept that ordinary recurrent/dense compute is better.
 
-A consistently better dense baseline is a valid negative result and a stop/redirect signal.
+# Gate 3 — Dynamic activation
 
-## Minimal runtime foundation — BUILD ONLY WHEN NEEDED
+Activate only if fixed-width population organization is useful.
 
-A persistent runtime becomes useful when experiments move from one-shot fixed-width evaluation to long-lived Work Threads and adaptive allocation.
+Question:
 
-Build only five major pieces:
+> Can the system spend population compute according to difficulty without losing the fixed-parameter advantage?
 
-1. **Worker Bank** — homogeneous architecture, independently learned checkpoints;
-2. **Research Ledger** — append-only durable events and provenance;
-3. **State Projector** — current Work Threads, evidence, hypotheses, coverage, contradictions, and dependencies;
-4. **Scheduler v0** — deterministic priorities plus permanent structured-random exploration;
-5. **Worker Runtime** — bounded attempts, purpose-specific context views, batching, pause/resume, and commit of results.
+Vary dynamically:
 
-Do not build separate blackboard, handoff, failure-memory, progress-history, and checkpoint databases. They are views of the same Research Ledger.
+- active workers;
+- recurrent depth;
+- inspected scope;
+- communication budget.
 
-Do not build a learned scheduler until real traces demonstrate a limitation of deterministic allocation.
+Start with deterministic allocation. Do not add a learned scheduler until traces show a concrete limitation.
 
-Do not build distributed storage or multi-machine coordination until local measurements require it.
-
-The semantic architecture is frozen before implementation scale grows. See [`docs/runtime_architecture.md`](runtime_architecture.md) and [`docs/architecture_contracts.md`](architecture_contracts.md).
-
-## Gate 5 — Adaptive allocation
-
-Goal: determine whether the runtime can spend learned computation where it removes the most important uncertainty rather than using fixed width everywhere.
-
-The scheduler controls four primary dimensions:
-
-- **width** — number of independent attempts;
-- **depth** — repeated bounded attempts on persistent Work Threads;
-- **scope** — which source regions or information are examined;
-- **purpose** — `EXPLORE`, `PROGRESS`, `CHALLENGE`, `VERIFY`, or `SYNTHESIZE`.
-
-Construction note: [`benchmarks/large_scope_relevance_v0.md`](../benchmarks/large_scope_relevance_v0.md) implements and mechanically qualifies the controlled scope-only versus diverse-weight benchmark, including an exact shared-base width-1 control and paired diverse-minus-same statistics. This does **not** activate Gate 5: the frozen Worker-v1 development result is still pending, and no adaptive-allocation result is claimed.
-
-Scheduler v0 should:
-
-- start from simple deterministic priorities;
-- reserve a nonzero structured-random exploration budget;
-- prefer under-covered possibilities during discovery;
-- intentionally duplicate important claims during verification;
-- rotate workers when progress stagnates rather than preserving an unbounded worker-owned loop;
-- preserve work even when workers are stopped or reassigned.
-
-Candidate triggers for additional work include:
-
-- unresolved contradiction;
-- missing discriminating evidence;
-- low signal quality;
-- disagreement;
-- local information density;
-- failure of an earlier processing round;
-- under-covered hypothesis/source region;
-- high-impact claim requiring replication.
-
-Compare adaptive execution against fixed-width execution under equal end-to-end budgets.
+Compare adaptive execution against matched fixed-width execution.
 
 Exit criterion:
 
-- show a reproducible workload where adaptive allocation improves the practical information/capability frontier.
+- harder tasks reliably consume more population compute and improve the capability/resource frontier.
 
-## Gate 6 — Knowledge integration bandwidth — ACTIVATE ONLY WHEN VOLUME JUSTIFIES IT
+# Gate 4 — Information transport and integration bandwidth
 
-Goal: determine when useful information production from the worker population begins to exceed the runtime's ability to preserve, connect, verify, route, summarize, and exploit it.
+Activate when measurements show communication or integration becoming the limiting resource.
 
-This is expected to be a potential **large-population scaling bottleneck**, not an assumed current bottleneck.
+Question:
 
-Distinguish:
-
-- **exploration throughput** — meaningfully different evidence-producing attempts per unit wall-clock time;
-- **knowledge integration bandwidth** — useful evidence successfully incorporated into persistent, connected, actionable shared knowledge per unit wall-clock time without losing rare decisive information.
+> How much useful information can the population move and integrate before communication dominates neural computation?
 
 Measure:
 
-- raw evidence production rate;
-- unique useful evidence rate;
-- knowledge-changing event rate;
-- duplicate/irrelevant output rate;
-- integration latency;
-- integration backlog depth and age;
-- verification throughput;
-- rare-evidence retention;
-- provenance recoverability;
-- summary/compression loss;
-- memory and communication volume;
-- scheduler/integration compute.
+- message rate;
+- useful-message fraction where measurable;
+- communicated bytes/scalars;
+- synchronization cost;
+- local-to-shared state promotion;
+- backlog depth/age if persistent integration is used;
+- compression/summary loss;
+- rare decisive information retention;
+- memory movement.
 
-Trigger for this gate:
+Preferred progression:
 
-- evidence volume or backlog measurements show that adding useful workers is becoming limited by information handling rather than worker execution.
+1. bounded shared signal;
+2. local neighborhoods/groups;
+3. hierarchical summaries;
+4. only then more complex routing if measured need exists.
 
-If triggered, test the smallest sufficient hierarchy:
-
-```text
-worker attempts
-    -> local/thread evidence
-    -> branch/topic integration
-    -> cross-topic integration
-    -> global knowledge changes
-```
-
-Important constraints:
-
-- propagate **knowledge-changing deltas**, not complete histories;
-- keep raw evidence recoverable through stable provenance references;
-- do not broadcast all global knowledge to all workers;
-- allow the same homogeneous workers to execute integration Work Threads before introducing specialized integration models.
+Never broadcast complete global state to all workers merely because it is easy to implement.
 
 Exit criterion:
 
-- identify the useful information-volume frontier and demonstrate an integration architecture that keeps backlog bounded and preserves decisive evidence at the tested scale;
-- or establish that knowledge integration prevents further useful population scaling.
+- demonstrate bounded information movement across the useful population range, or establish communication as the scaling limit.
 
-## Gate 7 — Real workloads
+# Gate 5 — Richer learned workloads
 
-Goal: determine where the architecture is genuinely useful outside the synthetic benchmark.
+Only after the synthetic substrate works.
 
-Candidates:
+Candidate workload families:
 
 - large-document analysis;
 - image-region understanding;
-- logs and event streams;
 - codebase analysis;
+- event/log streams;
 - anomaly detection;
-- multi-stage planning;
-- research-like search with many plausible approaches and falsifiable hypotheses.
+- multi-stage reasoning/planning;
+- research-like hypothesis exploration.
 
-Tiling, source coordinates, overlap, zoom-in, deterministic routing, persistent Work Threads, and hierarchical reduction are implementation techniques, not standalone discoveries.
-
-Measure whether the complete system:
-
-- discovers useful possibilities a single-stream baseline misses;
-- preserves both successful and failed evidence-producing attempts;
-- avoids premature convergence by maintaining exploration while progressing strong branches;
-- keeps local context bounded as global work grows;
-- preserves rare decisive evidence through integration;
-- improves useful capability/resource trade-offs after full information-handling cost is counted.
+The goal is not benchmark accumulation. Select workloads where distributed weak processing has a plausible structural advantage.
 
 Exit criterion:
 
-- identify at least one real workload class where the architecture provides a practical advantage.
+- identify at least one non-toy workload where the population-compute mechanism survives real learned ambiguity and still improves the practical resource/capability frontier.
 
-## Gate 8 — Scale only after advantage
+# Gate 6 — Toward the ~1B learned-parameter reference
 
-Only after a small-scale advantage is established, test whether it survives larger total learned capacity, active population, workload size, and information volume.
+Only after smaller experiments establish a real advantage.
 
-Scaling toward approximately 1B total learned parameters is a later reference point. It is not a current target and must not hide weak small-scale results behind more compute.
+The goal is not:
 
-Larger populations are conceptually possible, but worker count is never the objective.
+> split 1B parameters into thousands of small independent models.
 
-Scale only while:
+The goal is:
 
-- marginal workers add meaningful possibility coverage;
-- that coverage generates useful evidence;
-- evidence utilization preserves minority discoveries;
-- integration bandwidth keeps up without unbounded backlog;
-- end-to-end capability continues to improve at acceptable cost.
+> **use a fixed ~1B learned system as shared machinery for a potentially very large dynamic population of weak neural states.**
 
-The useful population limit may therefore be determined by **information integration**, not by the maximum number of workers that can technically be executed.
+At this stage investigate:
 
-## Systems ablations that are not research gates
+- how much of the 1B budget belongs in shared worker machinery;
+- whether a sparse specialist parameter bank adds value under a fixed total budget;
+- population-state dimensionality;
+- memory systems;
+- topology/routing;
+- dynamic activation;
+- compiler optimization as a separate experimental variable.
 
-Implement/profile these when required:
+Exit criterion:
 
-- homogeneous GPU batching/vectorization;
+- compare against strong parameter-matched baselines and report the complete cost frontier honestly.
+
+# Systems variables that are not research claims
+
+Profile or optimize these only when needed:
+
+- GPU batching/vectorization;
 - CPU/GPU task placement;
-- deterministic routing and exact logic;
-- bounded queues and backpressure;
-- memory-transfer minimization;
-- source/coordinate tracking;
-- input partitioning and overlap;
-- local durable persistence;
-- hierarchical data structures;
-- observability/dashboard metrics;
-- compiler modes and graph/fusion optimizations;
-- quantization when memory/throughput measurements justify it.
+- memory layout;
+- queueing/backpressure;
+- tensor fusion;
+- compilation;
+- quantization;
+- checkpoint/state serialization;
+- storage/indexing;
+- observability.
 
-Compiler behavior remains a **separate systems variable**. Compare the same neural workers and population policy under execution modes rather than treating compiler gains as neural-architecture gains.
+Compiler mode must remain a separate variable from neural architecture.
 
-The existence of these techniques does not need to be re-proven. Only their measured effect on this implementation matters.
+# Scope exclusions
+
+Current research is local to one PC.
+
+Do not spend experiments on:
+
+- geographic distribution;
+- multi-machine latency tolerance;
+- datacenter networking;
+- distributed consensus.
+
+Those are established engineering domains and not current uncertainties.
 
 # Global stop conditions
 
-Stop or redirect a path when evidence shows that:
+Stop or redirect a path when reproducible evidence shows that:
 
-- additional population signal cannot be converted into usable capability;
-- correct minority evidence cannot be distinguished from harmful outliers well enough to matter;
-- population width adds no meaningful possibility coverage or useful information;
-- duplicate/correlated work dominates additional width;
-- latency makes the workers impractical;
-- organization or memory movement dominates useful compute;
-- useful evidence is generated faster than it can be integrated and the backlog cannot be bounded economically;
-- hierarchical summaries lose decisive evidence or provenance;
-- verification cannot keep pace with consequential claims;
-- equal-budget dense baselines are consistently better;
-- apparent gains disappear on untouched confirmation or real workloads.
+- capability does not rise with population compute at fixed learned parameters;
+- communication adds no useful capability beyond independent workers;
+- population gains are fully dominated by a simpler serial/recurrent control;
+- runtime state or communication cost destroys the practical advantage;
+- batching/utilization collapses at the required granularity;
+- scaling disappears on untouched confirmation worlds;
+- richer workloads do not preserve the synthetic advantage;
+- strong parameter/resource-matched dense or recurrent baselines are consistently better.
 
-A negative result is valuable because it removes an uncertainty and prevents unnecessary engineering work.
+A negative result removes uncertainty and prevents unnecessary engineering work.
