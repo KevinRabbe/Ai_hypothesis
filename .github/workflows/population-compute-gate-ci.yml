@@ -38,16 +38,25 @@ jobs:
       - name: Parse target-GPU PowerShell runner
         shell: pwsh
         run: |
+          $runnerPath = Resolve-Path 'scripts/run_gate1_resource_frontier.ps1'
           $tokens = $null
           $parseErrors = $null
           [System.Management.Automation.Language.Parser]::ParseFile(
-              (Resolve-Path 'scripts/run_gate1_resource_frontier.ps1'),
+              $runnerPath,
               [ref]$tokens,
               [ref]$parseErrors
           ) | Out-Null
           if ($parseErrors.Count -gt 0) {
               $parseErrors | ForEach-Object { Write-Error $_.Message }
               exit 1
+          }
+
+          $runnerText = Get-Content -Raw $runnerPath
+          if ($runnerText -match '&\s+python\s+-c\s+\$verifyCode') {
+              throw 'Gate-1 verifier must not pass multiline Python through python -c; Windows native quoting corrupts embedded quotes.'
+          }
+          if ($runnerText -notmatch '&\s+python\s+\$verifyScriptPath') {
+              throw 'Gate-1 verifier must execute the temporary Python verifier file.'
           }
 
       - name: Run population-compute contract regressions
