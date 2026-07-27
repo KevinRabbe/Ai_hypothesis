@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import tempfile
 import unittest
@@ -185,6 +186,7 @@ class RelayResourceFrontierTests(unittest.TestCase):
                 config,
                 root / "model-v1.pt",
             )
+            expected_checkpoint_sha256 = hashlib.sha256(checkpoint.read_bytes()).hexdigest()
             output = root / "frontier.json"
             exit_code = run_frontier(
                 [
@@ -211,6 +213,7 @@ class RelayResourceFrontierTests(unittest.TestCase):
             payload = json.loads(output.read_text(encoding="utf-8"))
             self.assertEqual(payload["benchmark_version"], RESOURCE_FRONTIER_VERSION)
             self.assertEqual(payload["checkpoint"]["training_seed"], 99)
+            self.assertEqual(payload["checkpoint"]["file_sha256"], expected_checkpoint_sha256)
             self.assertEqual(len(payload["comparisons"]), 1)
             row = payload["comparisons"][0]
             self.assertTrue(row["outputs_equivalent"])
