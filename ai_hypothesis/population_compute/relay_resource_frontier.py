@@ -17,6 +17,7 @@ equal total learned work.
 
 from __future__ import annotations
 
+import hashlib
 import math
 import platform
 import statistics
@@ -378,7 +379,12 @@ def benchmark_relay_resource_condition(
         "serial_cached_normalized": normalized_serial_cached_forward,
     }
     names = ("parallel_normalized", "serial_normalized", "serial_cached_normalized")
-    rotation = (batch.active_workers + int(batch.local_inputs.shape[0]) + difficulty.hop_count) % 3
+    rotation = _measurement_rotation(
+        difficulty=difficulty.name,
+        active_workers=batch.active_workers,
+        batch_size=int(batch.local_inputs.shape[0]),
+        relay_hops=difficulty.hop_count,
+    )
     measurement_order = names[rotation:] + names[:rotation]
     measured: dict[str, RelayScheduleMeasurement] = {}
     for name in measurement_order:
@@ -433,6 +439,21 @@ def benchmark_relay_resource_condition(
     )
     comparison.validate()
     return comparison
+
+
+def _measurement_rotation(
+    *,
+    difficulty: str,
+    active_workers: int,
+    batch_size: int,
+    relay_hops: int,
+) -> int:
+    """Stable schedule-order rotation derived from the full benchmark condition."""
+
+    payload = f"{RESOURCE_FRONTIER_VERSION}|{difficulty}|{active_workers}|{batch_size}|{relay_hops}"
+    digest = hashlib.sha256(payload.encode("utf-8")).digest()
+    return int.from_bytes(digest[:8], "big", signed=False) % 3
+
 
 
 def runtime_provenance(device: torch.device) -> dict[str, object]:
