@@ -34,4 +34,5 @@ jobs:
         run: |
           python -m unittest \
             tests/test_large_scope_result_contract.py \
-            tests/test_large_scope_validate_result_cli.py
+            tests/test_large_scope_validate_result_cli.py \
+            tests/test_large_scope_public_result_contract.py
