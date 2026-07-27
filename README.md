@@ -151,6 +151,7 @@ See:
 - [`docs/architecture_contracts.md`](docs/architecture_contracts.md)
 - [`docs/construction_policy.md`](docs/construction_policy.md)
 - [`docs/research_questions.md`](docs/research_questions.md)
+- [`docs/evolutionary_organism_direction.md`](docs/evolutionary_organism_direction.md) — preserved future direction for hybrid gradient/evolutionary optimization of whole shared-weight organisms.
 - [`benchmarks/large_scope_relevance_v0.md`](benchmarks/large_scope_relevance_v0.md)
 - [`benchmarks/large_scope_runtime_bridge_v0.md`](benchmarks/large_scope_runtime_bridge_v0.md)
 
