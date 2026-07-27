@@ -1,0 +1,37 @@
+name: Large-scope result contract qualification
+
+on:
+  push:
+    branches:
+      - agent/large-scope-result-contract-v0
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  result-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PYTHONPATH: .
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Compile result-contract modules
+        run: |
+          python -m compileall -q \
+            ai_hypothesis/large_scope/result_contract.py \
+            ai_hypothesis/large_scope/validate_result.py
+
+      - name: Run result-contract regressions
+        run: |
+          python -m unittest \
+            tests/test_large_scope_result_contract.py \
+            tests/test_large_scope_validate_result_cli.py
