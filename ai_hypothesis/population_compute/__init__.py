@@ -30,6 +30,12 @@ from .model import (
     SharedPopulationCell,
     SharedPopulationConfig,
 )
+from .relay_resource_audit import (
+    RelayResourceAudit,
+    RelayResourceBatchSummary,
+    audit_relay_resource_result,
+    render_relay_resource_markdown,
+)
 from .relay_resource_frontier import (
     RESOURCE_FRONTIER_VERSION,
     RelayResourceBenchmarkConfig,
@@ -63,6 +69,8 @@ __all__ = [
     "PopulationTelemetry",
     "RelayDifficulty",
     "RelayRecord",
+    "RelayResourceAudit",
+    "RelayResourceBatchSummary",
     "RelayResourceBenchmarkConfig",
     "RelayResourceComparison",
     "RelayResourceFrontierResult",
@@ -73,6 +81,7 @@ __all__ = [
     "SharedPopulationCell",
     "SharedPopulationConfig",
     "assess_scaling_curve",
+    "audit_relay_resource_result",
     "benchmark_relay_resource_condition",
     "benchmark_relay_resource_frontier",
     "generate_relay_dataset",
@@ -83,6 +92,7 @@ __all__ = [
     "normalized_serial_forward",
     "relay_population_points",
     "relay_scope_thresholds",
+    "render_relay_resource_markdown",
     "resolve_relay",
     "runtime_provenance",
     "validate_fixed_parameter_identity",
