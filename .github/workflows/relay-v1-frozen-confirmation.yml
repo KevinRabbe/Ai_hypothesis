@@ -1,0 +1,93 @@
+name: Relay v1 frozen confirmation
+
+on:
+  push:
+    branches:
+      - agent/relay-v1-frozen-confirmation
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  frozen-confirmation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      PYTHONPATH: .
+
+    steps:
+      - name: Check out frozen confirmation branch
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install CPU Torch
+        run: |
+          python -m pip install --disable-pip-version-check torch --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Record runner provenance
+        shell: bash
+        run: |
+          mkdir -p confirmation
+          python --version > confirmation/python-version.txt 2>&1
+          python -c "import torch; print(torch.__version__)" > confirmation/torch-version.txt
+          uname -a > confirmation/uname.txt
+          lscpu > confirmation/lscpu.txt
+          printf '%s\n' 'execution_mode=eager' > confirmation/execution-mode.txt
+          printf '%s\n' 'training_seeds=1,2,3' > confirmation/training-seeds.txt
+
+      - name: Compile frozen confirmation implementation
+        run: |
+          python -m compileall -q \
+            ai_hypothesis/population_compute/relay_protocol_v1.py \
+            ai_hypothesis/population_compute/relay_experiment_v1.py \
+            ai_hypothesis/population_compute/confirmation_gate_v1.py \
+            experiments/population_compute_scaling_v0/run_frozen_confirmation_v1.py
+
+      - name: Run frozen structural and lock regressions
+        run: |
+          python -m unittest \
+            tests/test_population_compute_contract.py \
+            tests/test_collective_relay.py \
+            tests/test_relay_serial_control.py \
+            tests/test_relay_experiment_v1.py \
+            tests/test_run_relay_scaling_v1.py \
+            tests/test_confirmation_gate_v1.py
+
+      - name: Execute frozen confirmation seeds 1 2 3
+        shell: bash
+        run: |
+          set +e
+          python experiments/population_compute_scaling_v0/run_frozen_confirmation_v1.py \
+            --device cpu \
+            --output-dir confirmation/run \
+            > confirmation/stdout.json \
+            2> confirmation/stderr.log
+          echo $? > confirmation/status
+          exit 0
+
+      - name: Upload frozen confirmation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: relay-v1-frozen-confirmation
+          path: confirmation/
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Enforce execution integrity only
+        shell: bash
+        run: |
+          status="$(cat confirmation/status)"
+          if [ "$status" -ne 0 ]; then
+            echo "Frozen confirmation execution failed with exit $status"
+            cat confirmation/stderr.log
+            exit "$status"
+          fi
+          echo "Frozen confirmation executed successfully."
+          echo "The scientific Gate result is read from confirmation/run/confirmation-gate.json and may be positive or negative."
