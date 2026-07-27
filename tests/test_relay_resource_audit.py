@@ -24,7 +24,7 @@ SCHEDULES = (
     "serial_normalized",
     "serial_cached_normalized",
 )
-FINGERPRINT = "a" * 64
+FINGERPRINT = "c227ade9006e47bec17a2a3d5aedf6ac95a6a94607b96b9f52ab759905536c12"
 
 
 def schedule(
@@ -213,6 +213,7 @@ class RelayResourceAuditTests(unittest.TestCase):
     def test_frozen_tolerance_row_identity_and_cuda_memory_drift_are_rejected(self) -> None:
         payload = canonical_payload()
         payload["config"]["equivalence_rtol"] = 1e-4
+        payload["checkpoint"]["training_seed"] = 2
         first = payload["comparisons"][0]
         first["parameter_fingerprint"] = "b" * 64
         first["parallel_learned_span_proxy"] += 1
@@ -222,6 +223,7 @@ class RelayResourceAuditTests(unittest.TestCase):
         audit = audit_relay_resource_result(payload)
         self.assertFalse(audit.protocol_valid)
         self.assertTrue(any("equivalence_rtol" in reason for reason in audit.reasons))
+        self.assertTrue(any("checkpoint training_seed" in reason for reason in audit.reasons))
         self.assertTrue(any("parameter fingerprint differs" in reason for reason in audit.reasons))
         self.assertTrue(any("parallel learned-span proxy" in reason for reason in audit.reasons))
         self.assertTrue(any("warm-up count" in reason for reason in audit.reasons))
