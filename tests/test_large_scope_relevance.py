@@ -109,6 +109,11 @@ class LargeScopeRelevanceTests(unittest.TestCase):
         self.assertEqual(same_16[:4], same_4)
         self.assertEqual(len(set(diverse_16)), 16)
         self.assertEqual(diverse_16[:4], diverse_4)
+        self.assertEqual(same_4[0], diverse_4[0])
+        self.assertEqual(
+            same_worker_indices(seed=7, width=1, population_width=16),
+            diverse_worker_indices(seed=7, width=1, population_width=16),
+        )
 
     def test_diverse_width_cannot_exceed_available_population(self) -> None:
         with self.assertRaisesRegex(ValueError, "cannot exceed"):

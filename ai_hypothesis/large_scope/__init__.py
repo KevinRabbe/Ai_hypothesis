@@ -14,6 +14,7 @@ from .metrics import (
     ScopeMetricsAccumulator,
     summarize_scope_evaluations,
 )
+from .paired_metrics import ScopePairedMetricsAccumulator, ScopePairedSummary
 from .persistent_experiment import (
     PersistentScopeEvaluation,
     PersistentScopeEvaluationProjector,
@@ -60,6 +61,8 @@ __all__ = [
     "ScopeConditionSummary",
     "ScopeEvaluation",
     "ScopeMetricsAccumulator",
+    "ScopePairedMetricsAccumulator",
+    "ScopePairedSummary",
     "ScopeWorkerMode",
     "WindowEvidence",
     "diverse_worker_indices",

@@ -18,6 +18,7 @@ from ai_hypothesis.step02.population import HomogeneousWorkerBank
 
 from .evaluate import ScopeWorkerMode, evaluate_scope_batch
 from .metrics import ScopeMetricsAccumulator
+from .paired_metrics import ScopePairedMetricsAccumulator
 from .relevance import (
     LARGE_SCOPE_BENCHMARK_VERSION,
     LARGE_SCOPE_SPLIT_SEED_RANGES,
@@ -90,6 +91,10 @@ def main(argv: list[str] | None = None) -> int:
     if widths[-1] > args.window_count:
         raise SystemExit("largest width cannot exceed --window-count")
 
+    modes = tuple(ScopeWorkerMode(value) for value in args.modes)
+    if len(set(modes)) != len(modes):
+        raise SystemExit("--modes must be unique")
+
     config = LargeScopeRelevanceConfig(
         window_count=args.window_count,
         target_difficulty=Difficulty(args.target_difficulty),
@@ -97,7 +102,6 @@ def main(argv: list[str] | None = None) -> int:
         ambiguous_distractor_fraction=args.ambiguous_distractor_fraction,
     )
     config.validate()
-    modes = tuple(ScopeWorkerMode(value) for value in args.modes)
 
     bank = HomogeneousWorkerBank.from_checkpoints(
         args.checkpoints,
@@ -111,6 +115,14 @@ def main(argv: list[str] | None = None) -> int:
 
     evidence_config = AggregationConfig()
     accumulator = ScopeMetricsAccumulator()
+    paired_accumulator = (
+        ScopePairedMetricsAccumulator()
+        if {
+            ScopeWorkerMode.SAME_WORKER,
+            ScopeWorkerMode.DIVERSE_WORKERS,
+        }.issubset(set(modes))
+        else None
+    )
     dataset = generate_large_scope_dataset(
         args.split,
         args.world_count,
@@ -123,17 +135,23 @@ def main(argv: list[str] | None = None) -> int:
     for samples in _world_batches(dataset, args.world_batch_size):
         for mode in modes:
             for width in widths:
-                for evaluation in evaluate_scope_batch(
+                evaluations = evaluate_scope_batch(
                     bank,
                     samples,
                     width=width,
                     mode=mode,
                     evidence_config=evidence_config,
-                ):
+                )
+                for evaluation in evaluations:
                     accumulator.add(evaluation)
+                    if paired_accumulator is not None:
+                        paired_accumulator.add(evaluation)
     _synchronize(bank)
     elapsed = time.perf_counter() - started
 
+    paired_summaries = (
+        paired_accumulator.summaries() if paired_accumulator is not None else ()
+    )
     payload = {
         "benchmark_version": LARGE_SCOPE_BENCHMARK_VERSION,
         "split": args.split,
@@ -157,6 +175,7 @@ def main(argv: list[str] | None = None) -> int:
             args.world_count * len(modes) * sum(widths)
         ),
         "summaries": [summary.to_dict() for summary in accumulator.summaries()],
+        "paired_summaries": [summary.to_dict() for summary in paired_summaries],
     }
 
     output = Path(args.output)

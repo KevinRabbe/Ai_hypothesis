@@ -91,7 +91,7 @@ See:
 - [`experiments/step_02_population_scaling/README.md`](experiments/step_02_population_scaling/README.md)
 - [`experiments/step_02_population_scaling/minority_rescue_v0.md`](experiments/step_02_population_scaling/minority_rescue_v0.md)
 - [`benchmarks/step_01_benchmark_v0.md`](benchmarks/step_01_benchmark_v0.md)
-- [`benchmarks/large_scope_relevance_v0.md`](benchmarks/large_scope_relevance_v0.md) — constructed controlled scope benchmark; no Gate 5 result is claimed.
+- [`benchmarks/large_scope_relevance_v0.md`](benchmarks/large_scope_relevance_v0.md) — mechanically qualified controlled scope benchmark with paired diversity controls; frozen Worker-v1 empirical result still pending and no Gate 5 result is claimed.
 - [`benchmarks/large_scope_runtime_bridge_v0.md`](benchmarks/large_scope_runtime_bridge_v0.md) — persistent-runtime equivalence contract for the same benchmark workload.
 
 ## Current status
