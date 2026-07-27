@@ -285,6 +285,7 @@ The decisive Gate-1 run is frozen to confirmation **training seed 1**, which was
 ```text
 training_seed = 1
 parameter_fingerprint = c227ade9006e47bec17a2a3d5aedf6ac95a6a94607b96b9f52ab759905536c12
+checkpoint_file_sha256 = 0b7c1f2a14fe9d2987819ed53fc0b55c04f3bb00bce356c1023778830a08ad26
 source = frozen confirmation artifact 8642866100 / run 30239005530 / run/seed_1/model-v1.pt
 ```
 

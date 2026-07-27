@@ -29,6 +29,7 @@ CANONICAL_EQUIVALENCE_ATOL = 2e-5
 CANONICAL_LEARNED_PARAMETER_COUNT = 26_669
 CANONICAL_RESOURCE_TRAINING_SEED = 1
 CANONICAL_RESOURCE_PARAMETER_FINGERPRINT = "c227ade9006e47bec17a2a3d5aedf6ac95a6a94607b96b9f52ab759905536c12"
+CANONICAL_RESOURCE_CHECKPOINT_FILE_SHA256 = "0b7c1f2a14fe9d2987819ed53fc0b55c04f3bb00bce356c1023778830a08ad26"
 CANONICAL_EXPERIMENT_VERSION = "population-compute-relay-training-v1"
 CANONICAL_PROTOCOL_VERSION = "relay-protocol-v1-normalized-gate-supervised"
 CANONICAL_RELAY_BENCHMARK_VERSION = "collective-relay-v1-answer-frontier"
@@ -178,6 +179,12 @@ def audit_relay_resource_result(
             "checkpoint parameter_fingerprint",
             checkpoint.get("parameter_fingerprint"),
             CANONICAL_RESOURCE_PARAMETER_FINGERPRINT,
+        )
+        _expect_equal(
+            reasons,
+            "checkpoint file_sha256",
+            checkpoint.get("file_sha256"),
+            CANONICAL_RESOURCE_CHECKPOINT_FILE_SHA256,
         )
         _expect_equal(
             reasons,
