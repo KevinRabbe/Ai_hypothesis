@@ -59,6 +59,12 @@ jobs:
               throw 'Gate-1 verifier must execute the temporary Python verifier file.'
           }
 
+          $statusIndex = $runnerText.IndexOf('$gitStatus = @(& git status --porcelain)')
+          $outputCreateIndex = $runnerText.IndexOf('New-Item -ItemType Directory -Force -Path $OutputRoot')
+          if ($statusIndex -lt 0 -or $outputCreateIndex -lt 0 -or $statusIndex -gt $outputCreateIndex) {
+              throw 'Gate-1 runner must check repository cleanliness before creating its output directory.'
+          }
+
       - name: Run population-compute contract regressions
         shell: bash
         run: |
