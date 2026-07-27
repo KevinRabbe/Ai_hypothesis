@@ -55,14 +55,35 @@ jobs:
           if ($runnerText -match '&\s+python\s+-c\s+\$verifyCode') {
               throw 'Gate-1 verifier must not pass multiline Python through python -c; Windows native quoting corrupts embedded quotes.'
           }
-          if ($runnerText -notmatch '&\s+python\s+\$verifyScriptPath') {
-              throw 'Gate-1 verifier must execute the temporary Python verifier file.'
+          if ($runnerText -notmatch '&\s+python\s+\$verifyScriptPath\s+\$RepoRoot\s+\$CheckpointPath') {
+              throw 'Gate-1 verifier must execute the temporary Python verifier with the repository root before checkpoint arguments.'
+          }
+          if ($runnerText -notmatch 'sys\.path\.insert\(0, repo_root\)') {
+              throw 'Gate-1 temporary verifier must restore the repository root on Python sys.path.'
           }
 
           $statusIndex = $runnerText.IndexOf('$gitStatus = @(& git status --porcelain)')
           $outputCreateIndex = $runnerText.IndexOf('New-Item -ItemType Directory -Force -Path $OutputRoot')
           if ($statusIndex -lt 0 -or $outputCreateIndex -lt 0 -or $statusIndex -gt $outputCreateIndex) {
               throw 'Gate-1 runner must check repository cleanliness before creating its output directory.'
+          }
+
+          $tempProbe = Join-Path ([System.IO.Path]::GetTempPath()) ('ai-hypothesis-import-probe-' + [Guid]::NewGuid().ToString('N') + '.py')
+          try {
+              @'
+import sys
+repo_root = sys.argv[1]
+if repo_root not in sys.path:
+    sys.path.insert(0, repo_root)
+import ai_hypothesis.population_compute.relay_experiment_v1
+'@ | Set-Content -Encoding UTF8 $tempProbe
+              & python $tempProbe (Resolve-Path '.')
+              if ($LASTEXITCODE -ne 0) {
+                  throw 'External temporary Python verifier cannot import the repository package after repo-root injection.'
+              }
+          }
+          finally {
+              Remove-Item -Force -ErrorAction SilentlyContinue $tempProbe
           }
 
       - name: Run population-compute contract regressions
