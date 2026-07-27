@@ -1,0 +1,83 @@
+name: Mixed-population repaired curve diagnostic
+
+on:
+  push:
+    branches:
+      - agent/mixed-population-repaired-curve-diagnostic-v0
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  repaired-curve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      PYTHONPATH: .
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install CPU Torch
+        run: python -m pip install --disable-pip-version-check torch --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Compile repaired curve diagnostic
+        run: |
+          python -m compileall -q \
+            ai_hypothesis/population_compute/model.py \
+            ai_hypothesis/population_compute/relay_model.py \
+            ai_hypothesis/population_compute/relay_experiment.py \
+            experiments/population_compute_scaling_v0/diagnose_mixed_population_repaired_curve.py
+
+      - name: Run population and relay structural regressions
+        run: |
+          python -m unittest \
+            tests/test_shared_population_cell.py \
+            tests/test_relay_population_model.py \
+            tests/test_compositional_relay_protocol.py \
+            tests/test_population_state_reset_policy.py \
+            tests/test_relay_experiment.py
+
+      - name: Run one-checkpoint repaired development curve
+        shell: bash
+        run: |
+          mkdir -p diagnostic
+          set +e
+          python experiments/population_compute_scaling_v0/diagnose_mixed_population_repaired_curve.py \
+            --training-seed 0 \
+            --device cpu \
+            --steps 2000 \
+            --train-batch-size 64 \
+            --learning-rate 0.0003 \
+            --weight-decay 0.0001 \
+            --gradient-clip-norm 1.0 \
+            --evaluation-world-count 1000 \
+            --evaluation-batch-size 64 \
+            --output-dir diagnostic/run \
+            > diagnostic/stdout.json \
+            2> diagnostic/stderr.log
+          echo $? > diagnostic/status
+          exit 0
+
+      - name: Upload repaired development curve
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mixed-population-repaired-curve-diagnostic
+          path: diagnostic/
+          if-no-files-found: error
+
+      - name: Enforce diagnostic execution
+        shell: bash
+        run: |
+          status="$(cat diagnostic/status)"
+          if [ "$status" -ne 0 ]; then
+            echo "Mixed-population repaired curve failed with exit $status"
+            exit "$status"
+          fi
