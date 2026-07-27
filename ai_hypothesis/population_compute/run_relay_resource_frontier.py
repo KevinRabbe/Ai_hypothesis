@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 
@@ -61,8 +62,10 @@ def main(argv: list[str] | None = None) -> int:
     if len(set(args.difficulties)) != len(args.difficulties):
         raise SystemExit("--difficulties must be unique")
 
+    checkpoint_path = Path(args.checkpoint)
+    checkpoint_file_sha256 = hashlib.sha256(checkpoint_path.read_bytes()).hexdigest()
     model, checkpoint_payload = load_relay_checkpoint_v1(
-        args.checkpoint,
+        checkpoint_path,
         device=args.device,
     )
     model.eval()
@@ -74,7 +77,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     payload = result.to_dict()
     payload["checkpoint"] = {
-        "path": str(Path(args.checkpoint)),
+        "path": str(checkpoint_path),
+        "file_sha256": checkpoint_file_sha256,
         "experiment_version": checkpoint_payload.get("experiment_version"),
         "protocol_version": checkpoint_payload.get("protocol_version"),
         "benchmark_version": checkpoint_payload.get("benchmark_version"),
