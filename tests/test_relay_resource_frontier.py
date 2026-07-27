@@ -19,6 +19,7 @@ from ai_hypothesis.population_compute.relay_model import (
 from ai_hypothesis.population_compute.relay_resource_frontier import (
     RESOURCE_FRONTIER_VERSION,
     RelayResourceBenchmarkConfig,
+    _measurement_rotation,
     benchmark_relay_resource_condition,
     benchmark_relay_resource_frontier,
 )
@@ -91,6 +92,32 @@ class RelayResourceFrontierTests(unittest.TestCase):
             {"parallel_normalized", "serial_normalized", "serial_cached_normalized"},
         )
         self.assertEqual(self.model.parameter_fingerprint(), fingerprint)
+
+    def test_frozen_matrix_exercises_all_schedule_order_rotations(self) -> None:
+        rotations = {
+            _measurement_rotation(
+                difficulty=difficulty.name,
+                active_workers=active_workers,
+                batch_size=batch_size,
+                relay_hops=difficulty.hop_count,
+            )
+            for difficulty in RELAY_DIFFICULTIES
+            for active_workers in (1, 4, 16, 64, 256)
+            for batch_size in (1, 64)
+        }
+        self.assertEqual(rotations, {0, 1, 2})
+
+        relay_2_rotations = {
+            _measurement_rotation(
+                difficulty=self.difficulty.name,
+                active_workers=active_workers,
+                batch_size=batch_size,
+                relay_hops=self.difficulty.hop_count,
+            )
+            for active_workers in (1, 4, 16, 64, 256)
+            for batch_size in (1, 64)
+        }
+        self.assertEqual(relay_2_rotations, {0, 1, 2})
 
     def test_frontier_runs_multiple_widths_and_batches_without_mutating_model(self) -> None:
         config = RelayResourceBenchmarkConfig(
