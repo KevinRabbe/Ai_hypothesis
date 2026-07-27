@@ -33,6 +33,11 @@ from .relevance import (
     inspection_prefix,
     same_worker_indices,
 )
+from .result_contract import (
+    LargeScopeResultReadout,
+    LargeScopeWidthReadout,
+    validate_large_scope_result,
+)
 from .runtime_bridge import (
     FixedScopeScheduler,
     LargeScopeRuntimeContextProvider,
@@ -51,8 +56,10 @@ __all__ = [
     "LARGE_SCOPE_SPLIT_SEED_RANGES",
     "LargeScopeRelevanceConfig",
     "LargeScopeRelevanceSample",
+    "LargeScopeResultReadout",
     "LargeScopeRuntimeContextProvider",
     "LargeScopeRuntimeWorkerBank",
+    "LargeScopeWidthReadout",
     "PersistentScopeEvaluation",
     "PersistentScopeEvaluationProjector",
     "PersistentScopeExperiment",
@@ -78,4 +85,5 @@ __all__ = [
     "planned_scope_worker_selector",
     "same_worker_indices",
     "summarize_scope_evaluations",
+    "validate_large_scope_result",
 ]
