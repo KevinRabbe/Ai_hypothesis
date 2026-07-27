@@ -1,0 +1,56 @@
+name: Apply relay answer-frontier benchmark v1
+
+on:
+  push:
+    branches:
+      - agent/relay-answer-frontier-benchmark-v1
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/relay-answer-frontier-benchmark-v1
+      - name: Apply benchmark v1 invariant
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('ai_hypothesis/population_compute/collective_relay.py')
+          text = path.read_text(encoding='utf-8')
+          text = text.replace(
+              'COLLECTIVE_RELAY_VERSION = "collective-relay-v0"',
+              'COLLECTIVE_RELAY_VERSION = "collective-relay-v1-answer-frontier"',
+              1,
+          )
+          old_validation = '''        previous_points = tuple(\n            size\n            for size in relay_population_points(self.difficulty)\n            if size < self.scope_threshold\n        )\n        if previous_points and information_complete_at(self, previous_points[-1]):\n            raise ValueError("relay chain becomes complete before its declared scope_threshold")\n\n        if resolve_relay(self) != self.answer_key:\n'''
+          new_validation = '''        previous_points = tuple(\n            size\n            for size in relay_population_points(self.difficulty)\n            if size < self.scope_threshold\n        )\n        if previous_points and information_complete_at(self, previous_points[-1]):\n            raise ValueError("relay chain becomes complete before its declared scope_threshold")\n\n        answer_edges = tuple(\n            record\n            for record in chain_records\n            if record.value == self.answer_key\n        )\n        if len(answer_edges) != 1:\n            raise ValueError("relay world must contain exactly one final answer-producing edge")\n        if previous_points and answer_edges[0].worker_slot < previous_points[-1]:\n            raise ValueError("final answer edge must not be visible before scope_threshold")\n\n        if resolve_relay(self) != self.answer_key:\n'''
+          if old_validation not in text:
+              raise RuntimeError('relay validation insertion target not found')
+          text = text.replace(old_validation, new_validation, 1)
+
+          old_doc = '''    Consecutive seeds cycle over the admissible population thresholds. Required chain\n    edges are placed so the chain is incomplete at the previous population point and\n    complete at the declared threshold. This prevents the 1/4/16/64/256 benchmark from\n    degenerating into a nearly all-or-nothing information jump at 256 workers.\n'''
+          new_doc = '''    Consecutive seeds cycle over the admissible population thresholds. Required chain\n    edges are placed so the chain is incomplete at the previous population point and\n    complete at the declared threshold. The final answer-producing edge is always the\n    frontier edge beyond the previous population point, so an information-incomplete\n    prefix cannot expose the answer value directly.\n'''
+          if old_doc not in text:
+              raise RuntimeError('relay generator doc target not found')
+          text = text.replace(old_doc, new_doc, 1)
+
+          old_placement = '''    # At least one required edge lives beyond the previous population point, while all\n    # required edges remain inside the selected threshold.\n    frontier_slot = rng.randrange(previous_population, scope_threshold)\n    remaining_chain_slots = [\n        slot for slot in range(scope_threshold) if slot != frontier_slot\n    ]\n    chain_slots = [\n        frontier_slot,\n        *rng.sample(remaining_chain_slots, difficulty.hop_count - 1),\n    ]\n    rng.shuffle(chain_slots)\n    rng.shuffle(chain_pairs)\n\n    records_by_slot: list[tuple[int, int, bool] | None] = [None] * difficulty.world_size\n    for slot, (key, value) in zip(chain_slots, chain_pairs, strict=True):\n        records_by_slot[slot] = (key, value, True)\n'''
+          new_placement = '''    # The final answer-producing edge is the frontier edge. Therefore every smaller\n    # population point lacks both a complete chain and the answer value itself.\n    frontier_slot = rng.randrange(previous_population, scope_threshold)\n    final_chain_pair = chain_pairs[-1]\n    remaining_chain_pairs = chain_pairs[:-1]\n    rng.shuffle(remaining_chain_pairs)\n    available_chain_slots = [\n        slot for slot in range(scope_threshold) if slot != frontier_slot\n    ]\n    remaining_chain_slots = rng.sample(\n        available_chain_slots,\n        difficulty.hop_count - 1,\n    )\n    rng.shuffle(remaining_chain_slots)\n\n    records_by_slot: list[tuple[int, int, bool] | None] = [None] * difficulty.world_size\n    records_by_slot[frontier_slot] = (\n        final_chain_pair[0],\n        final_chain_pair[1],\n        True,\n    )\n    for slot, (key, value) in zip(\n        remaining_chain_slots,\n        remaining_chain_pairs,\n        strict=True,\n    ):\n        records_by_slot[slot] = (key, value, True)\n'''
+          if old_placement not in text:
+              raise RuntimeError('relay chain-placement target not found')
+          text = text.replace(old_placement, new_placement, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ai_hypothesis/population_compute/collective_relay.py
+          git commit -m "Prevent premature relay answer exposure [skip ci]"
+          git push origin HEAD:agent/relay-answer-frontier-benchmark-v1
