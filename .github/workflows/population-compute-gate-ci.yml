@@ -35,6 +35,21 @@ jobs:
       - name: Compile population-compute modules
         run: python -m compileall -q ai_hypothesis/population_compute
 
+      - name: Parse target-GPU PowerShell runner
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $parseErrors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path 'scripts/run_gate1_resource_frontier.ps1'),
+              [ref]$tokens,
+              [ref]$parseErrors
+          ) | Out-Null
+          if ($parseErrors.Count -gt 0) {
+              $parseErrors | ForEach-Object { Write-Error $_.Message }
+              exit 1
+          }
+
       - name: Run population-compute contract regressions
         shell: bash
         run: |
