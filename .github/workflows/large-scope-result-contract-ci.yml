@@ -24,6 +24,10 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Install CPU Torch for large-scope package imports
+        run: |
+          python -m pip install --disable-pip-version-check torch --index-url https://download.pytorch.org/whl/cpu
+
       - name: Compile result-contract modules
         run: |
           python -m compileall -q \
