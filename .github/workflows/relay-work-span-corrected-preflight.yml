@@ -1,0 +1,115 @@
+name: DO NOT MERGE corrected relay work-span CPU preflight
+
+on:
+  push:
+    branches:
+      - agent/relay-work-span-corrected-preflight-v0
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PYTHONPATH: .
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Check out corrected resource-frontier head
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install CPU Torch
+        run: |
+          python -m pip install --disable-pip-version-check torch --index-url https://download.pytorch.org/whl/cpu
+          python -c "import torch; print('torch', torch.__version__)"
+
+      - name: Download frozen confirmation artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api repos/KevinRabbe/Ai_hypothesis/actions/artifacts/8642866100/zip > relay-v1-confirmation.zip
+          mkdir frozen-confirmation
+          unzip -q relay-v1-confirmation.zip -d frozen-confirmation
+          test -f frozen-confirmation/run/seed_1/model-v1.pt
+          sha256sum frozen-confirmation/run/seed_1/model-v1.pt > checkpoint.sha256
+
+      - name: Run corrected real-checkpoint CPU resource preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m ai_hypothesis.population_compute.run_relay_resource_frontier \
+            --checkpoint frozen-confirmation/run/seed_1/model-v1.pt \
+            --device cpu \
+            --population-sizes 1 4 16 64 256 \
+            --batch-sizes 1 64 \
+            --difficulties relay-2 \
+            --warmup-iterations 2 \
+            --measured-iterations 5 \
+            --world-seed 0 \
+            --output relay-resource-frontier-corrected-cpu-preflight.json \
+            > relay-resource-frontier-corrected-cpu-preflight.stdout
+
+      - name: Audit corrected result contract
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          payload = json.loads(Path('relay-resource-frontier-corrected-cpu-preflight.json').read_text())
+          rows = payload['comparisons']
+          assert len(rows) == 10, len(rows)
+          for row in rows:
+              assert row['outputs_equivalent'] is True
+              assert row['decoded_predictions_equal'] is True
+              assert row['recurrent_worker_updates_equal'] is True
+              assert row['parallel_cached_static_projection_work_equal'] is True
+              assert set(row['measurement_order']) == {
+                  'parallel_normalized',
+                  'serial_normalized',
+                  'serial_cached_normalized',
+              }
+              parallel = row['parallel']
+              low = row['serial_low_memory']
+              cached = row['serial_cached']
+              assert parallel['static_projection_evaluations_per_sample'] == cached['static_projection_evaluations_per_sample']
+              assert low['static_projection_evaluations_per_sample'] >= cached['static_projection_evaluations_per_sample']
+              assert cached['cached_state_vectors_per_sample'] == row['active_workers']
+              assert cached['cached_message_vectors_per_sample'] == row['active_workers']
+              assert parallel['latency_source'] == 'host_perf_counter'
+              assert low['latency_source'] == 'host_perf_counter'
+              assert cached['latency_source'] == 'host_perf_counter'
+          print('corrected resource contract OK')
+          PY
+
+      - name: Record CPU provenance
+        shell: bash
+        run: |
+          python --version > python-version.txt 2>&1
+          python -c "import torch; print(torch.__version__)" > torch-version.txt
+          uname -a > uname.txt
+          lscpu > lscpu.txt
+
+      - name: Upload corrected CPU preflight evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: relay-work-span-corrected-cpu-preflight
+          path: |
+            relay-resource-frontier-corrected-cpu-preflight.json
+            relay-resource-frontier-corrected-cpu-preflight.stdout
+            checkpoint.sha256
+            python-version.txt
+            torch-version.txt
+            uname.txt
+            lscpu.txt
+          if-no-files-found: error
