@@ -70,13 +70,13 @@ jobs:
 
           $tempProbe = Join-Path ([System.IO.Path]::GetTempPath()) ('ai-hypothesis-import-probe-' + [Guid]::NewGuid().ToString('N') + '.py')
           try {
-              @'
-import sys
-repo_root = sys.argv[1]
-if repo_root not in sys.path:
-    sys.path.insert(0, repo_root)
-import ai_hypothesis.population_compute.relay_experiment_v1
-'@ | Set-Content -Encoding UTF8 $tempProbe
+              @(
+                  'import sys',
+                  'repo_root = sys.argv[1]',
+                  'if repo_root not in sys.path:',
+                  '    sys.path.insert(0, repo_root)',
+                  'import ai_hypothesis.population_compute.relay_experiment_v1'
+              ) | Set-Content -Encoding UTF8 $tempProbe
               & python $tempProbe (Resolve-Path '.')
               if ($LASTEXITCODE -ne 0) {
                   throw 'External temporary Python verifier cannot import the repository package after repo-root injection.'
