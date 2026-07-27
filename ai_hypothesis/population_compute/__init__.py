@@ -30,6 +30,12 @@ from .model import (
     SharedPopulationCell,
     SharedPopulationConfig,
 )
+from .relay_serial_control import (
+    RelayScheduleOutput,
+    RelayScheduleTelemetry,
+    normalized_parallel_forward,
+    normalized_serial_forward,
+)
 
 __all__ = [
     "COLLECTIVE_RELAY_VERSION",
@@ -45,6 +51,8 @@ __all__ = [
     "PopulationTelemetry",
     "RelayDifficulty",
     "RelayRecord",
+    "RelayScheduleOutput",
+    "RelayScheduleTelemetry",
     "RelayWorld",
     "SharedPopulationCell",
     "SharedPopulationConfig",
@@ -52,6 +60,8 @@ __all__ = [
     "generate_relay_dataset",
     "generate_relay_world",
     "information_complete_at",
+    "normalized_parallel_forward",
+    "normalized_serial_forward",
     "relay_population_points",
     "relay_scope_thresholds",
     "resolve_relay",
