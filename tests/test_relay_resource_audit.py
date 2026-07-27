@@ -210,6 +210,23 @@ class RelayResourceAuditTests(unittest.TestCase):
         self.assertTrue(any("parallel_cached_static_projection_work_equal" in reason for reason in audit.reasons))
         self.assertTrue(any("all three schedule-order rotations" in reason for reason in audit.reasons))
 
+    def test_frozen_tolerance_row_identity_and_cuda_memory_drift_are_rejected(self) -> None:
+        payload = canonical_payload()
+        payload["config"]["equivalence_rtol"] = 1e-4
+        first = payload["comparisons"][0]
+        first["parameter_fingerprint"] = "b" * 64
+        first["parallel_learned_span_proxy"] += 1
+        first["parallel"]["warmup_iterations"] = 19
+        first["parallel"]["cuda_peak_allocated_delta_bytes"] = 999
+
+        audit = audit_relay_resource_result(payload)
+        self.assertFalse(audit.protocol_valid)
+        self.assertTrue(any("equivalence_rtol" in reason for reason in audit.reasons))
+        self.assertTrue(any("parameter fingerprint differs" in reason for reason in audit.reasons))
+        self.assertTrue(any("parallel learned-span proxy" in reason for reason in audit.reasons))
+        self.assertTrue(any("warm-up count" in reason for reason in audit.reasons))
+        self.assertTrue(any("allocated delta is inconsistent" in reason for reason in audit.reasons))
+
     def test_cli_writes_audit_and_report_and_returns_nonzero_for_invalid_protocol(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
             root = Path(tempdir)
