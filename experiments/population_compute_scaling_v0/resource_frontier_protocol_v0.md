@@ -2,19 +2,19 @@
 
 ## Status
 
-**Gate 1 measurement protocol. No performance result is claimed by this document.**
+**Gate 1 measurement protocol. No target-hardware performance result is claimed by this document.**
 
-Gate v0 already established reproducible fixed-parameter runtime-compute/source-scope scaling on the canonical relay-v1 task. The equal-work serial-control result also established that the repaired relay function is mathematically serializable.
+Gate v0 established reproducible fixed-parameter runtime-compute/source-scope scaling on canonical relay-v1. #77 then established that the repaired normalized relay function is mathematically serializable at the same `N × H` recurrent worker-update count.
 
-The remaining question for this relay function is therefore a systems/resource question:
+Gate 1 asks the remaining systems question:
 
-> **Does simultaneous parallel population execution provide a useful latency/throughput frontier over the exactly equivalent serial schedule on real target hardware?**
+> **Does simultaneous parallel population execution provide a useful latency/throughput frontier over strong equivalent serial schedules on real target hardware?**
 
 ## Frozen neural function
 
 The benchmark does not train or modify a model.
 
-It accepts only a canonical relay-v1 checkpoint loadable through `load_relay_checkpoint_v1(...)` and records its:
+It accepts only a canonical relay-v1 checkpoint loadable through `load_relay_checkpoint_v1(...)` and records:
 
 - experiment version;
 - protocol version;
@@ -23,7 +23,22 @@ It accepts only a canonical relay-v1 checkpoint loadable through `load_relay_che
 - learned parameter count;
 - parameter fingerprint.
 
-Every measured schedule uses that exact loaded model.
+Every schedule uses that exact loaded model, source scope, input batch and recurrent hop count.
+
+## Why two serial controls are required
+
+The original serial-control proof matched recurrent worker updates but intentionally minimized live state. That implementation recomputes immutable input/value projections every relay hop.
+
+Parallel execution computes those immutable learned projections once and reuses them.
+
+Therefore `N × H` recurrent worker-update equality is **not by itself total learned-work equality**.
+
+Gate 1 must expose this rather than silently biasing the timing comparison. It measures two serial controls:
+
+1. a low-memory control that recomputes immutable projections;
+2. a compute-matched cached control that computes them once like parallel, then serializes recurrent updates.
+
+This creates an explicit time–memory trade-off instead of hiding it inside one baseline.
 
 ## Compared schedules
 
@@ -33,33 +48,57 @@ Every measured schedule uses that exact loaded model.
 
 For `N` active records and `H` relay hops:
 
-- learned worker updates per sample: `N × H`;
-- candidate evaluations per sample: `N × H`;
-- peak live learned states per sample: `N`;
-- one normalized active-record reduction per hop.
+- recurrent learned worker updates per sample: `N × H`;
+- candidate evaluations: `N × H`;
+- input projections: `N`;
+- value projections: `N`;
+- peak simultaneously updated neural states: `N`;
+- cached initial-state vectors: `N`;
+- cached candidate-message vectors: `N`;
+- normalized active-record reduction once per hop.
 
-### Serial normalized
+### Serial low-memory normalized
 
 `normalized_serial_forward(...)`
 
-- learned worker updates per sample: the same `N × H`;
-- candidate evaluations per sample: the same `N × H`;
-- peak live learned states per sample: `1`;
-- active records are time-multiplexed through one learned state;
-- an online numerically stable reducer reproduces the same normalized result.
+- recurrent learned worker updates: the same `N × H`;
+- candidate evaluations: the same `N × H`;
+- input projections: `N × H`;
+- value projections: `N × H`;
+- peak simultaneously updated neural states: `1`;
+- no O(N) cached initial/message projection vectors;
+- online numerically stable normalized reducer;
+- zero simultaneous inter-state transfer accounting.
 
-The serial implementation is the existing qualified schedule, not a different model or reduced-scope approximation.
+This is the existing minimum-live-state schedule from #77.
+
+### Serial cached normalized
+
+`normalized_serial_cached_forward(...)`
+
+- recurrent learned worker updates: the same `N × H`;
+- candidate evaluations: the same `N × H`;
+- input projections: `N`, matching parallel;
+- value projections: `N`, matching parallel;
+- recurrent record updates remain serial;
+- peak simultaneously updated neural states: `1`;
+- cached initial-state vectors: `N`;
+- cached candidate-message vectors: `N`;
+- online numerically stable normalized reducer.
+
+This is the stronger compute-matched serial baseline. It deliberately gives up part of the low-memory advantage to remove repeated static learned projection work.
 
 ## Correctness gate before timing
 
-For every `(difficulty, active_workers, batch_size)` condition the harness first executes both schedules and requires:
+For every `(difficulty, active_workers, batch_size)` condition the harness first executes all three schedules and requires:
 
-- final shared states close under the existing serial-control tolerance (`rtol=2e-5`, `atol=2e-5` by default);
+- final shared states close under `rtol=2e-5`, `atol=2e-5` by default;
 - final logits close under the same tolerance;
 - decoded node predictions exactly equal;
-- learned worker-update counts equal.
+- recurrent worker-update counts equal across all schedules;
+- static input/value projection counts equal between parallel and serial-cached.
 
-A failed equivalence condition is invalid and must not produce a performance comparison.
+A failed equivalence/accounting condition is invalid and must not produce a performance comparison.
 
 ## Timed-region boundary
 
@@ -69,16 +108,50 @@ Excluded from timing:
 - integer/bit encoding;
 - relay tensor-batch construction;
 - checkpoint loading;
-- device transfer of benchmark inputs;
+- benchmark input device transfer;
 - JSON serialization.
 
 Included:
 
 - the complete selected relay schedule call;
-- eager PyTorch orchestration needed by that schedule;
-- required device synchronization before latency completion is recorded.
+- eager PyTorch orchestration required by that schedule;
+- reducer work;
+- completion of all scheduled device work for the measured block.
 
-The first protocol is intentionally **eager**. Compiler/graph optimization is a separate later systems variable.
+The first protocol is intentionally **eager**. Compiler/graph optimization remains a separate later systems variable.
+
+## CUDA timing rule
+
+CUDA profiling must not force a synchronization barrier after every measured batch.
+
+For CUDA:
+
+1. warm the schedule;
+2. synchronize once before the measured block;
+3. enqueue one CUDA event pair around each schedule invocation;
+4. do **not** synchronize between measured invocations;
+5. record host enqueue time after all invocations are submitted;
+6. synchronize once at the end;
+7. derive per-call device latency from stream-event pairs;
+8. derive throughput from the full synchronized measured block.
+
+This preserves normal stream/batching behavior instead of turning profiling itself into a serial barrier.
+
+For CPU, per-call latency uses `perf_counter` directly.
+
+The result therefore records both:
+
+- latency source (`cuda_event` or `host_perf_counter`);
+- host enqueue/orchestration time;
+- total synchronized measured time.
+
+## Schedule-order rule
+
+Each schedule is independently warmed. The order of the three measured schedules rotates deterministically by `(active_workers, batch_size, hop_count)` so one schedule is not always measured first or last across the matrix.
+
+The exact per-condition measurement order is stored in the result artifact.
+
+If target-hardware measurements show order sensitivity large enough to affect conclusions, repeat the full run in a fresh process and report both rather than choosing the favorable order.
 
 ## Primary matrix
 
@@ -110,7 +183,7 @@ world seed            = 0
 execution mode        = eager
 ```
 
-These values may be changed only as an explicitly recorded measurement configuration; do not compare unlabelled runs with different settings.
+Do not compare unlabelled runs with different settings.
 
 ## Measurements
 
@@ -119,43 +192,62 @@ Per schedule and condition:
 - median batch latency;
 - p95 batch latency;
 - minimum observed batch latency;
-- total measured wall time;
+- latency source;
+- host enqueue/orchestration time;
+- total synchronized measured wall time;
 - achieved samples/second;
 - CUDA-event median device latency when CUDA is used;
 - CUDA baseline allocated/reserved memory;
 - CUDA peak allocated/reserved memory;
-- peak allocated-memory delta above the post-warm-up baseline;
-- learned worker updates per sample;
+- peak allocated-memory delta above post-warm-up baseline;
+- recurrent worker updates per sample;
 - candidate evaluations per sample;
+- input projection evaluations per sample;
+- value projection evaluations per sample;
+- total static learned projection evaluations per sample;
 - communicated scalars per sample;
-- peak live neural states per sample.
+- peak simultaneously updated neural states;
+- cached state/message vector counts.
 
-Per paired condition:
+Per condition:
 
-- maximum absolute logits difference;
+- maximum absolute logits difference across serial controls versus parallel;
 - maximum absolute final-shared difference;
 - decoded-prediction equality;
-- matched-work status;
-- learned sequential-update depth proxy:
+- recurrent worker-update equality;
+- parallel/serial-cached static-projection equality;
+- learned recurrent-update depth proxy:
   - parallel: `H`;
-  - serial: `N × H`;
-- latency speedup:
+  - both serial controls: `N × H`;
+- low-memory serial speedup ratio:
 
 ```text
-serial median batch latency / parallel median batch latency
+serial_low_memory median latency / parallel median latency
 ```
 
-The span values are explicitly a **learned sequential-update proxy**, not a claim about exact kernel-level critical path. Wall/device latency remains the measured systems outcome.
+- compute-matched cached serial speedup ratio:
 
-## GPU memory interpretation
+```text
+serial_cached median latency / parallel median latency
+```
 
-CUDA memory measurements include the real eager implementation and caching allocator behavior.
+The span value is explicitly a **recurrent learned-update proxy**, not a claim about exact kernel-level critical path. Device/wall latency remains the systems outcome.
 
-The harness records both baseline and peak values rather than pretending a single allocator number is pure neural-state memory. The logical live-state difference is already known structurally (`N` versus `1`) and should be interpreted alongside measured allocation peaks.
+## Memory interpretation
+
+Do not reduce memory to “parallel N states, serial one state.”
+
+The controls intentionally expose different residency choices:
+
+- parallel keeps N recurrent states plus N immutable projection caches;
+- serial-low-memory keeps one recurrent state and recomputes static projections;
+- serial-cached keeps one simultaneously updated recurrent state but retains N cached initial/message projections.
+
+CUDA allocator metrics include real eager implementation/caching behavior. The harness records baseline and peak values instead of pretending one allocator number is pure neural-state memory.
 
 ## Primary hardware
 
-The decisive Gate-1 result should be run on the actual local consumer GPU target.
+The decisive Gate-1 result must run on the actual local consumer GPU target, not only on GitHub CPU runners.
 
 The result artifact records:
 
@@ -168,9 +260,10 @@ The result artifact records:
 - device type;
 - CUDA runtime;
 - CUDA device name/index;
-- compute capability when CUDA is used.
+- compute capability when CUDA is used;
+- schedule timing policy.
 
-GitHub CPU qualification proves mechanics only. It is not the practical GPU frontier result.
+GitHub CPU qualification/preflight proves mechanics only. It cannot pass or fail Gate 1.
 
 ## Canonical local command
 
@@ -187,19 +280,21 @@ python -m ai_hypothesis.population_compute.run_relay_resource_frontier `
     --output results\population_compute_scaling_v0\relay_resource_frontier_v0.json
 ```
 
-A confirmation checkpoint from the preserved #80 artifact is suitable because Gate 1 measures schedule organization, not retraining quality.
+A preserved frozen-confirmation checkpoint is appropriate because Gate 1 measures execution organization, not retraining quality.
 
 ## Interpretation
 
 ### Useful parallel frontier
 
-Parallel width is practically useful for this relay function if equal-work parallel execution produces meaningful lower latency and/or higher throughput on target hardware while its extra state/memory/communication cost remains acceptable.
+Parallel population execution is practically useful for this relay function if it produces meaningful lower latency and/or higher throughput on target hardware relative to the **stronger applicable serial control**, while its extra residency/communication costs remain acceptable.
+
+The low-memory serial control answers a memory-minimizing trade-off. The cached serial control answers a closer learned-work-matched trade-off. Neither should be hidden when interpreting the frontier.
 
 Perfect `N×` speedup is not required.
 
 ### Negative systems result
 
-If the serial schedule matches or beats parallel execution after fair implementation/runtime treatment, or if memory/synchronization costs dominate the speedup, then the relay function should be considered better implemented serially despite Gate v0's positive capability scaling.
+If a strong serial control matches or beats parallel execution after fair runtime treatment, or if memory/synchronization costs dominate the speedup, then this relay function is better implemented serially despite Gate v0's positive capability scaling.
 
 That is a valid negative Gate-1 result and does not invalidate Gate v0.
 
@@ -207,7 +302,7 @@ That is a valid negative Gate-1 result and does not invalidate Gate v0.
 
 Do not silently compile only one schedule.
 
-After the eager frontier is measured, profiling may justify a separate matched compiler ablation. Any `torch.compile`, CUDA Graph, fusion or custom-kernel result must be reported as a systems optimization variable, not as a neural capability gain.
+After the eager frontier is measured, profiling may justify a separate matched compiler ablation. `torch.compile`, CUDA Graphs, fusion or custom kernels must be reported as systems variables, not neural capability gains.
 
 ## Non-goals
 
@@ -215,7 +310,7 @@ This protocol does not test:
 
 - new learned parameters;
 - retraining;
-- larger than 256 populations;
+- populations larger than 256;
 - dense-model superiority;
 - organization-specific function-level capability;
 - dynamic activation;
