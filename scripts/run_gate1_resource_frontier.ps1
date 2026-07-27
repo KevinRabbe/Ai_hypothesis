@@ -18,9 +18,6 @@ $ExpectedParameterCount = 26669
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 Push-Location $RepoRoot
 try {
-    New-Item -ItemType Directory -Force -Path $OutputRoot | Out-Null
-    $OutputRoot = (Resolve-Path $OutputRoot).Path
-
     $gitHead = (& git rev-parse HEAD).Trim()
     if ($LASTEXITCODE -ne 0) {
         throw "Could not resolve git HEAD. Run this script from a Git checkout."
@@ -29,6 +26,9 @@ try {
     if (-not $AllowDirtyTree -and $gitStatus.Count -gt 0) {
         throw "Working tree is dirty. Commit/stash changes or use -AllowDirtyTree for an explicitly noncanonical run."
     }
+
+    New-Item -ItemType Directory -Force -Path $OutputRoot | Out-Null
+    $OutputRoot = (Resolve-Path $OutputRoot).Path
     $gitHead | Set-Content -Encoding UTF8 (Join-Path $OutputRoot "git-head.txt")
     $gitStatus | Set-Content -Encoding UTF8 (Join-Path $OutputRoot "git-status.txt")
 
