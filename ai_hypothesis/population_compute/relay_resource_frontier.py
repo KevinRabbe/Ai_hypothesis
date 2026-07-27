@@ -1,8 +1,18 @@
-"""Work/span resource measurements for equivalent parallel and serial relay schedules.
+"""Work/span resource measurements for equivalent relay execution schedules.
 
 This module does not change the learned relay function. It benchmarks the already-qualified
-``normalized_parallel_forward`` and ``normalized_serial_forward`` schedules on identical,
-pre-materialized relay batches with gradients disabled.
+parallel schedule plus two serial controls on identical, pre-materialized relay batches with
+gradients disabled.
+
+The serial controls expose an important systems trade-off:
+
+* ``serial_normalized`` minimizes live/cached neural state by recomputing immutable learned
+  record projections every hop.
+* ``serial_cached_normalized`` computes those immutable projections once, matching the
+  parallel path's static learned-projection work, then serializes the recurrent updates.
+
+This prevents the Gate-1 comparison from silently treating equal recurrent-update count as
+equal total learned work.
 """
 
 from __future__ import annotations
@@ -17,11 +27,12 @@ from typing import Callable, Sequence
 
 import torch
 
-from .collective_relay import RelayDifficulty, RelayWorld, generate_relay_dataset
+from .collective_relay import RelayDifficulty, generate_relay_dataset
 from .relay_model import RelayPopulationModel, RelayTensorBatch, build_relay_tensor_batch, decode_node_logits
 from .relay_serial_control import (
     RelayScheduleOutput,
     normalized_parallel_forward,
+    normalized_serial_cached_forward,
     normalized_serial_forward,
 )
 
@@ -79,11 +90,20 @@ class RelayScheduleMeasurement:
     cuda_peak_reserved_bytes: int | None
     worker_updates_per_sample: int
     candidate_evaluations_per_sample: int
+    input_projection_evaluations_per_sample: int
+    value_projection_evaluations_per_sample: int
+    static_projection_evaluations_per_sample: int
     communicated_scalars_per_sample: int
     peak_active_neural_states_per_sample: int
+    cached_state_vectors_per_sample: int
+    cached_message_vectors_per_sample: int
 
     def validate(self) -> None:
-        if self.schedule not in {"parallel_normalized", "serial_normalized"}:
+        if self.schedule not in {
+            "parallel_normalized",
+            "serial_normalized",
+            "serial_cached_normalized",
+        }:
             raise ValueError("unknown schedule measurement")
         if self.batch_size <= 0 or self.measured_iterations <= 0:
             raise ValueError("measurement counts must be positive")
@@ -100,10 +120,21 @@ class RelayScheduleMeasurement:
             raise ValueError("worker_updates_per_sample must be positive")
         if self.candidate_evaluations_per_sample != self.worker_updates_per_sample:
             raise ValueError("candidate evaluations must match worker updates")
+        if self.input_projection_evaluations_per_sample <= 0:
+            raise ValueError("input projection count must be positive")
+        if self.value_projection_evaluations_per_sample <= 0:
+            raise ValueError("value projection count must be positive")
+        if self.static_projection_evaluations_per_sample != (
+            self.input_projection_evaluations_per_sample
+            + self.value_projection_evaluations_per_sample
+        ):
+            raise ValueError("static learned projection accounting is inconsistent")
         if self.communicated_scalars_per_sample < 0:
             raise ValueError("communicated scalar count must be non-negative")
         if self.peak_active_neural_states_per_sample <= 0:
             raise ValueError("peak active neural state count must be positive")
+        if self.cached_state_vectors_per_sample < 0 or self.cached_message_vectors_per_sample < 0:
+            raise ValueError("cached vector counts must be non-negative")
 
 
 @dataclass(frozen=True, slots=True)
@@ -118,12 +149,17 @@ class RelayResourceComparison:
     decoded_predictions_equal: bool
     max_abs_logits_difference: float
     max_abs_shared_difference: float
-    worker_updates_equal: bool
+    recurrent_worker_updates_equal: bool
+    parallel_cached_static_projection_work_equal: bool
     parallel_learned_span_proxy: int
-    serial_learned_span_proxy: int
+    serial_low_memory_learned_span_proxy: int
+    serial_cached_learned_span_proxy: int
+    measurement_order: tuple[str, str, str]
     parallel: RelayScheduleMeasurement
-    serial: RelayScheduleMeasurement
-    serial_over_parallel_latency_speedup: float
+    serial_low_memory: RelayScheduleMeasurement
+    serial_cached: RelayScheduleMeasurement
+    low_memory_serial_over_parallel_latency_speedup: float
+    cached_serial_over_parallel_latency_speedup: float
 
     def validate(self) -> None:
         if not self.difficulty.strip() or self.relay_hops <= 0 or self.active_workers <= 0:
@@ -132,24 +168,59 @@ class RelayResourceComparison:
             raise ValueError("comparison must preserve learned model identity")
         if not self.outputs_equivalent or not self.decoded_predictions_equal:
             raise ValueError("resource comparison requires equivalent neural outputs")
-        if not self.worker_updates_equal:
-            raise ValueError("resource comparison requires matched learned worker-update work")
+        if not self.recurrent_worker_updates_equal:
+            raise ValueError("all schedules must perform the same recurrent worker-update work")
+        if not self.parallel_cached_static_projection_work_equal:
+            raise ValueError("cached serial control must match parallel static projection work")
         if self.parallel_learned_span_proxy != self.relay_hops:
             raise ValueError("parallel span proxy must equal relay hop count")
-        if self.serial_learned_span_proxy != self.active_workers * self.relay_hops:
-            raise ValueError("serial span proxy must equal active_workers * relay_hops")
+        expected_serial_span = self.active_workers * self.relay_hops
+        if self.serial_low_memory_learned_span_proxy != expected_serial_span:
+            raise ValueError("low-memory serial span proxy is invalid")
+        if self.serial_cached_learned_span_proxy != expected_serial_span:
+            raise ValueError("cached serial span proxy is invalid")
+        if set(self.measurement_order) != {
+            "parallel_normalized",
+            "serial_normalized",
+            "serial_cached_normalized",
+        }:
+            raise ValueError("measurement order must contain all three schedules exactly once")
         self.parallel.validate()
-        self.serial.validate()
-        if self.parallel.worker_updates_per_sample != self.serial.worker_updates_per_sample:
-            raise ValueError("parallel and serial schedules must perform the same learned work")
-        if not math.isfinite(self.serial_over_parallel_latency_speedup) or self.serial_over_parallel_latency_speedup <= 0:
-            raise ValueError("latency speedup must be finite and positive")
+        self.serial_low_memory.validate()
+        self.serial_cached.validate()
+        updates = {
+            self.parallel.worker_updates_per_sample,
+            self.serial_low_memory.worker_updates_per_sample,
+            self.serial_cached.worker_updates_per_sample,
+        }
+        if len(updates) != 1:
+            raise ValueError("schedule recurrent worker-update counts differ")
+        if (
+            self.parallel.static_projection_evaluations_per_sample
+            != self.serial_cached.static_projection_evaluations_per_sample
+        ):
+            raise ValueError("parallel and cached serial static projection work differs")
+        if (
+            self.serial_low_memory.static_projection_evaluations_per_sample
+            < self.serial_cached.static_projection_evaluations_per_sample
+        ):
+            raise ValueError("low-memory serial control unexpectedly performs less static work")
+        for speedup in (
+            self.low_memory_serial_over_parallel_latency_speedup,
+            self.cached_serial_over_parallel_latency_speedup,
+        ):
+            if not math.isfinite(speedup) or speedup <= 0:
+                raise ValueError("latency speedup must be finite and positive")
 
     def to_dict(self) -> dict[str, object]:
         payload = asdict(self)
         payload["speedup_definition"] = "serial_median_latency_divided_by_parallel_median_latency"
         payload["span_proxy_note"] = (
-            "Learned sequential-update depth proxy only; reducer/kernel/runtime span is measured separately by latency."
+            "Learned recurrent-update depth proxy only; reducer/kernel/runtime span is measured separately by latency."
+        )
+        payload["serial_control_note"] = (
+            "serial_low_memory minimizes cached learned state by recomputing immutable projections; "
+            "serial_cached matches parallel static projection counts but retains O(N) projection caches."
         )
         return payload
 
@@ -187,7 +258,7 @@ def benchmark_relay_resource_frontier(
     config: RelayResourceBenchmarkConfig = RelayResourceBenchmarkConfig(),
     device: torch.device | str = "cpu",
 ) -> RelayResourceFrontierResult:
-    """Measure equivalent parallel/serial relay schedules outside data-generation time."""
+    """Measure equivalent relay schedules outside data-generation/device-transfer time."""
 
     config.validate()
     if not difficulties:
@@ -216,23 +287,28 @@ def benchmark_relay_resource_frontier(
                         active_workers=active_workers,
                         device=target_device,
                     )
-                    comparison = benchmark_relay_resource_condition(
-                        model,
-                        batch,
-                        difficulty=difficulty,
-                        config=config,
+                    comparisons.append(
+                        benchmark_relay_resource_condition(
+                            model,
+                            batch,
+                            difficulty=difficulty,
+                            config=config,
+                        )
                     )
-                    comparisons.append(comparison)
 
     if model.parameter_fingerprint() != fingerprint:
         raise RuntimeError("resource benchmark mutated the relay checkpoint")
+    provenance = runtime_provenance(target_device)
+    provenance["schedule_timing_policy"] = (
+        "each schedule independently warmed; measurement order rotates deterministically by condition"
+    )
     return RelayResourceFrontierResult(
         benchmark_version=RESOURCE_FRONTIER_VERSION,
         parameter_fingerprint=fingerprint,
         learned_parameter_count=parameter_count,
         config=config,
         device=str(target_device),
-        provenance=runtime_provenance(target_device),
+        provenance=provenance,
         comparisons=tuple(comparisons),
     )
 
@@ -244,51 +320,83 @@ def benchmark_relay_resource_condition(
     difficulty: RelayDifficulty,
     config: RelayResourceBenchmarkConfig,
 ) -> RelayResourceComparison:
-    """Benchmark one exact `(difficulty, width, batch)` pair with matched learned work."""
+    """Benchmark one exact `(difficulty, width, batch)` condition with three controls."""
 
     config.validate()
     batch.validate()
     if batch.hop_count != difficulty.hop_count:
         raise ValueError("batch and difficulty disagree on relay hop count")
 
-    parallel_reference = normalized_parallel_forward(model, batch)
-    serial_reference = normalized_serial_forward(model, batch)
-    logits_close = torch.allclose(
-        parallel_reference.logits,
-        serial_reference.logits,
-        rtol=config.equivalence_rtol,
-        atol=config.equivalence_atol,
-    )
-    shared_close = torch.allclose(
-        parallel_reference.final_shared,
-        serial_reference.final_shared,
-        rtol=config.equivalence_rtol,
-        atol=config.equivalence_atol,
-    )
-    decoded_equal = torch.equal(
-        decode_node_logits(parallel_reference.logits),
-        decode_node_logits(serial_reference.logits),
-    )
-    outputs_equivalent = bool(logits_close and shared_close)
+    references = {
+        "parallel_normalized": normalized_parallel_forward(model, batch),
+        "serial_normalized": normalized_serial_forward(model, batch),
+        "serial_cached_normalized": normalized_serial_cached_forward(model, batch),
+    }
+    parallel_reference = references["parallel_normalized"]
+    decoded_parallel = decode_node_logits(parallel_reference.logits)
+    max_logits_difference = 0.0
+    max_shared_difference = 0.0
+    decoded_equal = True
+    outputs_equivalent = True
+    for name in ("serial_normalized", "serial_cached_normalized"):
+        row = references[name]
+        logits_close = torch.allclose(
+            parallel_reference.logits,
+            row.logits,
+            rtol=config.equivalence_rtol,
+            atol=config.equivalence_atol,
+        )
+        shared_close = torch.allclose(
+            parallel_reference.final_shared,
+            row.final_shared,
+            rtol=config.equivalence_rtol,
+            atol=config.equivalence_atol,
+        )
+        row_decoded_equal = torch.equal(decoded_parallel, decode_node_logits(row.logits))
+        outputs_equivalent = outputs_equivalent and bool(logits_close and shared_close)
+        decoded_equal = decoded_equal and row_decoded_equal
+        max_logits_difference = max(
+            max_logits_difference,
+            float((parallel_reference.logits - row.logits).abs().max().item()),
+        )
+        max_shared_difference = max(
+            max_shared_difference,
+            float((parallel_reference.final_shared - row.final_shared).abs().max().item()),
+        )
     if not outputs_equivalent or not decoded_equal:
-        raise RuntimeError("parallel/serial relay schedules diverged before resource timing")
+        raise RuntimeError("relay execution schedules diverged before resource timing")
 
-    parallel = _measure_schedule(
-        normalized_parallel_forward,
-        model,
-        batch,
-        warmup_iterations=config.warmup_iterations,
-        measured_iterations=config.measured_iterations,
-    )
-    serial = _measure_schedule(
-        normalized_serial_forward,
-        model,
-        batch,
-        warmup_iterations=config.warmup_iterations,
-        measured_iterations=config.measured_iterations,
-    )
-    updates_equal = (
-        parallel.worker_updates_per_sample == serial.worker_updates_per_sample
+    forwards: dict[str, Callable[[RelayPopulationModel, RelayTensorBatch], RelayScheduleOutput]] = {
+        "parallel_normalized": normalized_parallel_forward,
+        "serial_normalized": normalized_serial_forward,
+        "serial_cached_normalized": normalized_serial_cached_forward,
+    }
+    names = ("parallel_normalized", "serial_normalized", "serial_cached_normalized")
+    rotation = (batch.active_workers + int(batch.local_inputs.shape[0]) + difficulty.hop_count) % 3
+    measurement_order = names[rotation:] + names[:rotation]
+    measured: dict[str, RelayScheduleMeasurement] = {}
+    for name in measurement_order:
+        measured[name] = _measure_schedule(
+            forwards[name],
+            model,
+            batch,
+            warmup_iterations=config.warmup_iterations,
+            measured_iterations=config.measured_iterations,
+        )
+
+    parallel = measured["parallel_normalized"]
+    serial_low_memory = measured["serial_normalized"]
+    serial_cached = measured["serial_cached_normalized"]
+    recurrent_updates_equal = len(
+        {
+            parallel.worker_updates_per_sample,
+            serial_low_memory.worker_updates_per_sample,
+            serial_cached.worker_updates_per_sample,
+        }
+    ) == 1
+    static_work_equal = (
+        parallel.static_projection_evaluations_per_sample
+        == serial_cached.static_projection_evaluations_per_sample
     )
     comparison = RelayResourceComparison(
         difficulty=difficulty.name,
@@ -299,19 +407,22 @@ def benchmark_relay_resource_condition(
         parameter_fingerprint=model.parameter_fingerprint(),
         outputs_equivalent=outputs_equivalent,
         decoded_predictions_equal=decoded_equal,
-        max_abs_logits_difference=float(
-            (parallel_reference.logits - serial_reference.logits).abs().max().item()
-        ),
-        max_abs_shared_difference=float(
-            (parallel_reference.final_shared - serial_reference.final_shared).abs().max().item()
-        ),
-        worker_updates_equal=updates_equal,
+        max_abs_logits_difference=max_logits_difference,
+        max_abs_shared_difference=max_shared_difference,
+        recurrent_worker_updates_equal=recurrent_updates_equal,
+        parallel_cached_static_projection_work_equal=static_work_equal,
         parallel_learned_span_proxy=difficulty.hop_count,
-        serial_learned_span_proxy=batch.active_workers * difficulty.hop_count,
+        serial_low_memory_learned_span_proxy=batch.active_workers * difficulty.hop_count,
+        serial_cached_learned_span_proxy=batch.active_workers * difficulty.hop_count,
+        measurement_order=measurement_order,
         parallel=parallel,
-        serial=serial,
-        serial_over_parallel_latency_speedup=(
-            serial.median_batch_latency_ms / parallel.median_batch_latency_ms
+        serial_low_memory=serial_low_memory,
+        serial_cached=serial_cached,
+        low_memory_serial_over_parallel_latency_speedup=(
+            serial_low_memory.median_batch_latency_ms / parallel.median_batch_latency_ms
+        ),
+        cached_serial_over_parallel_latency_speedup=(
+            serial_cached.median_batch_latency_ms / parallel.median_batch_latency_ms
         ),
     )
     comparison.validate()
@@ -417,12 +528,23 @@ def _measure_schedule(
         cuda_peak_reserved_bytes=peak_reserved,
         worker_updates_per_sample=telemetry.worker_updates_per_sample,
         candidate_evaluations_per_sample=telemetry.candidate_evaluations_per_sample,
+        input_projection_evaluations_per_sample=(
+            telemetry.input_projection_evaluations_per_sample
+        ),
+        value_projection_evaluations_per_sample=(
+            telemetry.value_projection_evaluations_per_sample
+        ),
+        static_projection_evaluations_per_sample=(
+            telemetry.static_projection_evaluations_per_sample
+        ),
         communicated_scalars_per_sample=(
             telemetry.inter_state_communicated_scalars_per_sample
         ),
         peak_active_neural_states_per_sample=(
             telemetry.peak_active_neural_states_per_sample
         ),
+        cached_state_vectors_per_sample=telemetry.cached_state_vectors_per_sample,
+        cached_message_vectors_per_sample=telemetry.cached_message_vectors_per_sample,
     )
     measurement.validate()
     return measurement
