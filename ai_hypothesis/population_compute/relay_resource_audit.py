@@ -27,6 +27,8 @@ CANONICAL_WORLD_SEED = 0
 CANONICAL_EQUIVALENCE_RTOL = 2e-5
 CANONICAL_EQUIVALENCE_ATOL = 2e-5
 CANONICAL_LEARNED_PARAMETER_COUNT = 26_669
+CANONICAL_RESOURCE_TRAINING_SEED = 1
+CANONICAL_RESOURCE_PARAMETER_FINGERPRINT = "c227ade9006e47bec17a2a3d5aedf6ac95a6a94607b96b9f52ab759905536c12"
 CANONICAL_EXPERIMENT_VERSION = "population-compute-relay-training-v1"
 CANONICAL_PROTOCOL_VERSION = "relay-protocol-v1-normalized-gate-supervised"
 CANONICAL_RELAY_BENCHMARK_VERSION = "collective-relay-v1-answer-frontier"
@@ -165,6 +167,18 @@ def audit_relay_resource_result(
     if require_canonical_checkpoint:
         if learned_parameter_count != CANONICAL_LEARNED_PARAMETER_COUNT:
             reasons.append("learned parameter count is not the canonical relay-v1 count")
+        _expect_equal(
+            reasons,
+            "checkpoint training_seed",
+            checkpoint.get("training_seed"),
+            CANONICAL_RESOURCE_TRAINING_SEED,
+        )
+        _expect_equal(
+            reasons,
+            "checkpoint parameter_fingerprint",
+            checkpoint.get("parameter_fingerprint"),
+            CANONICAL_RESOURCE_PARAMETER_FINGERPRINT,
+        )
         _expect_equal(
             reasons,
             "checkpoint experiment_version",

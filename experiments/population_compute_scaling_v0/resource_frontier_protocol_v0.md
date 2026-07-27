@@ -280,7 +280,15 @@ python -m ai_hypothesis.population_compute.run_relay_resource_frontier `
     --output results\population_compute_scaling_v0\relay_resource_frontier_v0.json
 ```
 
-A preserved frozen-confirmation checkpoint is appropriate because Gate 1 measures execution organization, not retraining quality.
+The decisive Gate-1 run is frozen to confirmation **training seed 1**, which was selected before target-hardware timing:
+
+```text
+training_seed = 1
+parameter_fingerprint = c227ade9006e47bec17a2a3d5aedf6ac95a6a94607b96b9f52ab759905536c12
+source = frozen confirmation artifact 8642866100 / run 30239005530 / run/seed_1/model-v1.pt
+```
+
+Do not select a different confirmed seed based on observed performance. Other checkpoints may be used only for explicitly labelled mechanics/replication runs.
 
 ## Interpretation
 
