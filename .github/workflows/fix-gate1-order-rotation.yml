@@ -1,0 +1,47 @@
+name: Fix Gate1 schedule order rotation
+
+on:
+  push:
+    branches:
+      - agent/relay-work-span-frontier-v0
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/relay-work-span-frontier-v0
+      - name: Use stable condition hash for schedule order
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('ai_hypothesis/population_compute/relay_resource_frontier.py')
+          text = path.read_text(encoding='utf-8')
+          if 'import hashlib\n' not in text:
+              text = text.replace('import math\n', 'import hashlib\nimport math\n', 1)
+          old = '''    names = ("parallel_normalized", "serial_normalized", "serial_cached_normalized")\n    rotation = (batch.active_workers + int(batch.local_inputs.shape[0]) + difficulty.hop_count) % 3\n    measurement_order = names[rotation:] + names[:rotation]\n'''
+          new = '''    names = ("parallel_normalized", "serial_normalized", "serial_cached_normalized")\n    rotation = _measurement_rotation(\n        difficulty=difficulty.name,\n        active_workers=batch.active_workers,\n        batch_size=int(batch.local_inputs.shape[0]),\n        relay_hops=difficulty.hop_count,\n    )\n    measurement_order = names[rotation:] + names[:rotation]\n'''
+          if old in text:
+              text = text.replace(old, new, 1)
+          elif new not in text:
+              raise RuntimeError('measurement-order target not found')
+          marker = '\ndef runtime_provenance(device: torch.device) -> dict[str, object]:\n'
+          helper = '''\ndef _measurement_rotation(\n    *,\n    difficulty: str,\n    active_workers: int,\n    batch_size: int,\n    relay_hops: int,\n) -> int:\n    \"\"\"Stable schedule-order rotation derived from the full benchmark condition.\"\"\"\n\n    payload = f"{RESOURCE_FRONTIER_VERSION}|{difficulty}|{active_workers}|{batch_size}|{relay_hops}"\n    digest = hashlib.sha256(payload.encode("utf-8")).digest()\n    return int.from_bytes(digest[:8], "big", signed=False) % 3\n\n\n'''
+          if 'def _measurement_rotation(' not in text:
+              if marker not in text:
+                  raise RuntimeError('runtime provenance marker not found')
+              text = text.replace(marker, helper + marker, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ai_hypothesis/population_compute/relay_resource_frontier.py
+          git commit -m "Fix Gate1 schedule order rotation [skip ci]"
+          git push origin HEAD:agent/relay-work-span-frontier-v0
