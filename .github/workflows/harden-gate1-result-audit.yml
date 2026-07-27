@@ -1,0 +1,66 @@
+name: Harden Gate1 result audit invariants
+
+on:
+  push:
+    branches:
+      - agent/relay-work-span-frontier-v0
+
+permissions:
+  contents: write
+
+jobs:
+  harden:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/relay-work-span-frontier-v0
+      - name: Patch frozen audit trust-boundary checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('ai_hypothesis/population_compute/relay_resource_audit.py')
+          text = path.read_text(encoding='utf-8')
+
+          old_constants = '''CANONICAL_WORLD_SEED = 0\nCANONICAL_LEARNED_PARAMETER_COUNT = 26_669\n'''
+          new_constants = '''CANONICAL_WORLD_SEED = 0\nCANONICAL_EQUIVALENCE_RTOL = 2e-5\nCANONICAL_EQUIVALENCE_ATOL = 2e-5\nCANONICAL_LEARNED_PARAMETER_COUNT = 26_669\n'''
+          if old_constants in text:
+              text = text.replace(old_constants, new_constants, 1)
+          elif new_constants not in text:
+              raise RuntimeError('canonical constant patch target not found')
+
+          old_config = '''    _expect_equal(reasons, "world_seed", config.get("world_seed"), CANONICAL_WORLD_SEED)\n\n    provenance = payload.get("provenance")\n'''
+          new_config = '''    _expect_equal(reasons, "world_seed", config.get("world_seed"), CANONICAL_WORLD_SEED)\n    _expect_equal(\n        reasons,\n        "equivalence_rtol",\n        config.get("equivalence_rtol"),\n        CANONICAL_EQUIVALENCE_RTOL,\n    )\n    _expect_equal(\n        reasons,\n        "equivalence_atol",\n        config.get("equivalence_atol"),\n        CANONICAL_EQUIVALENCE_ATOL,\n    )\n\n    provenance = payload.get("provenance")\n'''
+          if old_config in text:
+              text = text.replace(old_config, new_config, 1)
+          elif new_config not in text:
+              raise RuntimeError('config tolerance patch target not found')
+
+          old_row = '''        expected_hops = CANONICAL_DIFFICULTIES[difficulty]\n        if row.get("relay_hops") != expected_hops:\n            reasons.append(f"{prefix} relay_hops does not match {difficulty}")\n        for flag in (\n'''
+          new_row = '''        expected_hops = CANONICAL_DIFFICULTIES[difficulty]\n        if row.get("relay_hops") != expected_hops:\n            reasons.append(f"{prefix} relay_hops does not match {difficulty}")\n        if row.get("learned_parameter_count") != learned_parameter_count:\n            reasons.append(f"{prefix} learned parameter count differs from result identity")\n        if row.get("parameter_fingerprint") != parameter_fingerprint:\n            reasons.append(f"{prefix} parameter fingerprint differs from result identity")\n        if row.get("parallel_learned_span_proxy") != expected_hops:\n            reasons.append(f"{prefix} parallel learned-span proxy is invalid")\n        expected_serial_span = active_workers * expected_hops\n        if row.get("serial_low_memory_learned_span_proxy") != expected_serial_span:\n            reasons.append(f"{prefix} low-memory serial learned-span proxy is invalid")\n        if row.get("serial_cached_learned_span_proxy") != expected_serial_span:\n            reasons.append(f"{prefix} cached serial learned-span proxy is invalid")\n        for flag in (\n'''
+          if old_row in text:
+              text = text.replace(old_row, new_row, 1)
+          elif new_row not in text:
+              raise RuntimeError('row identity patch target not found')
+
+          old_call = '''            device_type=device_type,\n            parallel=parallel,\n            low=low,\n            cached=cached,\n        )\n'''
+          new_call = '''            device_type=device_type,\n            batch_size=batch_size,\n            parallel=parallel,\n            low=low,\n            cached=cached,\n        )\n'''
+          if old_call in text:
+              text = text.replace(old_call, new_call, 1)
+          elif new_call not in text:
+              raise RuntimeError('schedule audit call patch target not found')
+
+          start = text.index('def _audit_schedule_accounting(\n')
+          end = text.index('\ndef _schedule(\n', start)
+          replacement = '''def _audit_schedule_accounting(\n    reasons: list[str],\n    prefix: str,\n    *,\n    active_workers: int,\n    relay_hops: int,\n    device_type: str | None,\n    batch_size: int,\n    parallel: Mapping[str, object],\n    low: Mapping[str, object],\n    cached: Mapping[str, object],\n) -> None:\n    expected_updates = active_workers * relay_hops\n    expected_latency_source = "cuda_event" if device_type == "cuda" else "host_perf_counter"\n    schedules = (\n        ("parallel", "parallel_normalized", parallel),\n        ("serial_low_memory", "serial_normalized", low),\n        ("serial_cached", "serial_cached_normalized", cached),\n    )\n    for name, expected_schedule_name, schedule in schedules:\n        if schedule.get("schedule") != expected_schedule_name:\n            reasons.append(f"{prefix} {name} schedule identity is invalid")\n        if schedule.get("batch_size") != batch_size:\n            reasons.append(f"{prefix} {name} batch_size differs from condition")\n        if schedule.get("warmup_iterations") != CANONICAL_WARMUP_ITERATIONS:\n            reasons.append(f"{prefix} {name} warm-up count differs from frozen protocol")\n        if schedule.get("measured_iterations") != CANONICAL_MEASURED_ITERATIONS:\n            reasons.append(f"{prefix} {name} measured-iteration count differs from frozen protocol")\n        if schedule.get("worker_updates_per_sample") != expected_updates:\n            reasons.append(f"{prefix} {name} worker-update accounting is invalid")\n        if schedule.get("candidate_evaluations_per_sample") != expected_updates:\n            reasons.append(f"{prefix} {name} candidate accounting is invalid")\n        if _positive_float(schedule.get("median_batch_latency_ms")) is None:\n            reasons.append(f"{prefix} {name} median latency is invalid")\n        if _positive_float(schedule.get("throughput_samples_per_second")) is None:\n            reasons.append(f"{prefix} {name} throughput is invalid")\n        if _positive_float(schedule.get("host_enqueue_seconds")) is None:\n            reasons.append(f"{prefix} {name} host enqueue time is invalid")\n        if schedule.get("latency_source") != expected_latency_source:\n            reasons.append(f"{prefix} {name} latency source does not match device type")\n        if device_type == "cuda":\n            if _positive_float(schedule.get("device_median_latency_ms")) is None:\n                reasons.append(f"{prefix} {name} CUDA device latency is missing")\n            _audit_cuda_memory(reasons, prefix, name, schedule)\n\n    expected_static_cached = 2 * active_workers\n    expected_static_low = 2 * active_workers * relay_hops\n    for name, schedule, expected_each in (\n        ("parallel", parallel, active_workers),\n        ("serial_cached", cached, active_workers),\n        ("serial_low_memory", low, active_workers * relay_hops),\n    ):\n        if schedule.get("input_projection_evaluations_per_sample") != expected_each:\n            reasons.append(f"{prefix} {name} input projection accounting is invalid")\n        if schedule.get("value_projection_evaluations_per_sample") != expected_each:\n            reasons.append(f"{prefix} {name} value projection accounting is invalid")\n    if parallel.get("static_projection_evaluations_per_sample") != expected_static_cached:\n        reasons.append(f"{prefix} parallel static projection accounting is invalid")\n    if cached.get("static_projection_evaluations_per_sample") != expected_static_cached:\n        reasons.append(f"{prefix} cached serial static projection accounting is invalid")\n    if low.get("static_projection_evaluations_per_sample") != expected_static_low:\n        reasons.append(f"{prefix} low-memory serial static projection accounting is invalid")\n\n    if parallel.get("peak_active_neural_states_per_sample") != active_workers:\n        reasons.append(f"{prefix} parallel live-state accounting is invalid")\n    if low.get("peak_active_neural_states_per_sample") != 1:\n        reasons.append(f"{prefix} low-memory serial live-state accounting is invalid")\n    if cached.get("peak_active_neural_states_per_sample") != 1:\n        reasons.append(f"{prefix} cached serial live-state accounting is invalid")\n    if parallel.get("cached_state_vectors_per_sample") != active_workers:\n        reasons.append(f"{prefix} parallel state-cache accounting is invalid")\n    if parallel.get("cached_message_vectors_per_sample") != active_workers:\n        reasons.append(f"{prefix} parallel message-cache accounting is invalid")\n    if low.get("cached_state_vectors_per_sample") != 0 or low.get("cached_message_vectors_per_sample") != 0:\n        reasons.append(f"{prefix} low-memory serial unexpectedly retains O(N) projection caches")\n    if cached.get("cached_state_vectors_per_sample") != active_workers:\n        reasons.append(f"{prefix} cached serial state-cache accounting is invalid")\n    if cached.get("cached_message_vectors_per_sample") != active_workers:\n        reasons.append(f"{prefix} cached serial message-cache accounting is invalid")\n    if low.get("communicated_scalars_per_sample") != 0:\n        reasons.append(f"{prefix} low-memory serial communication accounting is invalid")\n    if cached.get("communicated_scalars_per_sample") != 0:\n        reasons.append(f"{prefix} cached serial communication accounting is invalid")\n    if _optional_int(parallel.get("communicated_scalars_per_sample")) is None:\n        reasons.append(f"{prefix} parallel communication accounting is invalid")\n\n\ndef _audit_cuda_memory(\n    reasons: list[str],\n    prefix: str,\n    name: str,\n    schedule: Mapping[str, object],\n) -> None:\n    fields = (\n        "cuda_baseline_allocated_bytes",\n        "cuda_peak_allocated_bytes",\n        "cuda_peak_allocated_delta_bytes",\n        "cuda_baseline_reserved_bytes",\n        "cuda_peak_reserved_bytes",\n    )\n    values: dict[str, int] = {}\n    for field in fields:\n        value = schedule.get(field)\n        if not isinstance(value, int) or isinstance(value, bool) or value < 0:\n            reasons.append(f"{prefix} {name} {field} is missing or invalid")\n        else:\n            values[field] = value\n    if len(values) != len(fields):\n        return\n    if values["cuda_peak_allocated_bytes"] < values["cuda_baseline_allocated_bytes"]:\n        reasons.append(f"{prefix} {name} CUDA allocated peak is below baseline")\n    expected_delta = max(\n        0,\n        values["cuda_peak_allocated_bytes"] - values["cuda_baseline_allocated_bytes"],\n    )\n    if values["cuda_peak_allocated_delta_bytes"] != expected_delta:\n        reasons.append(f"{prefix} {name} CUDA allocated delta is inconsistent")\n    if values["cuda_peak_reserved_bytes"] < values["cuda_baseline_reserved_bytes"]:\n        reasons.append(f"{prefix} {name} CUDA reserved peak is below baseline")\n\n\n'''
+          text = text[:start] + replacement + text[end + 1:]
+          path.write_text(text, encoding='utf-8')
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ai_hypothesis/population_compute/relay_resource_audit.py
+          git commit -m "Harden Gate1 result audit invariants [skip ci]"
+          git push origin HEAD:agent/relay-work-span-frontier-v0
