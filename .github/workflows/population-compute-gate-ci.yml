@@ -45,6 +45,9 @@ jobs:
             tests/test_relay_population_model.py \
             tests/test_relay_experiment.py \
             tests/test_relay_serial_control.py \
+            tests/test_relay_experiment_v1.py \
+            tests/test_run_relay_scaling_v1.py \
+            tests/test_confirmation_gate_v1.py \
             > population-compute-tests.log 2>&1
           echo $? > population-compute-tests.status
           exit 0
