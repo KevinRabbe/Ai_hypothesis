@@ -12,7 +12,7 @@ from random import Random
 from .contract import DEVELOPMENT_POPULATION_SIZES
 
 
-COLLECTIVE_RELAY_VERSION = "collective-relay-v0"
+COLLECTIVE_RELAY_VERSION = "collective-relay-v1-answer-frontier"
 RELAY_WORLD_SIZE = 256
 
 
@@ -95,6 +95,16 @@ class RelayWorld:
         if previous_points and information_complete_at(self, previous_points[-1]):
             raise ValueError("relay chain becomes complete before its declared scope_threshold")
 
+        answer_edges = tuple(
+            record
+            for record in chain_records
+            if record.value == self.answer_key
+        )
+        if len(answer_edges) != 1:
+            raise ValueError("relay world must contain exactly one final answer-producing edge")
+        if previous_points and answer_edges[0].worker_slot < previous_points[-1]:
+            raise ValueError("final answer edge must not be visible before scope_threshold")
+
         if resolve_relay(self) != self.answer_key:
             raise ValueError("relay world does not resolve to its declared answer")
 
@@ -151,8 +161,9 @@ def generate_relay_world(seed: int, difficulty: RelayDifficulty) -> RelayWorld:
 
     Consecutive seeds cycle over the admissible population thresholds. Required chain
     edges are placed so the chain is incomplete at the previous population point and
-    complete at the declared threshold. This prevents the 1/4/16/64/256 benchmark from
-    degenerating into a nearly all-or-nothing information jump at 256 workers.
+    complete at the declared threshold. The final answer-producing edge is always the
+    frontier edge beyond the previous population point, so an information-incomplete
+    prefix cannot expose the answer value directly.
     """
 
     if seed < 0:
@@ -184,21 +195,32 @@ def generate_relay_world(seed: int, difficulty: RelayDifficulty) -> RelayWorld:
         size for size in population_points if size < scope_threshold
     )
 
-    # At least one required edge lives beyond the previous population point, while all
-    # required edges remain inside the selected threshold.
+    # The final answer-producing edge is the frontier edge. Therefore every smaller
+    # population point lacks both a complete chain and the answer value itself.
     frontier_slot = rng.randrange(previous_population, scope_threshold)
-    remaining_chain_slots = [
+    final_chain_pair = chain_pairs[-1]
+    remaining_chain_pairs = chain_pairs[:-1]
+    rng.shuffle(remaining_chain_pairs)
+    available_chain_slots = [
         slot for slot in range(scope_threshold) if slot != frontier_slot
     ]
-    chain_slots = [
-        frontier_slot,
-        *rng.sample(remaining_chain_slots, difficulty.hop_count - 1),
-    ]
-    rng.shuffle(chain_slots)
-    rng.shuffle(chain_pairs)
+    remaining_chain_slots = rng.sample(
+        available_chain_slots,
+        difficulty.hop_count - 1,
+    )
+    rng.shuffle(remaining_chain_slots)
 
     records_by_slot: list[tuple[int, int, bool] | None] = [None] * difficulty.world_size
-    for slot, (key, value) in zip(chain_slots, chain_pairs, strict=True):
+    records_by_slot[frontier_slot] = (
+        final_chain_pair[0],
+        final_chain_pair[1],
+        True,
+    )
+    for slot, (key, value) in zip(
+        remaining_chain_slots,
+        remaining_chain_pairs,
+        strict=True,
+    ):
         records_by_slot[slot] = (key, value, True)
 
     decoy_pairs = list(zip(decoy_keys, decoy_values, strict=True))

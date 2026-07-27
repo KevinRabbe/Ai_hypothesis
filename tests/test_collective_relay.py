@@ -69,6 +69,33 @@ class CollectiveRelayTests(unittest.TestCase):
                     )
                 )
 
+    def test_final_answer_value_is_hidden_until_declared_scope_threshold(self) -> None:
+        for difficulty in RELAY_DIFFICULTIES:
+            population_points = relay_population_points(difficulty)
+            for seed in range(32):
+                world = generate_relay_world(seed, difficulty)
+                final_edges = tuple(
+                    record
+                    for record in world.records
+                    if record.is_chain_edge and record.value == world.answer_key
+                )
+                self.assertEqual(len(final_edges), 1)
+                final_edge = final_edges[0]
+                previous = max(
+                    size for size in population_points if size < world.scope_threshold
+                )
+                self.assertGreaterEqual(final_edge.worker_slot, previous)
+                self.assertLess(final_edge.worker_slot, world.scope_threshold)
+                for smaller in population_points:
+                    if smaller >= world.scope_threshold:
+                        continue
+                    visible_values = {
+                        record.value
+                        for record in world.records
+                        if record.worker_slot < smaller
+                    }
+                    self.assertNotIn(world.answer_key, visible_values)
+
     def test_smaller_custom_world_retains_nested_population_ladder(self) -> None:
         difficulty = RelayDifficulty(name="test", world_size=32, hop_count=4)
         self.assertEqual(relay_population_points(difficulty), (1, 4, 16, 32))
@@ -102,7 +129,6 @@ class CollectiveRelayTests(unittest.TestCase):
 
     def test_hop_count_must_require_collective_relay(self) -> None:
         difficulty = RelayDifficulty(name="bad", world_size=16, hop_count=1)
-
         with self.assertRaisesRegex(ValueError, "at least 2"):
             difficulty.validate()
 
