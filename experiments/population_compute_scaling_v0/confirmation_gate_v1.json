@@ -1,0 +1,104 @@
+{
+  "minimum_confirmation_seeds": 3,
+  "passes_gate": true,
+  "protocol": {
+    "benchmark_version": "collective-relay-v1-answer-frontier",
+    "evaluation_batch_size": 64,
+    "evaluation_world_count": 1000,
+    "execution_mode": "eager",
+    "experiment_version": "population-compute-relay-training-v1",
+    "protocol_version": "relay-protocol-v1-normalized-gate-supervised",
+    "training_config": {
+      "batch_size": 64,
+      "gate_supervision_weight": 1.0,
+      "gradient_clip_norm": 1.0,
+      "learning_rate": 0.0003,
+      "message_width": 24,
+      "state_width": 64,
+      "steps": 2000,
+      "weight_decay": 0.0001
+    },
+    "training_seeds": [1, 2, 3]
+  },
+  "provenance": {
+    "confirmation_opened": true,
+    "execution_mode": "eager",
+    "machine": "x86_64",
+    "platform": "Linux-6.17.0-1020-azure-x86_64-with-glibc2.39",
+    "processor": "x86_64",
+    "python_version": "3.11.15 (main, Jun 16 2026, 21:41:52) [GCC 13.3.0]",
+    "requested_device": "cpu",
+    "torch_version": "2.13.0+cpu"
+  },
+  "reasons": [],
+  "seed_summaries": [
+    {
+      "checkpoint": "confirmation/run/seed_1/model-v1.pt",
+      "final_total_loss": 0.0800776481628418,
+      "initial_total_loss": 2.1239161491394043,
+      "learned_parameter_count": 26669,
+      "mean_last_50_total_loss": 0.09685157157480717,
+      "parameter_fingerprint": "c227ade9006e47bec17a2a3d5aedf6ac95a6a94607b96b9f52ab759905536c12",
+      "result": "confirmation/run/seed_1/confirmation.json",
+      "training_seed": 1
+    },
+    {
+      "checkpoint": "confirmation/run/seed_2/model-v1.pt",
+      "final_total_loss": 0.06076839566230774,
+      "initial_total_loss": 2.118004322052002,
+      "learned_parameter_count": 26669,
+      "mean_last_50_total_loss": 0.07756832368671894,
+      "parameter_fingerprint": "14794971eb2702b22edbcf47d514577c0a5e00220559fb0a6bff50f26d4da364",
+      "result": "confirmation/run/seed_2/confirmation.json",
+      "training_seed": 2
+    },
+    {
+      "checkpoint": "confirmation/run/seed_3/model-v1.pt",
+      "final_total_loss": 0.05848633497953415,
+      "initial_total_loss": 2.1231689453125,
+      "learned_parameter_count": 26669,
+      "mean_last_50_total_loss": 0.06817872427403927,
+      "parameter_fingerprint": "a9389c6fdd34f7a4d36796b0f67267153c6ed5a5ec05335abed63dc73825a479",
+      "result": "confirmation/run/seed_3/confirmation.json",
+      "training_seed": 3
+    }
+  ],
+  "seeds": [
+    {
+      "communication_advantage_tier_count": 3,
+      "difficulties": [
+        {"communication_endpoint_advantage": 0.99, "communication_pass": true, "difficulty": "relay-2", "endpoint_gain": 0.99, "endpoint_pass": true, "nondecreasing_steps": 4, "shape_pass": true, "useful_curve_pass": true},
+        {"communication_endpoint_advantage": 0.987, "communication_pass": true, "difficulty": "relay-4", "endpoint_gain": 0.987, "endpoint_pass": true, "nondecreasing_steps": 4, "shape_pass": true, "useful_curve_pass": true},
+        {"communication_endpoint_advantage": 0.967, "communication_pass": true, "difficulty": "relay-8", "endpoint_gain": 0.967, "endpoint_pass": true, "nondecreasing_steps": 4, "shape_pass": true, "useful_curve_pass": true}
+      ],
+      "passes_seed_gate": true,
+      "reasons": [],
+      "training_seed": 1,
+      "useful_curve_tier_count": 3
+    },
+    {
+      "communication_advantage_tier_count": 3,
+      "difficulties": [
+        {"communication_endpoint_advantage": 0.999, "communication_pass": true, "difficulty": "relay-2", "endpoint_gain": 0.999, "endpoint_pass": true, "nondecreasing_steps": 4, "shape_pass": true, "useful_curve_pass": true},
+        {"communication_endpoint_advantage": 0.994, "communication_pass": true, "difficulty": "relay-4", "endpoint_gain": 0.994, "endpoint_pass": true, "nondecreasing_steps": 4, "shape_pass": true, "useful_curve_pass": true},
+        {"communication_endpoint_advantage": 0.985, "communication_pass": true, "difficulty": "relay-8", "endpoint_gain": 0.985, "endpoint_pass": true, "nondecreasing_steps": 4, "shape_pass": true, "useful_curve_pass": true}
+      ],
+      "passes_seed_gate": true,
+      "reasons": [],
+      "training_seed": 2,
+      "useful_curve_tier_count": 3
+    },
+    {
+      "communication_advantage_tier_count": 3,
+      "difficulties": [
+        {"communication_endpoint_advantage": 1.0, "communication_pass": true, "difficulty": "relay-2", "endpoint_gain": 1.0, "endpoint_pass": true, "nondecreasing_steps": 4, "shape_pass": true, "useful_curve_pass": true},
+        {"communication_endpoint_advantage": 0.999, "communication_pass": true, "difficulty": "relay-4", "endpoint_gain": 0.999, "endpoint_pass": true, "nondecreasing_steps": 4, "shape_pass": true, "useful_curve_pass": true},
+        {"communication_endpoint_advantage": 0.996, "communication_pass": true, "difficulty": "relay-8", "endpoint_gain": 0.996, "endpoint_pass": true, "nondecreasing_steps": 4, "shape_pass": true, "useful_curve_pass": true}
+      ],
+      "passes_seed_gate": true,
+      "reasons": [],
+      "training_seed": 3,
+      "useful_curve_tier_count": 3
+    }
+  ]
+}
