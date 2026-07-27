@@ -82,6 +82,8 @@ class RelayScheduleMeasurement:
     min_batch_latency_ms: float
     total_measured_seconds: float
     throughput_samples_per_second: float
+    latency_source: str
+    host_enqueue_seconds: float
     device_median_latency_ms: float | None
     cuda_baseline_allocated_bytes: int | None
     cuda_peak_allocated_bytes: int | None
@@ -116,6 +118,10 @@ class RelayScheduleMeasurement:
         ):
             if not math.isfinite(value) or value <= 0:
                 raise ValueError("timing measurements must be finite and positive")
+        if self.latency_source not in {"host_perf_counter", "cuda_event"}:
+            raise ValueError("unknown latency source")
+        if not math.isfinite(self.host_enqueue_seconds) or self.host_enqueue_seconds <= 0:
+            raise ValueError("host enqueue time must be finite and positive")
         if self.worker_updates_per_sample <= 0:
             raise ValueError("worker_updates_per_sample must be positive")
         if self.candidate_evaluations_per_sample != self.worker_updates_per_sample:
@@ -476,23 +482,40 @@ def _measure_schedule(
 
     latencies_ms: list[float] = []
     device_latencies_ms: list[float] = []
-    measured_started = time.perf_counter()
-    for _ in range(measured_iterations):
-        start_event = end_event = None
-        if device.type == "cuda":
+    if device.type == "cuda":
+        # Keep the measured stream asynchronous: enqueue event-delimited calls and synchronize
+        # once after the block. Per-iteration synchronization would destroy the batching/launch
+        # behavior Gate 1 is intended to measure.
+        event_pairs: list[tuple[torch.cuda.Event, torch.cuda.Event]] = []
+        _synchronize(device)
+        measured_started = time.perf_counter()
+        for _ in range(measured_iterations):
             start_event = torch.cuda.Event(enable_timing=True)
             end_event = torch.cuda.Event(enable_timing=True)
             start_event.record()
-        started = time.perf_counter()
-        output = forward(model, batch)
-        if end_event is not None:
+            output = forward(model, batch)
             end_event.record()
+            event_pairs.append((start_event, end_event))
+        enqueue_finished = time.perf_counter()
         _synchronize(device)
-        elapsed_ms = (time.perf_counter() - started) * 1_000.0
-        latencies_ms.append(elapsed_ms)
-        if start_event is not None and end_event is not None:
-            device_latencies_ms.append(float(start_event.elapsed_time(end_event)))
-    total_measured_seconds = time.perf_counter() - measured_started
+        total_measured_seconds = time.perf_counter() - measured_started
+        host_enqueue_seconds = enqueue_finished - measured_started
+        device_latencies_ms = [
+            float(start_event.elapsed_time(end_event))
+            for start_event, end_event in event_pairs
+        ]
+        latencies_ms = list(device_latencies_ms)
+        latency_source = "cuda_event"
+    else:
+        measured_started = time.perf_counter()
+        for _ in range(measured_iterations):
+            started = time.perf_counter()
+            output = forward(model, batch)
+            latencies_ms.append((time.perf_counter() - started) * 1_000.0)
+        enqueue_finished = time.perf_counter()
+        total_measured_seconds = enqueue_finished - measured_started
+        host_enqueue_seconds = total_measured_seconds
+        latency_source = "host_perf_counter"
 
     if output is None:
         raise RuntimeError("schedule measurement produced no output")
@@ -518,6 +541,8 @@ def _measure_schedule(
         throughput_samples_per_second=(
             int(batch.local_inputs.shape[0]) * measured_iterations / total_measured_seconds
         ),
+        latency_source=latency_source,
+        host_enqueue_seconds=host_enqueue_seconds,
         device_median_latency_ms=(
             float(statistics.median(device_latencies_ms)) if device_latencies_ms else None
         ),
@@ -548,7 +573,6 @@ def _measure_schedule(
     )
     measurement.validate()
     return measurement
-
 
 def _synchronize(device: torch.device) -> None:
     if device.type == "cuda":
