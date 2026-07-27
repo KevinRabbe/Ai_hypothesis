@@ -25,6 +25,7 @@ SCHEDULES = (
     "serial_cached_normalized",
 )
 FINGERPRINT = "c227ade9006e47bec17a2a3d5aedf6ac95a6a94607b96b9f52ab759905536c12"
+CHECKPOINT_FILE_SHA256 = "0b7c1f2a14fe9d2987819ed53fc0b55c04f3bb00bce356c1023778830a08ad26"
 
 
 def schedule(
@@ -137,6 +138,7 @@ def canonical_payload(*, device_type: str = "cuda") -> dict[str, object]:
             "benchmark_version": "collective-relay-v1-answer-frontier",
             "training_seed": 1,
             "parameter_fingerprint": FINGERPRINT,
+            "file_sha256": CHECKPOINT_FILE_SHA256,
         },
         "config": {
             "population_sizes": list(CANONICAL_POPULATION_SIZES),
@@ -214,6 +216,7 @@ class RelayResourceAuditTests(unittest.TestCase):
         payload = canonical_payload()
         payload["config"]["equivalence_rtol"] = 1e-4
         payload["checkpoint"]["training_seed"] = 2
+        payload["checkpoint"]["file_sha256"] = "0" * 64
         first = payload["comparisons"][0]
         first["parameter_fingerprint"] = "b" * 64
         first["parallel_learned_span_proxy"] += 1
@@ -224,6 +227,7 @@ class RelayResourceAuditTests(unittest.TestCase):
         self.assertFalse(audit.protocol_valid)
         self.assertTrue(any("equivalence_rtol" in reason for reason in audit.reasons))
         self.assertTrue(any("checkpoint training_seed" in reason for reason in audit.reasons))
+        self.assertTrue(any("checkpoint file_sha256" in reason for reason in audit.reasons))
         self.assertTrue(any("parameter fingerprint differs" in reason for reason in audit.reasons))
         self.assertTrue(any("parallel learned-span proxy" in reason for reason in audit.reasons))
         self.assertTrue(any("warm-up count" in reason for reason in audit.reasons))
