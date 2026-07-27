@@ -95,9 +95,20 @@ print(json.dumps({
 '@
 
     $checkpointVerification = Join-Path $OutputRoot "checkpoint-verification.json"
-    & python -c $verifyCode $CheckpointPath $ExpectedParameterFingerprint $ExpectedTrainingSeed $ExpectedParameterCount |
-        Tee-Object -FilePath $checkpointVerification
-    if ($LASTEXITCODE -ne 0) {
+    $verifyScriptPath = Join-Path ([System.IO.Path]::GetTempPath()) (
+        "ai-hypothesis-gate1-verify-" + [Guid]::NewGuid().ToString("N") + ".py"
+    )
+    $verificationExitCode = 1
+    try {
+        $verifyCode | Set-Content -Encoding UTF8 $verifyScriptPath
+        & python $verifyScriptPath $CheckpointPath $ExpectedParameterFingerprint $ExpectedTrainingSeed $ExpectedParameterCount |
+            Tee-Object -FilePath $checkpointVerification
+        $verificationExitCode = $LASTEXITCODE
+    }
+    finally {
+        Remove-Item -Force -ErrorAction SilentlyContinue $verifyScriptPath
+    }
+    if ($verificationExitCode -ne 0) {
         throw "Frozen checkpoint/CUDA verification failed."
     }
 
