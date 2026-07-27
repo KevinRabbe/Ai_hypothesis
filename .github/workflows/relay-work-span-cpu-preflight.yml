@@ -1,0 +1,81 @@
+name: DO NOT MERGE relay work-span CPU preflight
+
+on:
+  push:
+    branches:
+      - agent/relay-work-span-cpu-preflight-v0
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PYTHONPATH: .
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Check out resource-frontier branch
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install CPU Torch
+        run: |
+          python -m pip install --disable-pip-version-check torch --index-url https://download.pytorch.org/whl/cpu
+          python -c "import torch; print('torch', torch.__version__)"
+
+      - name: Download frozen confirmation artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api repos/KevinRabbe/Ai_hypothesis/actions/artifacts/8642866100/zip > relay-v1-confirmation.zip
+          mkdir frozen-confirmation
+          unzip -q relay-v1-confirmation.zip -d frozen-confirmation
+          test -f frozen-confirmation/run/seed_1/model-v1.pt
+          sha256sum frozen-confirmation/run/seed_1/model-v1.pt > checkpoint.sha256
+
+      - name: Run real-checkpoint CPU resource preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m ai_hypothesis.population_compute.run_relay_resource_frontier \
+            --checkpoint frozen-confirmation/run/seed_1/model-v1.pt \
+            --device cpu \
+            --population-sizes 1 4 16 64 256 \
+            --batch-sizes 1 64 \
+            --difficulties relay-2 \
+            --warmup-iterations 2 \
+            --measured-iterations 5 \
+            --world-seed 0 \
+            --output relay-resource-frontier-cpu-preflight.json \
+            > relay-resource-frontier-cpu-preflight.stdout
+
+      - name: Record CPU provenance
+        shell: bash
+        run: |
+          python --version > python-version.txt 2>&1
+          python -c "import torch; print(torch.__version__)" > torch-version.txt
+          uname -a > uname.txt
+          lscpu > lscpu.txt
+
+      - name: Upload CPU preflight evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: relay-work-span-cpu-preflight
+          path: |
+            relay-resource-frontier-cpu-preflight.json
+            relay-resource-frontier-cpu-preflight.stdout
+            checkpoint.sha256
+            python-version.txt
+            torch-version.txt
+            uname.txt
+            lscpu.txt
+          if-no-files-found: error
