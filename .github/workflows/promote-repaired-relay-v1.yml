@@ -1,0 +1,131 @@
+name: Promote repaired relay protocol v1
+
+on:
+  push:
+    branches:
+      - agent/population-compute-repaired-protocol-v1
+
+permissions:
+  contents: write
+
+jobs:
+  promote:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/population-compute-repaired-protocol-v1
+      - name: Promote normalized transport and gate-supervised training
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              if old not in text:
+                  if new in text:
+                      return
+                  raise RuntimeError(f'target not found in {path}: {old[:80]!r}')
+              p.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          contract = 'ai_hypothesis/population_compute/contract.py'
+          replace_once(
+              contract,
+              '    SPARSE_SHARED_V0 = "sparse_shared_v0"\n    HIERARCHICAL_SUMMARY_V0 = "hierarchical_summary_v0"',
+              '    SPARSE_SHARED_V0 = "sparse_shared_v0"\n    SPARSE_SHARED_V1 = "sparse_shared_v1"\n    HIERARCHICAL_SUMMARY_V0 = "hierarchical_summary_v0"',
+          )
+          replace_once(
+              contract,
+              '        CommunicationMode.SPARSE_SHARED_V0,\n        CommunicationMode.HIERARCHICAL_SUMMARY_V0,',
+              '        CommunicationMode.SPARSE_SHARED_V0,\n        CommunicationMode.SPARSE_SHARED_V1,\n        CommunicationMode.HIERARCHICAL_SUMMARY_V0,',
+          )
+
+          model = 'ai_hypothesis/population_compute/model.py'
+          replace_once(
+              model,
+              '            CommunicationMode.NO_COMMUNICATION,\n            CommunicationMode.SPARSE_SHARED_V0,\n        }:',
+              '            CommunicationMode.NO_COMMUNICATION,\n            CommunicationMode.SPARSE_SHARED_V0,\n            CommunicationMode.SPARSE_SHARED_V1,\n        }:',
+          )
+          replace_once(
+              model,
+              '                "SharedPopulationCell v0 supports only no_communication and "\n                "sparse_shared_v0"',
+              '                "SharedPopulationCell supports no_communication, sparse_shared_v0, "\n                "and sparse_shared_v1"',
+          )
+          replace_once(
+              model,
+              '''            if communication_mode is CommunicationMode.SPARSE_SHARED_V0:\n                gate = torch.sigmoid(self.message_gate(active_states))\n                if active_message_content is None:\n                    content = torch.tanh(self.message_projection(active_states))\n                else:\n                    content = active_message_content\n                messages = content * gate\n                message_sum = messages.new_zeros(\n                    batch_size,\n                    self.config.message_width,\n                ).index_add(0, active_batch_indices, messages)\n                shared = torch.tanh(message_sum)\n                messages_emitted += active_states_per_batch\n                # One bounded field read and one candidate write per active state.\n                communicated_scalars += (\n                    2 * active_states_per_batch * self.config.message_width\n                )\n            else:''',
+              '''            if communication_mode in {\n                CommunicationMode.SPARSE_SHARED_V0,\n                CommunicationMode.SPARSE_SHARED_V1,\n            }:\n                gate_logits = self.message_gate(active_states)\n                if communication_mode is CommunicationMode.SPARSE_SHARED_V0:\n                    gate = torch.sigmoid(gate_logits)\n                else:\n                    flat_gate_logits = gate_logits.new_full(\n                        (batch_size * worker_count,),\n                        float("-inf"),\n                    ).index_copy(\n                        0,\n                        active_flat_indices,\n                        gate_logits.squeeze(1),\n                    )\n                    normalized = torch.softmax(\n                        flat_gate_logits.reshape(batch_size, worker_count),\n                        dim=1,\n                    ).reshape(-1)\n                    gate = normalized.index_select(\n                        0, active_flat_indices\n                    ).unsqueeze(1)\n                if active_message_content is None:\n                    content = torch.tanh(self.message_projection(active_states))\n                else:\n                    content = active_message_content\n                messages = content * gate\n                message_sum = messages.new_zeros(\n                    batch_size,\n                    self.config.message_width,\n                ).index_add(0, active_batch_indices, messages)\n                shared = torch.tanh(message_sum)\n                messages_emitted += active_states_per_batch\n                # One bounded field read and one candidate write per active state.\n                communicated_scalars += (\n                    2 * active_states_per_batch * self.config.message_width\n                )\n            else:''',
+          )
+
+          experiment = 'ai_hypothesis/population_compute/relay_experiment.py'
+          replace_once(
+              experiment,
+              '    decode_node_logits,\n)',
+              '    decode_node_logits,\n    encode_node_bits,\n)',
+          )
+          replace_once(
+              experiment,
+              'RELAY_EXPERIMENT_VERSION = "population-compute-relay-training-v0"',
+              'RELAY_EXPERIMENT_VERSION = "population-compute-relay-training-v1"',
+          )
+          replace_once(
+              experiment,
+              '''    gradient_clip_norm: float = 1.0\n    model: RelayPopulationConfig = RelayPopulationConfig()''',
+              '''    gradient_clip_norm: float = 1.0\n    gate_supervision_weight: float = 1.0\n    communication_mode: CommunicationMode = CommunicationMode.SPARSE_SHARED_V1\n    model: RelayPopulationConfig = RelayPopulationConfig()''',
+          )
+          replace_once(
+              experiment,
+              '''        if not math.isfinite(self.gradient_clip_norm) or self.gradient_clip_norm <= 0.0:\n            raise ValueError("gradient_clip_norm must be finite and positive")''',
+              '''        if not math.isfinite(self.gradient_clip_norm) or self.gradient_clip_norm <= 0.0:\n            raise ValueError("gradient_clip_norm must be finite and positive")\n        if not math.isfinite(self.gate_supervision_weight) or self.gate_supervision_weight < 0.0:\n            raise ValueError("gate_supervision_weight must be finite and non-negative")\n        if self.communication_mode is not CommunicationMode.SPARSE_SHARED_V1:\n            raise ValueError("relay training v1 requires sparse_shared_v1")''',
+          )
+          replace_once(
+              experiment,
+              '''                "gradient_clip_norm": self.training_config.gradient_clip_norm,\n                "model": asdict(self.training_config.model),''',
+              '''                "gradient_clip_norm": self.training_config.gradient_clip_norm,\n                "gate_supervision_weight": self.training_config.gate_supervision_weight,\n                "communication_mode": self.training_config.communication_mode.value,\n                "model": asdict(self.training_config.model),''',
+          )
+          replace_once(
+              experiment,
+              '''        output = model(\n            batch,\n            communication_mode=CommunicationMode.SPARSE_SHARED_V0,\n        )\n        targets = (batch.target_bits > 0).to(dtype=output.logits.dtype)\n        loss = loss_fn(output.logits, targets)''',
+              '''        output = model(\n            batch,\n            communication_mode=config.communication_mode,\n        )\n        targets = (batch.target_bits > 0).to(dtype=output.logits.dtype)\n        relay_loss = loss_fn(output.logits, targets)\n        gate_loss = _oracle_gate_supervision_loss(model, batch, worlds)\n        loss = relay_loss + config.gate_supervision_weight * gate_loss''',
+          )
+          replace_once(
+              experiment,
+              '''        for communication_mode in (\n            CommunicationMode.SPARSE_SHARED_V0,\n            CommunicationMode.NO_COMMUNICATION,\n        ):''',
+              '''        for communication_mode in (\n            CommunicationMode.SPARSE_SHARED_V1,\n            CommunicationMode.NO_COMMUNICATION,\n        ):''',
+          )
+          replace_once(
+              experiment,
+              '            is CommunicationMode.SPARSE_SHARED_V0',
+              '            is CommunicationMode.SPARSE_SHARED_V1',
+          )
+          replace_once(
+              experiment,
+              '''            "gradient_clip_norm": training_config.gradient_clip_norm,\n            "model": asdict(training_config.model),''',
+              '''            "gradient_clip_norm": training_config.gradient_clip_norm,\n            "gate_supervision_weight": training_config.gate_supervision_weight,\n            "communication_mode": training_config.communication_mode.value,\n            "model": asdict(training_config.model),''',
+          )
+
+          p = Path(experiment)
+          text = p.read_text(encoding='utf-8')
+          marker = '\n\ndef split_seed_start(split: str) -> int:\n'
+          helper = r'''\n\ndef _oracle_gate_supervision_loss(\n    model: RelayPopulationModel,\n    batch,\n    worlds: Sequence[RelayWorld],\n) -> torch.Tensor:\n    """Training-only selector supervision; no oracle information enters inference."""\n\n    active_workers = batch.active_workers\n    local = batch.local_inputs[:, :active_workers, :]\n    batch_size = int(local.shape[0])\n    flat_local = local.reshape(batch_size * active_workers, -1)\n    initial = torch.tanh(model.cell.input_projection(flat_local))\n    queries, target_slots = _oracle_hop_targets(worlds, device=local.device)\n    losses: list[torch.Tensor] = []\n\n    for hop in range(queries.shape[1]):\n        clean_query = torch.tanh(\n            model.query_projection(encode_node_bits(queries[:, hop]))\n        )\n        shared_flat = (\n            clean_query.unsqueeze(1)\n            .expand(batch_size, active_workers, model.config.message_width)\n            .reshape(batch_size * active_workers, model.config.message_width)\n        )\n        states = model.cell.update(\n            torch.cat((flat_local, shared_flat), dim=-1),\n            initial,\n        )\n        gate_logits = model.cell.message_gate(states).reshape(\n            batch_size, active_workers\n        )\n        losses.append(torch.nn.functional.cross_entropy(\n            gate_logits, target_slots[:, hop]\n        ))\n    return torch.stack(losses).mean()\n\n\ndef _oracle_hop_targets(\n    worlds: Sequence[RelayWorld],\n    *,\n    device: torch.device,\n) -> tuple[torch.Tensor, torch.Tensor]:\n    hop_count = worlds[0].difficulty.hop_count\n    query_rows: list[list[int]] = []\n    slot_rows: list[list[int]] = []\n    for world in worlds:\n        if world.difficulty.hop_count != hop_count:\n            raise ValueError("gate-supervision batch mixed relay depths")\n        query = world.start_key\n        queries: list[int] = []\n        slots: list[int] = []\n        for _ in range(hop_count):\n            matches = tuple(\n                record\n                for record in world.records\n                if record.is_chain_edge and record.key == query\n            )\n            if len(matches) != 1:\n                raise RuntimeError("expected one chain record per supervised relay hop")\n            record = matches[0]\n            if record.worker_slot >= batch_active_limit(world, worlds):\n                raise RuntimeError("gate-supervision target lies outside active scope")\n            queries.append(query)\n            slots.append(record.worker_slot)\n            query = record.value\n        if query != world.answer_key:\n            raise RuntimeError("gate-supervision chain does not terminate at answer")\n        query_rows.append(queries)\n        slot_rows.append(slots)\n    return (\n        torch.tensor(query_rows, dtype=torch.int64, device=device),\n        torch.tensor(slot_rows, dtype=torch.int64, device=device),\n    )\n\n\ndef batch_active_limit(world: RelayWorld, worlds: Sequence[RelayWorld]) -> int:\n    # Training batches are constructed at one shared first-complete threshold.\n    first = worlds[0].scope_threshold\n    if any(item.scope_threshold != first for item in worlds):\n        raise ValueError("gate-supervision batch mixed active scope thresholds")\n    return first\n'''
+          # The helper uses the batch's first-complete threshold, which equals active_workers\n          # for every canonical training batch. Insert once before split helpers.\n          if '_oracle_gate_supervision_loss(' not in text:\n              if marker not in text:\n                  raise RuntimeError('relay helper insertion marker not found')\n              text = text.replace(marker, helper + marker, 1)\n              p.write_text(text, encoding='utf-8')
+
+          # Update existing relay experiment tests to expect the canonical v1 mode.\n          tests = 'tests/test_relay_experiment.py'
+          replace_once(
+              tests,
+              '(difficulty, population, CommunicationMode.SPARSE_SHARED_V0)',
+              '(difficulty, population, CommunicationMode.SPARSE_SHARED_V1)',
+          )
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ai_hypothesis/population_compute/contract.py \
+                  ai_hypothesis/population_compute/model.py \
+                  ai_hypothesis/population_compute/relay_experiment.py \
+                  tests/test_relay_experiment.py
+          git commit -m "Promote repaired relay protocol v1 [skip ci]"
+          git push origin HEAD:agent/population-compute-repaired-protocol-v1
