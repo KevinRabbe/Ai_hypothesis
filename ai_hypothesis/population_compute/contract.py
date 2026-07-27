@@ -16,6 +16,7 @@ class CommunicationMode(str, Enum):
 
     NO_COMMUNICATION = "no_communication"
     SPARSE_SHARED_V0 = "sparse_shared_v0"
+    SPARSE_SHARED_V1 = "sparse_shared_v1"
     HIERARCHICAL_SUMMARY_V0 = "hierarchical_summary_v0"
     SERIAL_CONTROL = "serial_control"
 
@@ -261,6 +262,7 @@ def assess_scaling_curve(
     communicating_mode = next(iter(communicating_modes))
     if communicating_mode not in {
         CommunicationMode.SPARSE_SHARED_V0,
+        CommunicationMode.SPARSE_SHARED_V1,
         CommunicationMode.HIERARCHICAL_SUMMARY_V0,
     }:
         raise ValueError("communicating curve uses an inadmissible mode")
