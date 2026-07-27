@@ -66,12 +66,17 @@ try {
 import json
 import sys
 import torch
+
+repo_root = sys.argv[1]
+if repo_root not in sys.path:
+    sys.path.insert(0, repo_root)
+
 from ai_hypothesis.population_compute.relay_experiment_v1 import load_relay_checkpoint_v1
 
-path = sys.argv[1]
-expected_fingerprint = sys.argv[2]
-expected_seed = int(sys.argv[3])
-expected_parameters = int(sys.argv[4])
+path = sys.argv[2]
+expected_fingerprint = sys.argv[3]
+expected_seed = int(sys.argv[4])
+expected_parameters = int(sys.argv[5])
 if not torch.cuda.is_available():
     raise SystemExit("CUDA is not available to PyTorch; Gate 1 requires the target GPU.")
 model, payload = load_relay_checkpoint_v1(path, device="cuda")
@@ -101,7 +106,7 @@ print(json.dumps({
     $verificationExitCode = 1
     try {
         $verifyCode | Set-Content -Encoding UTF8 $verifyScriptPath
-        & python $verifyScriptPath $CheckpointPath $ExpectedParameterFingerprint $ExpectedTrainingSeed $ExpectedParameterCount |
+        & python $verifyScriptPath $RepoRoot $CheckpointPath $ExpectedParameterFingerprint $ExpectedTrainingSeed $ExpectedParameterCount |
             Tee-Object -FilePath $checkpointVerification
         $verificationExitCode = $LASTEXITCODE
     }
