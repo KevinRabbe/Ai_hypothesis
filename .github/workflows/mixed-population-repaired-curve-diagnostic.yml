@@ -3,7 +3,7 @@ name: Mixed-population repaired curve diagnostic
 on:
   push:
     branches:
-      - agent/mixed-population-repaired-curve-diagnostic-v0
+      - agent/mixed-population-repaired-curve-v1-diagnostic
   pull_request:
   workflow_dispatch:
 
