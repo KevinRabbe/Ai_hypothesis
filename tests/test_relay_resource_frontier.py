@@ -32,7 +32,7 @@ class RelayResourceFrontierTests(unittest.TestCase):
         )
         self.difficulty = RELAY_DIFFICULTIES[0]
 
-    def test_condition_preserves_equivalent_outputs_and_matched_work(self) -> None:
+    def test_condition_preserves_equivalence_and_exposes_serial_tradeoff(self) -> None:
         worlds = generate_relay_dataset(
             start_seed=1200,
             world_count=2,
@@ -57,18 +57,39 @@ class RelayResourceFrontierTests(unittest.TestCase):
 
         self.assertTrue(comparison.outputs_equivalent)
         self.assertTrue(comparison.decoded_predictions_equal)
-        self.assertTrue(comparison.worker_updates_equal)
+        self.assertTrue(comparison.recurrent_worker_updates_equal)
+        self.assertTrue(comparison.parallel_cached_static_projection_work_equal)
         self.assertEqual(comparison.parallel.worker_updates_per_sample, 4 * 2)
-        self.assertEqual(comparison.serial.worker_updates_per_sample, 4 * 2)
+        self.assertEqual(comparison.serial_low_memory.worker_updates_per_sample, 4 * 2)
+        self.assertEqual(comparison.serial_cached.worker_updates_per_sample, 4 * 2)
         self.assertEqual(comparison.parallel_learned_span_proxy, 2)
-        self.assertEqual(comparison.serial_learned_span_proxy, 8)
+        self.assertEqual(comparison.serial_low_memory_learned_span_proxy, 8)
+        self.assertEqual(comparison.serial_cached_learned_span_proxy, 8)
         self.assertEqual(comparison.parallel.peak_active_neural_states_per_sample, 4)
-        self.assertEqual(comparison.serial.peak_active_neural_states_per_sample, 1)
-        self.assertEqual(comparison.serial.communicated_scalars_per_sample, 0)
+        self.assertEqual(comparison.serial_low_memory.peak_active_neural_states_per_sample, 1)
+        self.assertEqual(comparison.serial_cached.peak_active_neural_states_per_sample, 1)
+        self.assertEqual(comparison.serial_low_memory.communicated_scalars_per_sample, 0)
+        self.assertEqual(comparison.serial_cached.communicated_scalars_per_sample, 0)
+        self.assertEqual(
+            comparison.parallel.static_projection_evaluations_per_sample,
+            comparison.serial_cached.static_projection_evaluations_per_sample,
+        )
+        self.assertGreater(
+            comparison.serial_low_memory.static_projection_evaluations_per_sample,
+            comparison.serial_cached.static_projection_evaluations_per_sample,
+        )
+        self.assertEqual(comparison.serial_cached.cached_state_vectors_per_sample, 4)
+        self.assertEqual(comparison.serial_cached.cached_message_vectors_per_sample, 4)
         self.assertGreater(comparison.parallel.median_batch_latency_ms, 0.0)
-        self.assertGreater(comparison.serial.median_batch_latency_ms, 0.0)
-        self.assertGreater(comparison.serial_over_parallel_latency_speedup, 0.0)
+        self.assertGreater(comparison.serial_low_memory.median_batch_latency_ms, 0.0)
+        self.assertGreater(comparison.serial_cached.median_batch_latency_ms, 0.0)
+        self.assertGreater(comparison.low_memory_serial_over_parallel_latency_speedup, 0.0)
+        self.assertGreater(comparison.cached_serial_over_parallel_latency_speedup, 0.0)
         self.assertIsNone(comparison.parallel.device_median_latency_ms)
+        self.assertEqual(
+            set(comparison.measurement_order),
+            {"parallel_normalized", "serial_normalized", "serial_cached_normalized"},
+        )
         self.assertEqual(self.model.parameter_fingerprint(), fingerprint)
 
     def test_frontier_runs_multiple_widths_and_batches_without_mutating_model(self) -> None:
@@ -93,9 +114,13 @@ class RelayResourceFrontierTests(unittest.TestCase):
             {(row.active_workers, row.batch_size) for row in result.comparisons},
             {(1, 1), (4, 1), (1, 2), (4, 2)},
         )
-        self.assertTrue(all(row.worker_updates_equal for row in result.comparisons))
+        self.assertTrue(all(row.recurrent_worker_updates_equal for row in result.comparisons))
+        self.assertTrue(
+            all(row.parallel_cached_static_projection_work_equal for row in result.comparisons)
+        )
         self.assertEqual(result.provenance["execution_mode"], "eager")
         self.assertEqual(result.provenance["device_type"], "cpu")
+        self.assertIn("rotates deterministically", result.provenance["schedule_timing_policy"])
         self.assertEqual(self.model.parameter_fingerprint(), fingerprint)
 
     def test_config_rejects_ambiguous_population_or_batch_lists(self) -> None:
@@ -162,7 +187,10 @@ class RelayResourceFrontierTests(unittest.TestCase):
             self.assertEqual(len(payload["comparisons"]), 1)
             row = payload["comparisons"][0]
             self.assertTrue(row["outputs_equivalent"])
-            self.assertTrue(row["worker_updates_equal"])
+            self.assertTrue(row["recurrent_worker_updates_equal"])
+            self.assertTrue(row["parallel_cached_static_projection_work_equal"])
+            self.assertIn("serial_low_memory", row)
+            self.assertIn("serial_cached", row)
             self.assertEqual(
                 row["speedup_definition"],
                 "serial_median_latency_divided_by_parallel_median_latency",
