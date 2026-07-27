@@ -1,0 +1,34 @@
+name: Copy repaired curve protocol onto relay v1
+
+on:
+  push:
+    branches:
+      - agent/mixed-population-repaired-curve-v1-diagnostic
+
+permissions:
+  contents: write
+
+jobs:
+  copy:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/mixed-population-repaired-curve-v1-diagnostic
+          fetch-depth: 0
+      - name: Copy exact v0 curve protocol files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin agent/mixed-population-repaired-curve-diagnostic-v0
+          git checkout origin/agent/mixed-population-repaired-curve-diagnostic-v0 -- \
+            experiments/population_compute_scaling_v0/diagnose_mixed_population_repaired_curve.py \
+            .github/workflows/mixed-population-repaired-curve-diagnostic.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            experiments/population_compute_scaling_v0/diagnose_mixed_population_repaired_curve.py \
+            .github/workflows/mixed-population-repaired-curve-diagnostic.yml
+          git commit -m "Reuse exact repaired curve protocol on relay v1 [skip ci]"
+          git push origin HEAD:agent/mixed-population-repaired-curve-v1-diagnostic
