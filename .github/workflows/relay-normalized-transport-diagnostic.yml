@@ -1,0 +1,75 @@
+name: Relay normalized-transport diagnostic
+
+on:
+  push:
+    branches:
+      - agent/relay-normalized-transport-diagnostic-v0
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  normalized-transport:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      PYTHONPATH: .
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install CPU Torch
+        run: python -m pip install --disable-pip-version-check torch --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Compile normalized-transport diagnostic
+        run: |
+          python -m compileall -q \
+            ai_hypothesis/population_compute/model.py \
+            ai_hypothesis/population_compute/relay_model.py \
+            experiments/population_compute_scaling_v0/diagnose_normalized_transport.py
+
+      - name: Run corrected relay structural regressions
+        run: |
+          python -m unittest \
+            tests/test_shared_population_cell.py \
+            tests/test_relay_population_model.py \
+            tests/test_compositional_relay_protocol.py \
+            tests/test_population_state_reset_policy.py
+
+      - name: Run normalized-transport diagnostic
+        shell: bash
+        run: |
+          mkdir -p diagnostic
+          set +e
+          python experiments/population_compute_scaling_v0/diagnose_normalized_transport.py \
+            --device cpu \
+            --steps 2048 \
+            --heldout-world-count 512 \
+            --output diagnostic/normalized-transport.json \
+            > diagnostic/stdout.json \
+            2> diagnostic/stderr.log
+          echo $? > diagnostic/status
+          exit 0
+
+      - name: Upload normalized-transport result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: relay-normalized-transport-diagnostic
+          path: diagnostic/
+          if-no-files-found: error
+
+      - name: Enforce diagnostic execution
+        shell: bash
+        run: |
+          status="$(cat diagnostic/status)"
+          if [ "$status" -ne 0 ]; then
+            echo "Normalized-transport diagnostic failed with exit $status"
+            exit "$status"
+          fi
