@@ -1,239 +1,185 @@
 # Research Roadmap
 
-The project is organized as a sequence of research gates. A later stage should not be treated as settled until the earlier uncertainty it depends on has been measured.
+The roadmap contains only uncertainties that still require architecture-specific evidence. Established engineering capabilities are reused and profiled when needed rather than re-proven as standalone experiments.
 
-## Step 1 — Minimum Useful Neural Unit
+## Completed foundation — practical small-worker regime
 
-Goal: find the smallest identical learned processing unit that still performs a useful local transformation.
+The initial worker-size sweep established that useful learned transformations survive deep into the small-parameter regime. Worker shrinking is closed for the current phase.
 
-Tasks:
+Current decision:
 
-- define a compact benchmark suite;
-- define one architecture family that can be scaled down cleanly;
-- train size variants under controlled conditions;
-- compare useful signal against noise;
-- establish deterministic baselines;
-- measure inference cost and batch throughput.
+- ~50K is frozen as Worker v1 for Step 2A;
+- ~25K / ~50K / ~75K remain candidates for a later equal-budget organization comparison;
+- smaller workers are revisited only if later results create a concrete reason.
 
-Exit criterion:
+The project optimizes for a **practical worker**, not minimum parameter count. Capability, latency, throughput, memory, and total system cost all matter.
 
-- identify at least one viable unit-size region;
-- identify a lower region where shrinking clearly stops being useful;
-- record uncertainty if the boundary is not yet clear.
+## Gate 1 — Minority evidence utilization — ACTIVE
 
-## Step 2 — Population Scaling
+Goal: determine whether the population can convert rare correct evidence into final capability without trusting noisy minority outliers.
 
-Goal: determine whether multiple viable units provide additional useful information.
+Current evidence at width 16 already shows a material oracle-any-correct gap. The immediate problem is therefore utilization rather than discovery of additional population signal.
 
 Tasks:
 
-- evaluate 1, 4, 16, 64, 256, and larger worker widths where practical;
-- measure evidence coverage and unique findings;
-- reject majority-vote aggregation as the primary decision rule;
-- measure coordination overhead end to end.
+- keep the 16 frozen 50K workers unchanged;
+- propose strong protected non-primary candidates without using truth;
+- measure how many primary errors become recoverable candidates;
+- calibrate a tiny rescue gate on development validation data only;
+- select a threshold under an explicit harm budget;
+- evaluate once on untouched validation confirmation data;
+- keep the frozen test set unopened.
 
 Exit criterion:
 
-- establish whether increasing width improves useful output before overhead dominates.
+- either demonstrate reproducible net rescue under an acceptable harm rate;
+- or identify whether the failure is candidate proposal or inability to distinguish useful minority evidence from noise.
 
-## Step 3 — Correlated Independent Weights
+See [`experiments/step_02_population_scaling/minority_rescue_v0.md`](../experiments/step_02_population_scaling/minority_rescue_v0.md).
 
-Goal: find a useful diversity range for architecturally identical units.
+## Gate 2 — Useful population-width region
 
-Tasks:
+Goal: with Worker v1 and the evidence-utilization mechanism frozen, determine where additional workers stop providing enough value.
 
-- vary initialization and training stochasticity;
-- keep architecture and overall training distribution constant;
-- measure functional correlation and shared failure modes;
-- test whether diversity improves evidence discovery or uncertainty detection.
+Candidate widths:
 
-Exit criterion:
+- 1;
+- 4;
+- 16;
+- 64;
+- 256 only if the smaller widths justify it.
 
-- identify configurations that avoid both clone collapse and incoherent divergence.
+Measure:
 
-## Step 4 — Efficient Batched Execution
-
-Goal: execute many selected units as efficient GPU batches.
-
-Tasks:
-
-- benchmark batched matrix execution;
-- measure kernel-launch and scheduling overhead;
-- measure weight gathering and memory-transfer cost;
-- compare against equivalent dense execution.
+- final quality;
+- oracle-any-correct coverage;
+- unique/rare evidence;
+- functional correlation;
+- latency and throughput;
+- end-to-end organization cost.
 
 Exit criterion:
 
-- demonstrate a worker granularity where useful compute dominates organization overhead.
+- identify the useful width region and where marginal gains saturate or become impractical.
 
-## Step 5 — Adaptive Worker Allocation
+## Gate 3 — Fixed-budget worker organization
 
-Goal: dynamically add workers only where additional learned processing is useful.
+Goal: identify the practical worker-size/population-width sweet spot under equal total learned-parameter budgets.
 
-Tasks:
+Initial homogeneous candidates:
 
-- start tasks with a small worker allocation;
-- define uncertainty, conflict, and missing-evidence signals;
-- allocate additional workers to discriminating evidence rather than repeated voting;
-- compare adaptive allocation against fixed-width baselines.
+- populations of ~25K workers;
+- populations of ~50K workers;
+- populations of ~75K workers.
 
-Exit criterion:
-
-- show a workload where adaptive allocation improves quality/resource trade-offs.
-
-## Step 6 — Large Information Partitioning
-
-Goal: process information larger than one unit should receive at once.
-
-Tasks:
-
-- divide large text, image, log, or structured inputs;
-- preserve source references;
-- introduce overlap or semantic boundaries;
-- detect boundary uncertainty;
-- trigger targeted cross-boundary processing.
+Keep training data, hardware, evaluation data, and total learned budget as comparable as practical.
 
 Exit criterion:
 
-- recover distributed relevant information without requiring one unit to read the full source.
+- identify whether one worker granularity gives a reproducible capability/resource advantage.
 
-## Step 7 — Hierarchical Recombination
+## Gate 4 — Population versus dense baseline
 
-Goal: combine many local outputs without recreating a single-context bottleneck.
+Goal: test the central hypothesis directly.
 
-Tasks:
+Compare the best population configuration against conventional dense baselines under normalized:
 
-- recursively reduce local outputs;
-- preserve provenance at every level;
-- support zoom-back to original evidence;
-- measure information loss at each aggregation stage.
-
-Exit criterion:
-
-- reconstruct global task state while retaining decisive local evidence.
-
-## Step 8 — Deterministic Decision and Logic Layer
-
-Goal: minimize unnecessary neural prediction.
-
-Tasks:
-
-- classify operations as learned versus deterministic;
-- implement exact routing, state, arithmetic, coordinate, validation, and policy operations in code;
-- measure neural calls avoided;
-- verify that deterministic substitution does not reduce task capability.
-
-Exit criterion:
-
-- establish a clear learned/deterministic boundary for the tested workloads.
-
-## Step 9 — Heterogeneous CPU/GPU Scheduler
-
-Goal: coordinate consumer CPU and GPU resources efficiently.
-
-Tasks:
-
-- profile orchestration and neural execution separately;
-- assign CPU-friendly and GPU-friendly work empirically;
-- batch GPU work while keeping the CPU productive;
-- add bounded queues and backpressure;
-- avoid hidden background work.
-
-Exit criterion:
-
-- stable end-to-end execution with measured CPU, GPU, RAM, and VRAM usage.
-
-## Step 10 — Fixed-Budget Competition
-
-Goal: compare population organizations against dense baselines.
-
-Example fixed total budget:
-
-- 1 × 100M;
-- 10 × 10M;
-- 100 × 1M;
-- 1,000 × 100K.
-
-Actual configurations will depend on Step 1 results.
-
-Compare under normalized:
-
-- training data;
 - parameter budget;
+- training data;
 - hardware;
 - runtime budget;
 - evaluation set.
 
-Exit criterion:
-
-- identify whether a measurable sweet spot exists and where further splitting becomes harmful.
-
-## Step 11 — Scale Toward ~1B Total Parameters
-
-Goal: test whether observed advantages survive larger total capacity.
-
-Candidate progression:
-
-- 10M;
-- 50M;
-- 100M;
-- 250M;
-- 500M;
-- approximately 1B.
-
-Each scale is a new experiment, not an assumption.
+Measure quality, latency, throughput, memory, active parameters, coordination cost, and compute efficiency.
 
 Exit criterion:
 
-- determine whether the population advantage persists, disappears, or changes with scale.
+- establish whether a useful population advantage exists on any meaningful capability/resource frontier.
 
-## Step 12 — Real-World Workloads
+A consistently better dense baseline is a valid negative result and a stop/redirect signal.
 
-Goal: evaluate workloads where divisible information and adaptive processing may matter.
+## Gate 5 — Compiler ablation
+
+Goal: measure how much execution compilation improves the already-defined population architecture.
+
+Compiler behavior is a **separate experimental variable**. Compare the same neural workers and population policy under execution modes such as:
+
+- eager/runtime orchestration;
+- vectorized/batched execution;
+- compiled/fused execution;
+- compiled memory/scheduling improvements where available.
+
+Exit criterion:
+
+- quantify compiler contribution without attributing it to the neural architecture.
+
+## Gate 6 — Adaptive worker allocation
+
+Goal: allocate more learned processing only where it improves the quality/resource trade-off.
+
+Tasks:
+
+- start from a small active population;
+- use inference-visible uncertainty, contradiction, missing-evidence, or information-density signals;
+- request additional workers for discriminating information rather than repeated voting;
+- compare against fixed-width execution under equal end-to-end budgets.
+
+Exit criterion:
+
+- show a reproducible workload where adaptive allocation improves the practical frontier.
+
+## Gate 7 — Real workloads
+
+Goal: determine where the architecture is genuinely useful outside the synthetic benchmark.
 
 Candidates:
 
 - large-document analysis;
-- image understanding with adaptive regional processing;
-- log and event-stream analysis;
+- image-region understanding;
+- logs and event streams;
 - codebase analysis;
 - anomaly detection;
-- planning with recursively generated subproblems.
+- multi-stage planning.
+
+Tiling, source coordinates, overlap, zoom-in, deterministic routing, and hierarchical reduction are implementation techniques, not standalone discoveries. Measure whether the complete system preserves decisive evidence and improves useful capability/resource trade-offs.
 
 Exit criterion:
 
-- identify the workload classes where the architecture is genuinely useful.
+- identify at least one real workload class where the architecture provides a practical advantage.
 
-## Step 13 — Runtime and Interface
+## Gate 8 — Scale only after advantage
 
-Goal: expose resource allocation and execution behavior transparently.
+Only after a small-scale advantage is established, test whether it survives larger total learned capacity and larger workloads.
 
-Interface metrics may include:
+Scaling toward approximately 1B total learned parameters is a later hypothesis. It is not a current target and must not hide weak small-scale results behind more compute.
 
-- active and idle units;
-- workers allocated per task or region;
-- CPU and GPU utilization;
-- RAM and VRAM;
-- neural execution time;
-- coordination time;
-- batch sizes;
-- evidence discovered;
-- additional worker requests;
-- total task duration.
+## Engineering work that is not a research gate
 
-Exit criterion:
+Implement these when required and profile their actual cost:
 
-- the architecture can be inspected and optimized based on real measured behavior rather than assumptions.
+- homogeneous GPU batching/vectorization;
+- CPU/GPU task placement;
+- deterministic routing and exact logic;
+- bounded queues and backpressure;
+- memory-transfer minimization;
+- source/coordinate tracking;
+- input partitioning and overlap;
+- hierarchical data structures;
+- local-machine scheduling;
+- observability/dashboard metrics.
+
+The existence of these techniques does not need to be re-proven. Only their measured effect on this implementation matters.
 
 # Global stop conditions
 
-At any stage, the project should be willing to stop or redirect if evidence shows that:
+Stop or redirect a path when evidence shows that:
 
-- useful signal collapses before units become small enough to offer practical advantages;
-- communication overhead dominates;
-- memory movement prevents efficient batching;
-- worker diversity does not provide useful additional information;
-- hierarchical aggregation loses too much evidence;
-- dense baselines are consistently better under equal end-to-end budgets.
+- additional population signal cannot be converted into usable capability;
+- correct minority evidence cannot be distinguished from harmful outliers well enough to matter;
+- latency makes the workers impractical;
+- organization or memory movement dominates useful compute;
+- population width adds no meaningful information;
+- equal-budget dense baselines are consistently better;
+- apparent gains disappear on untouched confirmation or real workloads.
 
-A negative result is still a valid research result because it identifies where the hypothesis fails.
+A negative result is valuable because it removes an uncertainty and prevents unnecessary engineering work.
