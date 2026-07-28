@@ -1,6 +1,6 @@
 # Gate-1 v1 first target-GPU result
 
-Status: **AUDITED POSITIVE EXECUTION/RESOURCE RESULT; post-audit packaging repair pending**
+Status: **AUDITED POSITIVE EXECUTION/RESOURCE RESULT; packaging finalized and external archive verified**
 
 This document records the first admitted Gate-1 v1 timing result. It is intentionally separate from the earlier Gate-1 v0 CUDA correctness failure.
 
@@ -168,12 +168,26 @@ This result does **not** establish:
 
 The serial schedules expose much larger sequential execution span and many more small eager operations. Compiler/graph execution therefore remains a high-value **independent next systems variable**, exactly as originally planned.
 
-## Packaging-only failure after the valid audit
+## Packaging-only failure and finalization
 
 After the benchmark and independent audit had completed successfully, the Windows PowerShell runner failed while constructing `result-manifest.sha256` because a clean `$gitStatus` is an empty array. Piping that empty array to `Set-Content` did not invoke `Set-Content`, so `git-status.txt` was absent when the manifest tried to hash it.
 
 This defect occurred **after** measurement and audit. It did not affect timings, correctness, work accounting, memory accounting, or the independent audit result.
 
-The runner has since been repaired to explicitly create a zero-byte `git-status.txt` for a clean tree, with CI regression coverage. The first result must be finalized without rerunning timing; a dedicated packaging-only finalizer verifies the stored measurement head and audit, rejects scientific-source drift, reconstructs only the missing empty status snapshot, records the repair, and builds the manifest.
+The runner was repaired to explicitly create a zero-byte `git-status.txt` for a clean tree, with CI regression coverage. The dedicated packaging-only finalizer then verified the stored measurement head and valid audit, rejected scientific-source drift, reconstructed only the missing empty status snapshot, recorded the repair, and built the final result manifest. It executed no benchmark and no timing rerun.
 
-The first measured result remains the canonical Gate-1 v1 timing evidence. A later execution would be a replication, not a replacement for this first admitted result.
+The first measured result therefore remains the canonical Gate-1 v1 timing evidence. A later execution is a replication, not a replacement for this first admitted result.
+
+## External archive preservation
+
+The finalized evidence bundle was externally archived as:
+
+`gate1_resource_frontier_v1_first_target_gpu.zip`
+
+with SHA-256:
+
+`00857172ba87896558b89037b18952deda1a0b7e8d42b8a49c857f7773d6f434`
+
+Independent verification of the uploaded archive found all `10 / 10` entries in `result-manifest.sha256` present and byte-identical to their recorded SHA-256 values. Recomputing the complete-matrix speedup summaries directly from the raw result JSON reproduced the independent audit values.
+
+The detailed archive verification record is `experiments/population_compute_scaling_v0/gate1_v1_external_archive_verification.md`.
