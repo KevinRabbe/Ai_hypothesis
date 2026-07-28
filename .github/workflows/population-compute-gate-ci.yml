@@ -5,7 +5,36 @@ on:
     branches:
       - 'agent/population-compute-*'
       - 'agent/relay-work-span-*'
+      - 'agent/gate2-*'
+    paths:
+      - 'ai_hypothesis/population_compute/**'
+      - 'experiments/population_compute_scaling_v0/**'
+      - 'scripts/run_gate1_resource_frontier*.ps1'
+      - 'scripts/finalize_gate1_resource_frontier_v1_existing.ps1'
+      - 'scripts/run_gate2_development.ps1'
+      - 'tests/test_population*.py'
+      - 'tests/test_collective_relay.py'
+      - 'tests/test_shared_population_cell.py'
+      - 'tests/test_relay_*.py'
+      - 'tests/test_confirmation_gate_v1.py'
+      - 'tests/test_gate2_*.py'
+      - 'tests/test_compositional_relay_protocol.py'
+      - '.github/workflows/population-compute-gate-ci.yml'
   pull_request:
+    paths:
+      - 'ai_hypothesis/population_compute/**'
+      - 'experiments/population_compute_scaling_v0/**'
+      - 'scripts/run_gate1_resource_frontier*.ps1'
+      - 'scripts/finalize_gate1_resource_frontier_v1_existing.ps1'
+      - 'scripts/run_gate2_development.ps1'
+      - 'tests/test_population*.py'
+      - 'tests/test_collective_relay.py'
+      - 'tests/test_shared_population_cell.py'
+      - 'tests/test_relay_*.py'
+      - 'tests/test_confirmation_gate_v1.py'
+      - 'tests/test_gate2_*.py'
+      - 'tests/test_compositional_relay_protocol.py'
+      - '.github/workflows/population-compute-gate-ci.yml'
   workflow_dispatch:
 
 permissions:
@@ -177,6 +206,8 @@ jobs:
             tests/test_collective_relay.py \
             tests/test_shared_population_cell.py \
             tests/test_relay_population_model.py \
+            tests/test_compositional_relay_protocol.py \
+            tests/test_population_state_reset_policy.py \
             tests/test_relay_experiment.py \
             tests/test_relay_serial_control.py \
             tests/test_relay_experiment_v1.py \
