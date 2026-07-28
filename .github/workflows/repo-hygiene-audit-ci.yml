@@ -1,0 +1,27 @@
+name: Repository hygiene audit
+
+on:
+  push:
+    branches:
+      - agent/repo-hygiene-audit-v0
+  pull_request:
+    paths:
+      - 'tests/test_population_compute_dependency_boundary.py'
+      - '.github/workflows/repo-hygiene-audit-ci.yml'
+      - 'ai_hypothesis/population_compute/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  population-compute-boundary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify current population-compute dependency boundary
+        run: python -m unittest tests/test_population_compute_dependency_boundary.py
