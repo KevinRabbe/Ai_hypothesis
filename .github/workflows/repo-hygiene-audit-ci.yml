@@ -17,11 +17,61 @@ permissions:
 jobs:
   population-compute-boundary:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: .
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+
+      - name: Install CPU Torch
+        run: |
+          python -m pip install --disable-pip-version-check torch --index-url https://download.pytorch.org/whl/cpu
+          python -c "import torch; print('torch', torch.__version__)"
+
       - name: Verify current population-compute dependency boundary
         run: python -m unittest tests/test_population_compute_dependency_boundary.py
+
+      - name: Remove deferred Python stacks from temporary checkout
+        shell: bash
+        run: |
+          rm -rf \
+            ai_hypothesis/runtime \
+            ai_hypothesis/large_scope \
+            ai_hypothesis/step02
+
+          test ! -e ai_hypothesis/runtime
+          test ! -e ai_hypothesis/large_scope
+          test ! -e ai_hypothesis/step02
+
+      - name: Compile canonical population-compute core without deferred stacks
+        run: python -m compileall -q ai_hypothesis/population_compute
+
+      - name: Run canonical population-compute regressions without deferred stacks
+        shell: bash
+        run: |
+          python -m unittest \
+            tests/test_population_compute_dependency_boundary.py \
+            tests/test_population_compute_contract.py \
+            tests/test_collective_relay.py \
+            tests/test_shared_population_cell.py \
+            tests/test_relay_population_model.py \
+            tests/test_compositional_relay_protocol.py \
+            tests/test_population_state_reset_policy.py \
+            tests/test_relay_experiment.py \
+            tests/test_relay_serial_control.py \
+            tests/test_relay_experiment_v1.py \
+            tests/test_run_relay_scaling_v1.py \
+            tests/test_confirmation_gate_v1.py \
+            tests/test_relay_resource_frontier.py \
+            tests/test_relay_resource_equivalence_diagnostic.py \
+            tests/test_relay_precision_diagnostic.py \
+            tests/test_relay_resource_frontier_v1.py \
+            tests/test_relay_resource_audit.py \
+            tests/test_gate2_persistent_state_capacity.py \
+            tests/test_gate2_persistent_model.py \
+            tests/test_gate2_development.py
