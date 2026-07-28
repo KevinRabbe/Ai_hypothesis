@@ -35,37 +35,51 @@ jobs:
       - name: Compile population-compute modules
         run: python -m compileall -q ai_hypothesis/population_compute
 
-      - name: Parse target-GPU PowerShell runner
+      - name: Parse target-GPU PowerShell runners
         shell: pwsh
         run: |
-          $runnerPath = Resolve-Path 'scripts/run_gate1_resource_frontier.ps1'
-          $tokens = $null
-          $parseErrors = $null
-          [System.Management.Automation.Language.Parser]::ParseFile(
-              $runnerPath,
-              [ref]$tokens,
-              [ref]$parseErrors
-          ) | Out-Null
-          if ($parseErrors.Count -gt 0) {
-              $parseErrors | ForEach-Object { Write-Error $_.Message }
-              exit 1
+          $runnerPaths = @(
+              'scripts/run_gate1_resource_frontier.ps1',
+              'scripts/run_gate1_resource_frontier_v1.ps1'
+          )
+          foreach ($path in $runnerPaths) {
+              $runnerPath = Resolve-Path $path
+              $tokens = $null
+              $parseErrors = $null
+              [System.Management.Automation.Language.Parser]::ParseFile(
+                  $runnerPath,
+                  [ref]$tokens,
+                  [ref]$parseErrors
+              ) | Out-Null
+              if ($parseErrors.Count -gt 0) {
+                  $parseErrors | ForEach-Object { Write-Error "$path : $($_.Message)" }
+                  exit 1
+              }
+
+              $runnerText = Get-Content -Raw $runnerPath
+              if ($runnerText -match '&\s+python\s+-c\s+\$verifyCode') {
+                  throw "$path must not pass multiline Python through python -c; Windows native quoting corrupts embedded quotes."
+              }
+              if ($runnerText -notmatch '&\s+python\s+\$verifyScriptPath\s+\$RepoRoot\s+\$CheckpointPath') {
+                  throw "$path must execute the temporary Python verifier with the repository root before checkpoint arguments."
+              }
+              if ($runnerText -notmatch 'sys\.path\.insert\(0, repo_root\)') {
+                  throw "$path temporary verifier must restore the repository root on Python sys.path."
+              }
+
+              $statusIndex = $runnerText.IndexOf('$gitStatus = @(& git status --porcelain)')
+              $outputCreateIndex = $runnerText.IndexOf('New-Item -ItemType Directory -Force -Path $OutputRoot')
+              if ($statusIndex -lt 0 -or $outputCreateIndex -lt 0 -or $statusIndex -gt $outputCreateIndex) {
+                  throw "$path must check repository cleanliness before creating its output directory."
+              }
           }
 
-          $runnerText = Get-Content -Raw $runnerPath
-          if ($runnerText -match '&\s+python\s+-c\s+\$verifyCode') {
-              throw 'Gate-1 verifier must not pass multiline Python through python -c; Windows native quoting corrupts embedded quotes.'
+          $v1Text = Get-Content -Raw 'scripts/run_gate1_resource_frontier_v1.ps1'
+          if ($v1Text -notmatch 'run_relay_resource_frontier_v1') {
+              throw 'Gate-1 v1 runner must invoke the precision-aware v1 measurement CLI.'
           }
-          if ($runnerText -notmatch '&\s+python\s+\$verifyScriptPath\s+\$RepoRoot\s+\$CheckpointPath') {
-              throw 'Gate-1 verifier must execute the temporary Python verifier with the repository root before checkpoint arguments.'
-          }
-          if ($runnerText -notmatch 'sys\.path\.insert\(0, repo_root\)') {
-              throw 'Gate-1 temporary verifier must restore the repository root on Python sys.path.'
-          }
-
-          $statusIndex = $runnerText.IndexOf('$gitStatus = @(& git status --porcelain)')
-          $outputCreateIndex = $runnerText.IndexOf('New-Item -ItemType Directory -Force -Path $OutputRoot')
-          if ($statusIndex -lt 0 -or $outputCreateIndex -lt 0 -or $statusIndex -gt $outputCreateIndex) {
-              throw 'Gate-1 runner must check repository cleanliness before creating its output directory.'
+          if ($v1Text -notmatch 'audit_relay_resource_frontier_v1') {
+              throw 'Gate-1 v1 runner must invoke the independent v1 auditor.'
           }
 
           $tempProbe = Join-Path ([System.IO.Path]::GetTempPath()) ('ai-hypothesis-import-probe-' + [Guid]::NewGuid().ToString('N') + '.py')
@@ -103,6 +117,7 @@ jobs:
             tests/test_relay_resource_frontier.py \
             tests/test_relay_resource_equivalence_diagnostic.py \
             tests/test_relay_precision_diagnostic.py \
+            tests/test_relay_resource_frontier_v1.py \
             tests/test_relay_resource_audit.py \
             > population-compute-tests.log 2>&1
           echo $? > population-compute-tests.status
