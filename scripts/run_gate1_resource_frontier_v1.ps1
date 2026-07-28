@@ -30,7 +30,13 @@ try {
     New-Item -ItemType Directory -Force -Path $OutputRoot | Out-Null
     $OutputRoot = (Resolve-Path $OutputRoot).Path
     $gitHead | Set-Content -Encoding UTF8 (Join-Path $OutputRoot "git-head.txt")
-    $gitStatus | Set-Content -Encoding UTF8 (Join-Path $OutputRoot "git-status.txt")
+    $gitStatusPath = Join-Path $OutputRoot "git-status.txt"
+    if ($gitStatus.Count -eq 0) {
+        New-Item -ItemType File -Force -Path $gitStatusPath | Out-Null
+    }
+    else {
+        $gitStatus | Set-Content -Encoding UTF8 $gitStatusPath
+    }
 
     if ([string]::IsNullOrWhiteSpace($CheckpointPath)) {
         $artifactDir = Join-Path $OutputRoot "frozen-confirmation"
@@ -178,7 +184,7 @@ print(json.dumps({
         $auditPath,
         $reportPath,
         (Join-Path $OutputRoot "git-head.txt"),
-        (Join-Path $OutputRoot "git-status.txt"),
+        $gitStatusPath,
         $sourceManifest
     )
     if (Test-Path $nvidiaSmi) {
