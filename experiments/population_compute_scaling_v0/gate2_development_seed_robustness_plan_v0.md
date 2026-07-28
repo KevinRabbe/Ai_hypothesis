@@ -43,6 +43,31 @@ Before seed 1 and seed 2 are captured, do not change:
 
 The purpose is robustness measurement, not optimization.
 
+## Concurrent-load handling
+
+A user-reported Factorio session may have overlapped one or more local development runs.
+
+This does **not** alter the benchmark worlds, learned-update count, inspected information, checkpoint parameter count, or evaluation matrix. The Gate-2 development result is a capability result, not a timing/resource result.
+
+However, a concurrent foreground workload can change:
+
+- GPU/CPU scheduling;
+- clocks/thermal state;
+- available VRAM/system memory;
+- wall-clock duration;
+- the exact floating-point path when underlying CUDA operations are not guaranteed bitwise deterministic.
+
+Therefore:
+
+1. do not interrupt a development run solely because Factorio is active;
+2. record any run with possible overlap as `CONCURRENT_LOAD_POSSIBLE`;
+3. do not use such a run for target-GPU latency/throughput/resource claims;
+4. retain it as development capability evidence if all mechanics/provenance checks pass and the run completes without CUDA/OOM errors;
+5. before final recipe freeze, repeat any robustness seed whose clean-room status is uncertain under an otherwise idle machine if that seed is decision-relevant;
+6. confirmation/resource-frontier runs must use an explicitly controlled idle-target environment and record that boundary before execution.
+
+A clean rerun must be treated as a separate artifact, not as a silent replacement. Preserve both outcomes if they differ.
+
 ## Artifact isolation
 
 Use distinct output roots:
@@ -75,7 +100,8 @@ For every seed record:
 - primary paired comparisons;
 - width-1 stable/reshuffled identity;
 - parameter count/fingerprint consistency;
-- equal information/work identities.
+- equal information/work identities;
+- concurrent-load status if known.
 
 ## Robustness outcome
 
@@ -90,15 +116,18 @@ This development robustness check does **not** itself require every seed-level b
 
 After all three seeds exist, report the per-seed effects and a simple across-seed summary. Do not pool the three checkpoints as though they were one larger confirmation sample.
 
+If a decision-relevant seed carries `CONCURRENT_LOAD_POSSIBLE`, run one explicitly idle-machine clean repeat before final recipe freeze. Do not overwrite or discard the original run.
+
 ## Next branch if replicated
 
 If all three development seeds preserve the same causal direction:
 
-1. freeze the final Gate-2 architecture/training/evaluation recipe;
-2. freeze untouched confirmation training seeds that are **not 0, 1 or 2**;
-3. freeze confirmation world counts and acceptance rule;
-4. freeze the target-GPU parallel-vs-serial persistent resource protocol;
-5. only then open confirmation.
+1. resolve any decision-relevant concurrent-load uncertainty with preserved clean reruns;
+2. freeze the final Gate-2 architecture/training/evaluation recipe;
+3. freeze untouched confirmation training seeds that are **not 0, 1 or 2**;
+4. freeze confirmation world counts and acceptance rule;
+5. freeze the target-GPU parallel-vs-serial persistent resource protocol;
+6. only then open confirmation.
 
 ## Next branch if not replicated
 
