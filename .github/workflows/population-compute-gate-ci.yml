@@ -113,6 +113,9 @@ jobs:
           if ($finalizerText -notmatch '18b201e22ca0a33feb4644c8ed8a09375e8e23ea') {
               throw 'Gate-1 v1 existing-result finalizer must bind the canonical first target-run measurement head.'
           }
+          if (-not (Test-Path 'experiments/population_compute_scaling_v0/gate1_v1_target_gpu_result.md')) {
+              throw 'Gate-1 v1 target-GPU result record is missing.'
+          }
 
           $tempProbe = Join-Path ([System.IO.Path]::GetTempPath()) ('ai-hypothesis-import-probe-' + [Guid]::NewGuid().ToString('N') + '.py')
           try {
