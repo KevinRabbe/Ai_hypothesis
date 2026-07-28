@@ -5,7 +5,15 @@ on:
     branches:
       - agent/large-scope-benchmark-ci-v0
       - agent/large-scope-result-audit-v0
+    paths:
+      - 'ai_hypothesis/large_scope/**'
+      - 'tests/test_large_scope_*.py'
+      - '.github/workflows/large-scope-benchmark-ci.yml'
   pull_request:
+    paths:
+      - 'ai_hypothesis/large_scope/**'
+      - 'tests/test_large_scope_*.py'
+      - '.github/workflows/large-scope-benchmark-ci.yml'
   workflow_dispatch:
 
 permissions:
