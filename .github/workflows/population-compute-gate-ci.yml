@@ -72,6 +72,12 @@ jobs:
               if ($statusIndex -lt 0 -or $outputCreateIndex -lt 0 -or $statusIndex -gt $outputCreateIndex) {
                   throw "$path must check repository cleanliness before creating its output directory."
               }
+              if ($runnerText -notmatch '\$gitStatusPath\s*=\s*Join-Path\s+\$OutputRoot\s+"git-status\.txt"') {
+                  throw "$path must bind the Git status snapshot path explicitly."
+              }
+              if ($runnerText -notmatch 'New-Item\s+-ItemType\s+File\s+-Force\s+-Path\s+\$gitStatusPath') {
+                  throw "$path must explicitly create git-status.txt when the clean-tree status array is empty."
+              }
           }
 
           $v1Text = Get-Content -Raw 'scripts/run_gate1_resource_frontier_v1.ps1'
