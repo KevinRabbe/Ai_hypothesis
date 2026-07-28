@@ -117,6 +117,37 @@ jobs:
               throw 'Gate-1 v1 target-GPU result record is missing.'
           }
 
+          $gate2RunnerPath = Resolve-Path 'scripts/run_gate2_development.ps1'
+          $gate2Tokens = $null
+          $gate2ParseErrors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+              $gate2RunnerPath,
+              [ref]$gate2Tokens,
+              [ref]$gate2ParseErrors
+          ) | Out-Null
+          if ($gate2ParseErrors.Count -gt 0) {
+              $gate2ParseErrors | ForEach-Object { Write-Error $_.Message }
+              exit 1
+          }
+          $gate2Text = Get-Content -Raw $gate2RunnerPath
+          $gate2StatusIndex = $gate2Text.IndexOf('$gitStatus = @(& git status --porcelain)')
+          $gate2OutputCreateIndex = $gate2Text.IndexOf('New-Item -ItemType Directory -Force -Path $resolvedOutputRoot')
+          if ($gate2StatusIndex -lt 0 -or $gate2OutputCreateIndex -lt 0 -or $gate2StatusIndex -gt $gate2OutputCreateIndex) {
+              throw 'Gate-2 development runner must check clean-tree provenance before creating output.'
+          }
+          if ($gate2Text -notmatch 'run_gate2_development') {
+              throw 'Gate-2 development runner must invoke the development-only CLI.'
+          }
+          if ($gate2Text -notmatch 'DEVELOPMENT_ONLY_NOT_CONFIRMATION') {
+              throw 'Gate-2 runner must explicitly label its output as development-only.'
+          }
+          if ($gate2Text -match 'allow_confirmation|--confirmation') {
+              throw 'Gate-2 development runner must not expose a confirmation-opening path.'
+          }
+          if ($gate2Text -notmatch 'New-Item\s+-ItemType\s+File\s+-Force\s+-Path\s+\$gitStatusPath') {
+              throw 'Gate-2 development runner must materialize an empty clean-tree status snapshot.'
+          }
+
           $tempProbe = Join-Path ([System.IO.Path]::GetTempPath()) ('ai-hypothesis-import-probe-' + [Guid]::NewGuid().ToString('N') + '.py')
           try {
               @(
@@ -124,7 +155,9 @@ jobs:
                   'repo_root = sys.argv[1]',
                   'if repo_root not in sys.path:',
                   '    sys.path.insert(0, repo_root)',
-                  'import ai_hypothesis.population_compute.relay_experiment_v1'
+                  'import ai_hypothesis.population_compute.relay_experiment_v1',
+                  'import ai_hypothesis.population_compute.gate2_development',
+                  'import ai_hypothesis.population_compute.run_gate2_development'
               ) | Set-Content -Encoding UTF8 $tempProbe
               & python $tempProbe (Resolve-Path '.')
               if ($LASTEXITCODE -ne 0) {
@@ -154,6 +187,9 @@ jobs:
             tests/test_relay_precision_diagnostic.py \
             tests/test_relay_resource_frontier_v1.py \
             tests/test_relay_resource_audit.py \
+            tests/test_gate2_persistent_state_capacity.py \
+            tests/test_gate2_persistent_model.py \
+            tests/test_gate2_development.py \
             > population-compute-tests.log 2>&1
           echo $? > population-compute-tests.status
           exit 0
