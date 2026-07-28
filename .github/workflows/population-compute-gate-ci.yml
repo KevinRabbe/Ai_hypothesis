@@ -156,6 +156,7 @@ jobs:
             tests/test_relay_resource_audit.py \
             tests/test_gate2_persistent_state_capacity.py \
             tests/test_gate2_persistent_model.py \
+            tests/test_gate2_development.py \
             > population-compute-tests.log 2>&1
           echo $? > population-compute-tests.status
           exit 0
