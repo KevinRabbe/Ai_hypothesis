@@ -1,6 +1,6 @@
 # Repository hygiene audit v0
 
-Status: **READ-ONLY CLASSIFICATION; NO CODE OR EVIDENCE DELETION AUTHORIZED**
+Status: **QUALIFIED CONSOLIDATION AUDIT; NO CANONICAL PACKAGE DELETION OR PR CLOSURE YET AUTHORIZED**
 
 Audit base:
 
@@ -10,17 +10,67 @@ This audit exists to make the current neural-population research line easier to 
 
 ## Executive finding
 
-The current repository has one clear scientific program but several historical implementation programs living in the same active tree and pull-request stack.
+The repository now has one clear active scientific program but several historical implementation programs still living in the same active tree and pull-request stack.
 
 The main practical problems are:
 
 1. `main` is no longer the effective research baseline. The Gate-2 line is hundreds of commits ahead while `main` has only a no-net-content accidental-temp-file add/remove divergence.
 2. Dozens of historical stacked draft PRs still appear active even when their question has been superseded or deferred.
 3. The current Gate-2 line carries older persistent-runtime, large-scope, and Step-2 implementation stacks that are not part of the current Gate-2 experiment.
-4. Legacy CI workflows run on every pull request because they have unconditional `pull_request` triggers, so Gate-2 changes repeatedly qualify unrelated historical systems.
-5. The README and roadmap still describe Gate 1 as active even though Gate 1 is now closed positive and Gate 2 is the active development gate.
+4. Historical CI ownership was too broad, causing unrelated systems to be requalified on current research PRs.
+5. The README and roadmap still describe Gate 1 as active even though Gate 1 is closed positive and Gate 2 is the active development gate.
 
 None of these findings imply that the older work should be destroyed. Git history, result evidence, protocol history, and potentially reusable infrastructure are different things from the current canonical implementation surface.
+
+## Qualification completed by this audit
+
+Two increasingly strong dependency checks now pass on GitHub CI.
+
+### 1. Static import boundary
+
+`tests/test_population_compute_dependency_boundary.py` AST-scans every module in `ai_hypothesis/population_compute` and rejects imports from:
+
+- `ai_hypothesis.runtime`;
+- `ai_hypothesis.large_scope`;
+- `ai_hypothesis.step02`.
+
+This check passes.
+
+### 2. Temporary physical-removal simulation
+
+The repository-hygiene workflow then performs a stronger proof in its disposable CI checkout:
+
+```text
+rm -rf ai_hypothesis/runtime
+       ai_hypothesis/large_scope
+       ai_hypothesis/step02
+```
+
+After those packages are physically absent, CI:
+
+1. compiles the complete `ai_hypothesis/population_compute` package;
+2. runs the canonical population-compute contract tests;
+3. runs collective-relay, shared-cell, compositional/reset-state and relay-model tests;
+4. runs Gate-0 relay training/confirmation regressions;
+5. runs Gate-1 serial/resource/equivalence/precision/audit regressions;
+6. runs Gate-2 persistent-state/model/development regressions.
+
+That full focused suite passes.
+
+This is stronger than an import grep: it demonstrates that the current population-compute Python research core and its focused executable qualification do not require the deferred runtime, large-scope, or Step-2 packages to exist in the checkout.
+
+### Interpretation boundary
+
+This result supports **removal eligibility from the future canonical active tree** for those deferred Python packages.
+
+It does not mean:
+
+- their historical code or Git history should be destroyed;
+- every old document or benchmark should be discarded;
+- later gates cannot reactivate useful ideas from them;
+- the running Gate-2 experiment branch should be modified now.
+
+Actual canonical-tree deletion/relocation remains a separate consolidation action after the current Gate-2 development artifact and provenance are safe.
 
 ## Proposed repository classes
 
@@ -33,7 +83,7 @@ Keep directly on the current canonical line:
 - `experiments/population_compute_scaling_v0/` canonical protocols/result records;
 - Gate-1 and Gate-2 local runners/finalizers;
 - focused population-compute tests;
-- top-level hypothesis, roadmap, research questions and construction/scientific-discipline documentation;
+- top-level hypothesis, roadmap, research questions and scientific-discipline documentation;
 - current population-compute CI.
 
 This is the implementation line that answers the current question:
@@ -56,17 +106,17 @@ Historical evidence should not be deleted simply because later code supersedes i
 
 ### C. Deferred reusable infrastructure
 
-Currently useful as an archive/future-source pool, but not required by Gate 2 unless a later gate explicitly reactivates it:
+Useful as an archive/future-source pool, but now mechanically proven unnecessary for the active population-compute Python core:
 
 - `ai_hypothesis/runtime/` Research Ledger / Work Thread / scheduler / knowledge-integration stack;
 - `ai_hypothesis/large_scope/` large-scope relevance and persistent-runtime benchmark stack;
-- associated `docs/*runtime*`, integration/index/consolidation documents;
-- associated `benchmarks/large_scope_*` and persistent-scope benchmark documents;
+- associated runtime/integration/index/consolidation documents;
+- associated large-scope/persistent-scope benchmark documents;
 - associated focused tests and CI lanes.
 
-This work is not judged bad or useless. It is simply a different abstraction layer from the current small scientific substrate. Parts may become relevant again for Gate 4+ dynamic activation, richer search/reasoning workloads, persistent evidence integration, or evolutionary organism work.
+This work is not judged bad or useless. It is simply a different abstraction layer from the current small scientific substrate. Parts may become relevant again for dynamic activation, richer search/reasoning workloads, persistent evidence integration, or evolutionary organism work.
 
-Before removal from the canonical tree, the dependency audit must prove that `ai_hypothesis.population_compute` has no import dependency on these packages and a clean-tree experiment branch must pass the population-compute qualification without them.
+The completed physical-removal simulation means these packages may be removed from the future canonical active tree without breaking the currently qualified population-compute suite, subject to the final consolidation qualification.
 
 ### D. Superseded research direction
 
@@ -80,57 +130,52 @@ Their results remain useful background for learned local-transform size and fail
 
 ### E. Deferred future ideas
 
-Keep as short research-direction documents rather than active implementation stacks until an earlier gate earns them:
+Keep as durable research-direction documents rather than active implementation stacks until an earlier gate earns them:
 
 - evolutionary organism/lineage optimization;
 - learned scheduler/routing;
-- compiler-specific architecture work;
+- compiler-specific execution studies;
 - very large 1K+ population execution;
 - multi-machine/geographic distribution.
 
-## Dependency boundary to prove
+The evolutionary-organism direction from historical PR #85 is being preserved on the hygiene/consolidation line so that the future idea does not depend on an otherwise deferred PR remaining open.
 
-The first mechanical hygiene contract is:
+## CI ownership — implemented on the hygiene line
 
-`ai_hypothesis.population_compute` must not import:
+The following ownership cleanup is now staged and qualified:
 
-- `ai_hypothesis.runtime`;
-- `ai_hypothesis.large_scope`;
-- `ai_hypothesis.step02`.
+### Population-compute CI
 
-`tests/test_population_compute_dependency_boundary.py` performs an AST-level repository import audit for this exact boundary.
+Owns current shared-weight population research, including Gate 0/1/2 and the useful structural relay regressions.
 
-A passing audit does **not** authorize deletion. It only proves that the current scientific core is not implicitly coupled to those older packages.
+The canonical lane now includes the old compositional-relay and population-state-reset structural tests, so retiring the historical compositional training diagnostic from generic PRs does not remove those correctness invariants.
 
-The stronger future proof is a clean consolidation branch where deferred packages are absent and the full population-compute qualification still passes.
+### Indexed-runtime CI
 
-## CI cleanup candidate
+Uses path ownership for `ai_hypothesis/runtime/**` and its focused indexed-runtime tests/workflow.
 
-Current historical workflows use unconditional pull-request triggers. That makes every current Gate-2 PR execute unrelated indexed-runtime, large-scope, and compositional-relay qualification.
+### Large-scope CI
 
-After the current Gate-2 development artifact is safely captured, narrow those workflows with path filters or branch-specific triggers.
+Uses path ownership for `ai_hypothesis/large_scope/**` and focused large-scope tests/workflow.
 
-Recommended current-CI ownership:
+### Historical compositional-relay CI
 
-- population-compute changes -> population-compute qualification;
-- runtime changes -> indexed-runtime qualification;
-- large-scope changes -> large-scope qualification;
-- old compositional-relay-specific changes -> relay workflow only when its owned files change;
-- repository-level contract changes -> deliberately opt into multiple lanes when needed.
+No longer has a generic pull-request trigger. It remains available on its historical branch and by manual dispatch.
 
-Do not weaken scientific qualification merely to make CI faster; remove only irrelevant repeated qualification.
+This does not weaken current scientific qualification. It removes repeated execution of unrelated historical systems while moving still-relevant relay correctness checks into the canonical population-compute lane.
 
-## Pull-request hygiene candidate
+## Pull-request lifecycle map
 
-The repository contains many historical stacked draft PRs whose code is already inherited by later branches.
+`docs/repository_pr_consolidation_map_v0.md` classifies the currently open PR stack before any closures occur.
 
-After the current Gate-2 development result is preserved:
+The key policy is:
 
-1. identify the final successor/canonical branch for each historical PR chain;
-2. ensure any unique deferred-direction document is preserved on a durable branch or copied into the canonical deferred-research docs;
-3. close superseded draft PRs with a short final comment linking their successor/canonical evidence;
-4. do not delete branches or PR discussions solely for cleanliness;
-5. keep only current experiments and genuinely independent future directions open.
+- keep #87, #88 and #89 open during current Gate-2 development;
+- preserve the unique evolutionary direction from #85 before closing it later;
+- treat the old runtime/large-scope chain as deferred infrastructure, not failed work;
+- treat old independently weighted Step-2 work as superseded background;
+- preserve Gate-0/Gate-1 PRs as scientific lineage until their permanent evidence is directly represented from canonical `main`;
+- close superseded drafts only after consolidation, with successor/evidence links.
 
 Closing a superseded PR is project-state cleanup, not deletion of its scientific history.
 
@@ -140,30 +185,33 @@ The long-term clean shape should make `main` the truthful repository entry point
 
 Do not force-reset `main` during the running Gate-2 experiment.
 
-After the Gate-2 development result is captured and repository cleanup is qualified:
+After the Gate-2 development result is captured and repository cleanup is ready:
 
 1. create one consolidation branch from the current scientific line;
 2. retain canonical population-compute code/evidence;
-3. remove or relocate only proven-unneeded active-tree packages while preserving Git history;
-4. update README/roadmap/current status;
-5. qualify the complete resulting tree;
-6. merge that single consolidation PR into `main`;
-7. then close superseded stacked draft PRs.
+3. remove/relocate the deferred packages now proven unnecessary for the active scientific core;
+4. preserve selected deferred-research documents;
+5. update README/roadmap/current status;
+6. qualify the complete resulting tree again;
+7. merge that single consolidation PR into `main`;
+8. then close superseded stacked draft PRs using the recorded lifecycle map.
 
-This preserves all old commits in repository history while making the present tree reflect the present research program.
+This preserves old commits in repository history while making the present tree reflect the present research program.
 
-## Documentation drift to repair
+## Documentation drift to repair after the running artifact is safe
 
 The current README correctly states the fixed-parameter computational-organism hypothesis and Gate-0 evidence, but still frames Gate 1 as the immediate/current question.
 
 The current roadmap likewise labels Gate 1 as active and describes Gate 2 only generically.
 
-Once the running development artifact is captured, update canonical status to:
+Canonical status should become:
 
 - Gate 0: **completed positive**;
 - Gate 1: **completed positive on RTX 4060 Ti eager CUDA**;
-- Gate 2: **active; delayed-keyed-traces development/confirmation protocol**;
+- Gate 2: **active; delayed-keyed-traces development/confirmation program**;
 - Gate 3: **locked pending confirmed Gate-2 capability/resource evidence**.
+
+The documentation update is deliberately not placed on the exact measured Gate-2 experiment branch while its first development artifact is still being captured/preserved.
 
 ## Explicit non-actions during the current GPU run
 
@@ -175,6 +223,7 @@ Until the first Gate-2 development artifact has completed and its provenance is 
 - do not delete result files/stashes;
 - do not merge/rebase the local running branch;
 - do not open confirmation;
-- do not close historical PRs whose unique content has not yet been classified.
+- do not remove deferred packages from that exact branch;
+- do not close historical PRs whose canonical successor/evidence link is not yet established.
 
 The hygiene audit runs on a separate branch and is not part of the measured development experiment.
