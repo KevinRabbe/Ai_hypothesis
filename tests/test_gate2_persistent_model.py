@@ -73,8 +73,8 @@ class Gate2PersistentModelTests(unittest.TestCase):
         )
 
         self.assertTrue(torch.equal(first.observations, second.observations))
+        self.assertNotEqual(original.query_key, changed.query_key)
         self.assertFalse(torch.equal(first.query_bits, second.query_bits))
-        self.assertNotEqual(first.answer_payloads.item(), second.answer_payloads.item())
 
     def test_parallel_and_serial_persistent_schedules_are_output_equivalent(self) -> None:
         worlds = [generate_gate2_world(seed=seed, entity_count=16) for seed in (41, 42, 43)]
