@@ -1,12 +1,14 @@
 # Repository PR consolidation map v0
 
-Status: **PLANNING ONLY — DO NOT CLOSE ACTIVE/HISTORICAL PRS UNTIL THE CANONICAL CONSOLIDATION LINE IS QUALIFIED**
+Status: **QUALIFIED PLANNING MAP — DO NOT CLOSE ACTIVE/HISTORICAL PRS UNTIL THE CANONICAL CONSOLIDATION LINE IS MERGED AND THE CURRENT GATE-2 DEVELOPMENT ARTIFACT IS SAFE**
 
 Audit base: `06f359b2bc26bf3130552c0272d89f493abce636`
 
-This map classifies currently open pull requests by their role in the repository after the fixed-parameter population-compute program became canonical.
+This map classifies currently open pull requests by their role after the fixed-parameter population-compute program became canonical.
 
 The goal is not to erase history. Closing a superseded draft PR only changes project-state visibility; its commits, branch, discussion, and scientific provenance remain available.
+
+The hygiene audit has now mechanically proven that the focused population-compute package/regression suite passes with `ai_hypothesis/runtime`, `ai_hypothesis/large_scope`, and `ai_hypothesis/step02` physically absent from a temporary CI checkout. That proves active-core independence, but actual repository-tree removal remains deferred to the final consolidation branch.
 
 ## Keep open during current Gate-2 development
 
@@ -26,17 +28,21 @@ Keep open while the first development artifact is pending and while its analysis
 
 Independent cleanup/audit line.
 
-Keep open until the canonical consolidation plan has been proven and transferred to the eventual consolidation PR.
+Keep open until its qualified cleanup decisions have been transferred into the eventual canonical consolidation PR.
 
-## Preserve content, then close as deferred future direction
+## Preserved future direction; close later after canonical merge
 
 ### #85 — Evolutionary organism optimization direction
 
-Unique and useful future-research document.
+The unique future-research content is now preserved independently of #85 at:
 
-Before closure, preserve `docs/evolutionary_organism_direction.md` on the canonical line or in a durable future-research directory.
+`docs/future/evolutionary_organism_direction.md`
 
-After preservation, close as deferred rather than leaving a docs-only future idea looking like an active implementation gate.
+with a current Gate-1-complete / Gate-2-active status boundary. `docs/future/README.md` indexes the deferred direction.
+
+Therefore #85 no longer needs to remain open merely to prevent loss of the idea. It should still remain open until the consolidation line carrying that preserved document lands on canonical `main`.
+
+After that, close #85 as deferred rather than leaving a docs-only future idea looking like an active implementation gate.
 
 ## Preserve branch/history, then close as deferred infrastructure
 
@@ -44,22 +50,22 @@ After preservation, close as deferred rather than leaving a docs-only future ide
 
 Useful result-validation infrastructure for the old independently weighted large-scope program, but not part of current Gate 2.
 
-Close after the deferred `large_scope` stack has a durable archival home and the current scientific core has been proven independent from it.
+Close after the deferred `large_scope` stack has a durable archival home and the canonical consolidation line is merged.
 
 ### Open PRs #2–#55 that belong to the persistent-runtime / knowledge-integration / large-scope stack
 
 These PRs built substantial reusable infrastructure: Research Ledger, Work Threads, scheduler/control, evidence/knowledge state, integration hierarchy, indexed materialization, scope coverage, persistent large-scope execution, and qualification.
 
-They are not failed work. They are deferred infrastructure whose current tree footprint is not required by the Gate-2 experiment.
+They are not failed work. They are deferred infrastructure whose current tree footprint is mechanically proven unnecessary for the focused population-compute core.
 
-After the consolidation branch proves population-compute independence and preserves any unique architecture documents:
+After the canonical consolidation branch preserves any unique architecture documents and lands:
 
 - close the still-open members of this stack as superseded/deferred;
 - link the final canonical archive/consolidation point in each closure comment;
 - do not delete their branches solely for cleanup;
 - do not rewrite their historical claims.
 
-Representative terminal points are #53 for indexed runtime qualification and #54/#55 for the large-scope benchmark/audit line.
+Representative terminal points are #53 for indexed runtime qualification and #54/#55/#86 for the large-scope benchmark/result-contract line.
 
 ## Preserve history, then close as superseded research direction
 
@@ -104,15 +110,28 @@ Their relevant evidence should be referenced from permanent result records rathe
 
 ## Closure order after Gate-2 development artifact is safe
 
-1. Create and qualify the canonical consolidation branch.
-2. Preserve canonical Gate-0/Gate-1/Gate-2 result/protocol documentation.
-3. Preserve unique future-direction documents such as #85.
-4. Prove the active population-compute package/test suite works without deferred runtime/large-scope/Step-2 packages.
-5. Merge the consolidation line so `main` becomes truthful again.
-6. Close deferred runtime/large-scope/Step-2 PRs with canonical/archive links.
-7. Close historical Gate-0/Gate-1 stack PRs with canonical result links.
-8. Close #85 after its future-direction document exists on canonical `main`.
-9. Leave only genuinely active Gate-2 work and new independent experiments open.
+Completed already on the audit line:
+
+- population-compute import-boundary proof;
+- physical-removal simulation of deferred Python stacks;
+- full focused population-compute qualification after that removal;
+- CI ownership narrowing;
+- preservation of the unique #85 evolutionary direction;
+- open-PR lifecycle classification.
+
+Remaining sequence:
+
+1. Capture and preserve the first Gate-2 development artifact/provenance.
+2. Create the canonical consolidation branch from the appropriate current scientific line.
+3. Preserve canonical Gate-0/Gate-1/Gate-2 result/protocol documentation.
+4. Remove/relocate deferred runtime/large-scope/Step-2 active-tree packages under the already-proven dependency boundary.
+5. Update README/roadmap/current status.
+6. Re-run complete consolidation qualification on the final tree.
+7. Merge the consolidation line so `main` becomes truthful again.
+8. Close deferred runtime/large-scope/Step-2 PRs with canonical/archive links.
+9. Close historical Gate-0/Gate-1 stack PRs with canonical result links.
+10. Close #85 after its preserved future-direction document exists on canonical `main`.
+11. Leave only genuinely active Gate-2 work and new independent experiments open.
 
 ## Standard closure language
 
@@ -128,6 +147,10 @@ For superseded research direction:
 
 > Superseded as the primary research direction by the fixed-learned-parameter shared-weight population-compute program. The earlier result remains useful background and is preserved in repository history.
 
+For preserved future direction:
+
+> Preserved on the canonical deferred-research line and intentionally not active at the current gate. Closing this draft keeps project state truthful while retaining the research direction for later activation if earlier evidence justifies it.
+
 ## Hard rule
 
-Do not mass-close PRs before the consolidation branch is qualified and the current Gate-2 development artifact/provenance is safe.
+Do not mass-close PRs before the canonical consolidation branch is merged and the current Gate-2 development artifact/provenance is safe.
