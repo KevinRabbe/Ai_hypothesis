@@ -2,7 +2,7 @@
 
 Status: **PRE-RESULT DEVELOPMENT INTERPRETATION GUIDE — NOT A CONFIRMATION RULE**
 
-This guide is written before the first real Gate-2 development result is inspected. Its purpose is to prevent post-result storytelling and to make the next development action depend on the observed failure/success mode rather than on a desire for a positive result.
+This guide was written before the first real Gate-2 development result was inspected. Its purpose is to prevent post-result storytelling and to make the next development action depend on the observed failure/success mode rather than on a desire for a positive result.
 
 The first Gate-2 run remains development-only. No branch below opens confirmation automatically.
 
@@ -98,14 +98,23 @@ Desired development pattern:
 
 Interpretation:
 
-This is the development pattern that would justify freezing a final training/evaluation recipe and designing untouched confirmation. It is not itself confirmation evidence.
+This is the development pattern that justifies a **seed-robustness check of the exact same recipe before any tuning**. A single favorable development training seed is not enough to freeze confirmation.
 
-Next action before confirmation:
+Next action after the first Outcome-D seed:
 
-1. inspect whether the effect is robust enough to avoid tuning on statistical noise;
-2. freeze architecture, state/query widths, optimizer, training condition cycle, steps, batch size, learning rate, weight decay, gradient clipping, world construction, evaluation world count, numerical equivalence rule, paired CI procedure, and confirmation acceptance rule;
-3. freeze target-hardware resource protocol separately;
-4. only then expose untouched confirmation worlds and at least three new training seeds.
+1. repeat the exact same development recipe on independent development training seeds `1` and `2`;
+2. keep the same held-out development worlds, widths, entity counts, controls, evaluation world count and bootstrap method;
+3. do not change architecture, state/query widths, optimizer, steps, batch size, learning rate, weight decay, gradient clipping or training-condition cycle;
+4. preserve each checkpoint/artifact independently;
+5. evaluate whether the four primary directional comparisons replicate across all three development seeds.
+
+Only if that same qualitative pattern is reproducible should the project proceed to the final freeze sequence:
+
+1. freeze architecture, state/query widths, optimizer, training condition cycle, steps, batch size, learning rate, weight decay, gradient clipping, world construction, evaluation world count, numerical equivalence rule, paired CI procedure and confirmation acceptance rule;
+2. freeze target-hardware resource protocol separately;
+3. only then expose untouched confirmation worlds and at least three **new, previously unused** training seeds.
+
+The development seeds used for robustness must not be recycled as confirmation training seeds.
 
 ## Development outcome E — mixed difficulty boundary
 
@@ -133,4 +142,5 @@ Next action:
 - train on reshuffled/reset controls to make them easier comparison targets;
 - open confirmation because one seed looks impressive;
 - call development p-values or bootstrap intervals a Gate-2 verdict;
-- change Gate 0 or Gate 1 claims based on Gate-2 outcome.
+- change Gate 0 or Gate 1 claims based on Gate-2 outcome;
+- tune the recipe immediately after the first clean Outcome-D seed before checking whether the same recipe survives independent development training seeds.
