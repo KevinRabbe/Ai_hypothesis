@@ -4,7 +4,19 @@ on:
   push:
     branches:
       - 'agent/**'
+    paths:
+      - 'ai_hypothesis/runtime/**'
+      - 'tests/test_incremental_*.py'
+      - 'tests/test_indexed_*.py'
+      - 'tests/test_projection_tail.py'
+      - '.github/workflows/indexed-runtime-ci.yml'
   pull_request:
+    paths:
+      - 'ai_hypothesis/runtime/**'
+      - 'tests/test_incremental_*.py'
+      - 'tests/test_indexed_*.py'
+      - 'tests/test_projection_tail.py'
+      - '.github/workflows/indexed-runtime-ci.yml'
   workflow_dispatch:
 
 permissions:
