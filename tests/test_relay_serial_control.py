@@ -16,12 +16,13 @@ from ai_hypothesis.population_compute.relay_model import (
 )
 from ai_hypothesis.population_compute.relay_serial_control import (
     normalized_parallel_forward,
+    normalized_serial_cached_forward,
     normalized_serial_forward,
 )
 
 
 class RelaySerialControlTests(unittest.TestCase):
-    def test_serial_schedule_matches_parallel_normalized_across_full_ladder(self) -> None:
+    def test_serial_schedules_match_parallel_normalized_across_full_ladder(self) -> None:
         torch.manual_seed(17)
         model = RelayPopulationModel()
         fingerprint_before = model.parameter_fingerprint()
@@ -42,55 +43,74 @@ class RelaySerialControlTests(unittest.TestCase):
                     )
                     parallel = normalized_parallel_forward(model, batch)
                     serial = normalized_serial_forward(model, batch)
+                    cached = normalized_serial_cached_forward(model, batch)
 
-                    torch.testing.assert_close(
-                        serial.final_shared,
-                        parallel.final_shared,
-                        rtol=2e-5,
-                        atol=2e-5,
-                    )
-                    torch.testing.assert_close(
-                        serial.logits,
-                        parallel.logits,
-                        rtol=2e-5,
-                        atol=2e-5,
-                    )
-                    self.assertTrue(
-                        torch.equal(
-                            decode_node_logits(serial.logits),
-                            decode_node_logits(parallel.logits),
+                    for row in (serial, cached):
+                        torch.testing.assert_close(
+                            row.final_shared,
+                            parallel.final_shared,
+                            rtol=2e-5,
+                            atol=2e-5,
                         )
-                    )
+                        torch.testing.assert_close(
+                            row.logits,
+                            parallel.logits,
+                            rtol=2e-5,
+                            atol=2e-5,
+                        )
+                        self.assertTrue(
+                            torch.equal(
+                                decode_node_logits(row.logits),
+                                decode_node_logits(parallel.logits),
+                            )
+                        )
 
                     expected_updates = active_workers * difficulty.hop_count
-                    self.assertEqual(
-                        parallel.telemetry.worker_updates_per_sample,
-                        expected_updates,
-                    )
-                    self.assertEqual(
-                        serial.telemetry.worker_updates_per_sample,
-                        expected_updates,
-                    )
-                    self.assertEqual(
-                        parallel.telemetry.candidate_evaluations_per_sample,
-                        expected_updates,
-                    )
-                    self.assertEqual(
-                        serial.telemetry.candidate_evaluations_per_sample,
-                        expected_updates,
-                    )
+                    for row in (parallel, serial, cached):
+                        self.assertEqual(
+                            row.telemetry.worker_updates_per_sample,
+                            expected_updates,
+                        )
+                        self.assertEqual(
+                            row.telemetry.candidate_evaluations_per_sample,
+                            expected_updates,
+                        )
+
                     self.assertEqual(
                         parallel.telemetry.peak_active_neural_states_per_sample,
                         active_workers,
                     )
+                    self.assertEqual(serial.telemetry.peak_active_neural_states_per_sample, 1)
+                    self.assertEqual(cached.telemetry.peak_active_neural_states_per_sample, 1)
+                    self.assertEqual(serial.telemetry.inter_state_communicated_scalars_per_sample, 0)
+                    self.assertEqual(cached.telemetry.inter_state_communicated_scalars_per_sample, 0)
+
                     self.assertEqual(
-                        serial.telemetry.peak_active_neural_states_per_sample,
-                        1,
+                        parallel.telemetry.input_projection_evaluations_per_sample,
+                        active_workers,
                     )
                     self.assertEqual(
-                        serial.telemetry.inter_state_communicated_scalars_per_sample,
-                        0,
+                        parallel.telemetry.value_projection_evaluations_per_sample,
+                        active_workers,
                     )
+                    self.assertEqual(
+                        cached.telemetry.static_projection_evaluations_per_sample,
+                        parallel.telemetry.static_projection_evaluations_per_sample,
+                    )
+                    self.assertEqual(
+                        serial.telemetry.input_projection_evaluations_per_sample,
+                        expected_updates,
+                    )
+                    self.assertEqual(
+                        serial.telemetry.value_projection_evaluations_per_sample,
+                        expected_updates,
+                    )
+                    self.assertGreaterEqual(
+                        serial.telemetry.static_projection_evaluations_per_sample,
+                        cached.telemetry.static_projection_evaluations_per_sample,
+                    )
+                    self.assertEqual(cached.telemetry.cached_state_vectors_per_sample, active_workers)
+                    self.assertEqual(cached.telemetry.cached_message_vectors_per_sample, active_workers)
 
         self.assertEqual(model.parameter_fingerprint(), fingerprint_before)
 
@@ -121,6 +141,8 @@ class RelaySerialControlTests(unittest.TestCase):
             normalized_parallel_forward(model, batch, recurrent_rounds=0)
         with self.assertRaisesRegex(ValueError, "recurrent_rounds must be positive"):
             normalized_serial_forward(model, batch, recurrent_rounds=0)
+        with self.assertRaisesRegex(ValueError, "recurrent_rounds must be positive"):
+            normalized_serial_cached_forward(model, batch, recurrent_rounds=0)
 
 
 if __name__ == "__main__":

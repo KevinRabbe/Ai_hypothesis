@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - 'agent/population-compute-*'
+      - 'agent/relay-work-span-*'
   pull_request:
   workflow_dispatch:
 
@@ -34,6 +35,106 @@ jobs:
       - name: Compile population-compute modules
         run: python -m compileall -q ai_hypothesis/population_compute
 
+      - name: Parse target-GPU PowerShell runners
+        shell: pwsh
+        run: |
+          $runnerPaths = @(
+              'scripts/run_gate1_resource_frontier.ps1',
+              'scripts/run_gate1_resource_frontier_v1.ps1'
+          )
+          foreach ($path in $runnerPaths) {
+              $runnerPath = Resolve-Path $path
+              $tokens = $null
+              $parseErrors = $null
+              [System.Management.Automation.Language.Parser]::ParseFile(
+                  $runnerPath,
+                  [ref]$tokens,
+                  [ref]$parseErrors
+              ) | Out-Null
+              if ($parseErrors.Count -gt 0) {
+                  $parseErrors | ForEach-Object { Write-Error "$path : $($_.Message)" }
+                  exit 1
+              }
+
+              $runnerText = Get-Content -Raw $runnerPath
+              if ($runnerText -match '&\s+python\s+-c\s+\$verifyCode') {
+                  throw "$path must not pass multiline Python through python -c; Windows native quoting corrupts embedded quotes."
+              }
+              if ($runnerText -notmatch '&\s+python\s+\$verifyScriptPath\s+\$RepoRoot\s+\$CheckpointPath') {
+                  throw "$path must execute the temporary Python verifier with the repository root before checkpoint arguments."
+              }
+              if ($runnerText -notmatch 'sys\.path\.insert\(0, repo_root\)') {
+                  throw "$path temporary verifier must restore the repository root on Python sys.path."
+              }
+
+              $statusIndex = $runnerText.IndexOf('$gitStatus = @(& git status --porcelain)')
+              $outputCreateIndex = $runnerText.IndexOf('New-Item -ItemType Directory -Force -Path $OutputRoot')
+              if ($statusIndex -lt 0 -or $outputCreateIndex -lt 0 -or $statusIndex -gt $outputCreateIndex) {
+                  throw "$path must check repository cleanliness before creating its output directory."
+              }
+              if ($runnerText -notmatch '\$gitStatusPath\s*=\s*Join-Path\s+\$OutputRoot\s+"git-status\.txt"') {
+                  throw "$path must bind the Git status snapshot path explicitly."
+              }
+              if ($runnerText -notmatch 'New-Item\s+-ItemType\s+File\s+-Force\s+-Path\s+\$gitStatusPath') {
+                  throw "$path must explicitly create git-status.txt when the clean-tree status array is empty."
+              }
+          }
+
+          $v1Text = Get-Content -Raw 'scripts/run_gate1_resource_frontier_v1.ps1'
+          if ($v1Text -notmatch 'run_relay_resource_frontier_v1') {
+              throw 'Gate-1 v1 runner must invoke the precision-aware v1 measurement CLI.'
+          }
+          if ($v1Text -notmatch 'audit_relay_resource_frontier_v1') {
+              throw 'Gate-1 v1 runner must invoke the independent v1 auditor.'
+          }
+
+          $finalizerPath = Resolve-Path 'scripts/finalize_gate1_resource_frontier_v1_existing.ps1'
+          $finalizerTokens = $null
+          $finalizerParseErrors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+              $finalizerPath,
+              [ref]$finalizerTokens,
+              [ref]$finalizerParseErrors
+          ) | Out-Null
+          if ($finalizerParseErrors.Count -gt 0) {
+              $finalizerParseErrors | ForEach-Object { Write-Error $_.Message }
+              exit 1
+          }
+          $finalizerText = Get-Content -Raw $finalizerPath
+          if ($finalizerText -notmatch 'benchmark_rerun\s*=\s*\$false') {
+              throw 'Gate-1 v1 existing-result finalizer must explicitly record that the benchmark was not rerun.'
+          }
+          if ($finalizerText -notmatch 'timing_rerun\s*=\s*\$false') {
+              throw 'Gate-1 v1 existing-result finalizer must explicitly record that timing was not rerun.'
+          }
+          if ($finalizerText -notmatch 'git diff --quiet \$measurementHead HEAD -- \$scientificSourcePaths') {
+              throw 'Gate-1 v1 existing-result finalizer must reject scientific-source drift after the measured head.'
+          }
+          if ($finalizerText -notmatch '18b201e22ca0a33feb4644c8ed8a09375e8e23ea') {
+              throw 'Gate-1 v1 existing-result finalizer must bind the canonical first target-run measurement head.'
+          }
+          if (-not (Test-Path 'experiments/population_compute_scaling_v0/gate1_v1_target_gpu_result.md')) {
+              throw 'Gate-1 v1 target-GPU result record is missing.'
+          }
+
+          $tempProbe = Join-Path ([System.IO.Path]::GetTempPath()) ('ai-hypothesis-import-probe-' + [Guid]::NewGuid().ToString('N') + '.py')
+          try {
+              @(
+                  'import sys',
+                  'repo_root = sys.argv[1]',
+                  'if repo_root not in sys.path:',
+                  '    sys.path.insert(0, repo_root)',
+                  'import ai_hypothesis.population_compute.relay_experiment_v1'
+              ) | Set-Content -Encoding UTF8 $tempProbe
+              & python $tempProbe (Resolve-Path '.')
+              if ($LASTEXITCODE -ne 0) {
+                  throw 'External temporary Python verifier cannot import the repository package after repo-root injection.'
+              }
+          }
+          finally {
+              Remove-Item -Force -ErrorAction SilentlyContinue $tempProbe
+          }
+
       - name: Run population-compute contract regressions
         shell: bash
         run: |
@@ -48,6 +149,11 @@ jobs:
             tests/test_relay_experiment_v1.py \
             tests/test_run_relay_scaling_v1.py \
             tests/test_confirmation_gate_v1.py \
+            tests/test_relay_resource_frontier.py \
+            tests/test_relay_resource_equivalence_diagnostic.py \
+            tests/test_relay_precision_diagnostic.py \
+            tests/test_relay_resource_frontier_v1.py \
+            tests/test_relay_resource_audit.py \
             > population-compute-tests.log 2>&1
           echo $? > population-compute-tests.status
           exit 0
