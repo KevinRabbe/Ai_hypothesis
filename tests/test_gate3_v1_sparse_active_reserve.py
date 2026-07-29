@@ -94,7 +94,7 @@ class Gate3V1SparseActiveReserveTests(unittest.TestCase):
         for output in outputs.values():
             self.assertEqual(output, stable)
 
-    def test_collapsed_control_removes_distinct_alternatives_without_changing_slot_count(self) -> None:
+    def test_collapsed_control_exposes_one_logical_hypothesis(self) -> None:
         candidates = (
             Gate3V1Candidate(path=(0,), score=0.9, state_token="s0"),
             Gate3V1Candidate(path=(1,), score=0.8, state_token="s1"),
@@ -117,10 +117,10 @@ class Gate3V1SparseActiveReserveTests(unittest.TestCase):
             expansion_index=7,
             world_depth=8,
         )
-        self.assertEqual(len(stable), len(collapsed))
+        self.assertEqual(len(stable), 4)
         self.assertGreater(len({candidate.path for candidate in stable}), 1)
-        self.assertEqual(len({candidate.path for candidate in collapsed}), 1)
-        self.assertEqual(len({candidate.state_token for candidate in collapsed}), 1)
+        self.assertEqual(len(collapsed), 1)
+        self.assertEqual(collapsed[0], stable[0])
 
     def test_reshuffled_control_preserves_candidate_paths_but_reassigns_histories(self) -> None:
         candidates = tuple(
