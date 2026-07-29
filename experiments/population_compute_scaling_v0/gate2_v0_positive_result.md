@@ -97,10 +97,10 @@ Observed frozen resource result:
 all_preflights_passed = true
 resource_frontier_passed = true
 
-c64_w64_b1    = true
-c64_w64_b64   = true
-c256_w256_b1  = true
-c256_w256_b64 = true
+c64_w64_b1     = true
+c64_w64_b64    = true
+c256_w256_b1   = true
+c256_w256_b64  = true
 ```
 
 The guarded resource runner then invoked the independent resource auditor, which reported:
