@@ -1,0 +1,114 @@
+name: Gate2 post-confirmation preparation qualification
+
+on:
+  push:
+    branches:
+      - agent/gate2-post-confirmation-prep-v0
+  pull_request:
+    paths:
+      - 'ai_hypothesis/population_compute/audit_gate2_confirmation.py'
+      - 'ai_hypothesis/population_compute/gate2_resource_frontier.py'
+      - 'ai_hypothesis/population_compute/run_gate2_resource_frontier.py'
+      - 'scripts/run_gate2_resource_frontier.ps1'
+      - 'tests/test_audit_gate2_confirmation.py'
+      - 'tests/test_gate2_resource_frontier.py'
+      - '.github/workflows/gate2-post-confirmation-prep-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gate2-post-confirmation-prep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: .
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install CPU Torch
+        run: |
+          python -m pip install --disable-pip-version-check torch --index-url https://download.pytorch.org/whl/cpu
+          python -c "import torch; print('torch', torch.__version__)"
+
+      - name: Verify measured Gate2 scientific source did not drift
+        shell: bash
+        run: |
+          confirmation_head=c2a26a17a94746ca88f29950197131689405917b
+          git cat-file -e "${confirmation_head}^{commit}"
+          git diff --exit-code "$confirmation_head" HEAD -- \
+            ai_hypothesis/population_compute/gate2_persistent_state_capacity.py \
+            ai_hypothesis/population_compute/gate2_persistent_model.py \
+            ai_hypothesis/population_compute/gate2_development.py \
+            ai_hypothesis/population_compute/gate2_confirmation.py
+
+      - name: Compile post-confirmation modules
+        run: |
+          python -m compileall -q \
+            ai_hypothesis/population_compute/audit_gate2_confirmation.py \
+            ai_hypothesis/population_compute/gate2_resource_frontier.py \
+            ai_hypothesis/population_compute/run_gate2_resource_frontier.py
+
+      - name: Run confirmation-audit and resource-contract regressions
+        run: |
+          python -m unittest \
+            tests/test_audit_gate2_confirmation.py \
+            tests/test_gate2_resource_frontier.py \
+            tests/test_gate2_persistent_model.py \
+            tests/test_gate2_confirmation.py
+
+      - name: Verify frozen resource CLI has no timing/model tuning flags
+        shell: bash
+        run: |
+          python -m ai_hypothesis.population_compute.run_gate2_resource_frontier --help > resource-help.txt
+          cat resource-help.txt
+          grep -q -- '--checkpoint' resource-help.txt
+          grep -q -- '--output' resource-help.txt
+          ! grep -q -- '--warmup' resource-help.txt
+          ! grep -q -- '--trials' resource-help.txt
+          ! grep -q -- '--batch-size' resource-help.txt
+          ! grep -q -- '--width' resource-help.txt
+          ! grep -q -- '--device' resource-help.txt
+          ! grep -q -- '--compile' resource-help.txt
+
+      - name: Verify PowerShell resource runner contract
+        shell: pwsh
+        run: |
+          $path = Resolve-Path 'scripts/run_gate2_resource_frontier.ps1'
+          $tokens = $null
+          $parseErrors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+              $path,
+              [ref]$tokens,
+              [ref]$parseErrors
+          ) | Out-Null
+          if ($parseErrors.Count -gt 0) {
+              $parseErrors | ForEach-Object { Write-Error $_.Message }
+              exit 1
+          }
+          $text = Get-Content -Raw $path
+          foreach ($required in @(
+              'IdleMachineAttested',
+              'Get-Process -Name "factorio"',
+              'c2a26a17a94746ca88f29950197131689405917b',
+              'audit_gate2_confirmation',
+              'checkpoint_training_seed = 3',
+              'warmup_iterations = 10',
+              'timed_iterations = 50',
+              'resource_world_seed_start = 4294967296',
+              'execution_mode = "eager_cuda"',
+              'compiler_enabled = $false',
+              'NVIDIA GeForce RTX 4060 Ti'
+          )) {
+              if (-not $text.Contains($required)) {
+                  throw "Frozen Gate-2 resource runner missing required contract text: $required"
+              }
+          }
