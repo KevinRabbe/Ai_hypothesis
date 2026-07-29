@@ -1,0 +1,119 @@
+name: Gate2 confirmation protocol qualification
+
+on:
+  push:
+    branches:
+      - 'agent/gate2-confirmation-*'
+  pull_request:
+    paths:
+      - 'ai_hypothesis/population_compute/gate2_confirmation.py'
+      - 'ai_hypothesis/population_compute/run_gate2_confirmation.py'
+      - 'scripts/run_gate2_confirmation.ps1'
+      - 'tests/test_gate2_confirmation.py'
+      - 'experiments/population_compute_scaling_v0/gate2_confirmation_protocol_v0.md'
+      - 'experiments/population_compute_scaling_v0/gate2_resource_frontier_protocol_v0.md'
+      - '.github/workflows/gate2-confirmation-protocol-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gate2-confirmation-protocol:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: .
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install CPU Torch
+        run: |
+          python -m pip install --disable-pip-version-check torch --index-url https://download.pytorch.org/whl/cpu
+          python -c "import torch; print('torch', torch.__version__)"
+
+      - name: Compile Gate2 confirmation modules
+        run: |
+          python -m compileall -q \
+            ai_hypothesis/population_compute/gate2_confirmation.py \
+            ai_hypothesis/population_compute/run_gate2_confirmation.py
+
+      - name: Verify frozen PowerShell runner contract
+        shell: pwsh
+        run: |
+          $path = Resolve-Path 'scripts/run_gate2_confirmation.ps1'
+          $tokens = $null
+          $parseErrors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+              $path,
+              [ref]$tokens,
+              [ref]$parseErrors
+          ) | Out-Null
+          if ($parseErrors.Count -gt 0) {
+              $parseErrors | ForEach-Object { Write-Error $_.Message }
+              exit 1
+          }
+
+          $text = Get-Content -Raw $path
+          if ($text -notmatch 'IdleMachineAttested') {
+              throw 'Confirmation runner must require explicit idle-machine attestation.'
+          }
+          if ($text -notmatch 'Get-Process -Name "factorio"') {
+              throw 'Confirmation runner must reject a running Factorio process.'
+          }
+          if ($text -notmatch '@\(3, 4, 5\)') {
+              throw 'Confirmation runner must bind training seeds 3/4/5.'
+          }
+          if ($text -notmatch 'steps = 1000') {
+              throw 'Confirmation runner must record the frozen 1000-step recipe.'
+          }
+          if ($text -notmatch 'evaluation_world_count = 512') {
+              throw 'Confirmation runner must record the frozen 512-world confirmation set.'
+          }
+          if ($text -notmatch 'bootstrap_samples = 2000') {
+              throw 'Confirmation runner must record the frozen 2000-sample paired bootstrap.'
+          }
+          if ($text -notmatch 'run_gate2_confirmation') {
+              throw 'Confirmation runner must invoke the dedicated frozen confirmation CLI.'
+          }
+          if ($text -match '--steps|--training-batch-size|--learning-rate|--state-width|--query-width|--evaluation-world-count|--bootstrap-samples') {
+              throw 'Confirmation runner must not expose post-freeze tuning arguments to the CLI.'
+          }
+
+      - name: Verify confirmation CLI exposes no tuning knobs
+        shell: bash
+        run: |
+          python - <<'PY'
+          import sys
+          from unittest.mock import patch
+          from ai_hypothesis.population_compute import run_gate2_confirmation
+
+          with patch.object(sys, 'argv', ['run_gate2_confirmation', '--help']):
+              try:
+                  run_gate2_confirmation._parse_args()
+              except SystemExit:
+                  pass
+
+          source = open('ai_hypothesis/population_compute/run_gate2_confirmation.py', encoding='utf-8').read()
+          forbidden = [
+              '--steps', '--training-batch-size', '--learning-rate', '--weight-decay',
+              '--gradient-clip-norm', '--state-width', '--query-width',
+              '--evaluation-world-count', '--evaluation-batch-size', '--bootstrap-samples'
+          ]
+          found = [flag for flag in forbidden if flag in source]
+          if found:
+              raise SystemExit(f'confirmation CLI exposes forbidden tuning flags: {found}')
+          PY
+
+      - name: Run Gate2 confirmation and inherited mechanics regressions
+        run: |
+          python -m unittest \
+            tests/test_gate2_persistent_state_capacity.py \
+            tests/test_gate2_persistent_model.py \
+            tests/test_gate2_development.py \
+            tests/test_gate2_confirmation.py
