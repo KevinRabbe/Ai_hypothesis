@@ -2,13 +2,17 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
+import random
 import tempfile
 import unittest
 from pathlib import Path
 
 from ai_hypothesis.population_compute.audit_gate2_confirmation import (
+    BOOTSTRAP_SAMPLES,
     CONFIRMATION_WORLD_START,
     ENTITY_COUNTS,
+    MEASUREMENT_HEAD,
     MODES,
     TRAINING_SEEDS,
     WIDTHS,
@@ -20,61 +24,79 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _paired_rows(*, failing_seed: bool = False) -> list[dict[str, object]]:
-    rows: list[dict[str, object]] = []
-    for c in ENTITY_COUNTS:
-        widths = WIDTHS[c]
-        for width in widths[1:]:
-            is_primary = (c, width) in {(64, 64), (256, 256)}
-            low = 0.02 if is_primary else 0.0
-            if failing_seed and (c, width) == (256, 256):
-                low = -0.01
-            rows.append(
-                {
-                    "comparison": "stable_width_vs_width1",
-                    "entity_count": c,
-                    "treatment_width": width,
-                    "reference_width": 1,
-                    "treatment_mode": "stable_persistent",
-                    "reference_mode": "stable_persistent",
-                    "world_count": 512,
-                    "treatment_only": 20 if is_primary else 0,
-                    "reference_only": 5 if is_primary else 0,
-                    "both_solved": 10,
-                    "neither_solved": 477,
-                    "exact_solve_delta": 0.03 if is_primary else 0.0,
-                    "bootstrap_ci_low": low,
-                    "bootstrap_ci_high": 0.06 if is_primary else 0.0,
-                }
-            )
-        for width in widths:
-            for comparison, reference_mode in (
-                ("stable_vs_reshuffled", "reshuffled_locality"),
-                ("stable_vs_reset", "reset_state"),
-            ):
-                identity = width == 1 and comparison == "stable_vs_reshuffled"
-                is_primary = c == 256 and width == 256
-                low = 0.02 if is_primary else 0.0
-                rows.append(
-                    {
-                        "comparison": comparison,
-                        "entity_count": c,
-                        "treatment_width": width,
-                        "reference_width": width,
-                        "treatment_mode": "stable_persistent",
-                        "reference_mode": reference_mode,
-                        "world_count": 512,
-                        "treatment_only": 0 if identity else (20 if is_primary else 0),
-                        "reference_only": 0 if identity else (5 if is_primary else 0),
-                        "both_solved": 10,
-                        "neither_solved": 502 if identity else 477,
-                        "exact_solve_delta": 0.0 if identity else (0.03 if is_primary else 0.0),
-                        "bootstrap_ci_low": 0.0 if identity else low,
-                        "bootstrap_ci_high": 0.0 if identity else (0.06 if is_primary else 0.0),
-                    }
-                )
-    assert len(rows) == 33
-    return rows
+def _bootstrap_seed(
+    comparison: str,
+    entity_count: int,
+    treatment_width: int,
+    treatment_mode: str,
+    reference_width: int,
+    reference_mode: str,
+) -> int:
+    digest = hashlib.sha256(
+        (
+            f"gate2-bootstrap-v0:{comparison}:{entity_count}:"
+            f"{treatment_width}:{treatment_mode}:{reference_width}:{reference_mode}"
+        ).encode("ascii")
+    ).digest()
+    return int.from_bytes(digest[:8], "big")
+
+
+def _bootstrap_ci(differences: tuple[int, ...], *, seed: int) -> tuple[float, float]:
+    rng = random.Random(seed)
+    estimates: list[float] = []
+    count = len(differences)
+    for _ in range(BOOTSTRAP_SAMPLES):
+        total = 0
+        for _ in range(count):
+            total += differences[rng.randrange(count)]
+        estimates.append(total / count)
+    estimates.sort()
+    low = int(math.floor(0.025 * (BOOTSTRAP_SAMPLES - 1)))
+    high = int(math.ceil(0.975 * (BOOTSTRAP_SAMPLES - 1)))
+    return estimates[low], estimates[high]
+
+
+def _pair(
+    comparison: str,
+    treatment: dict[str, object],
+    reference: dict[str, object],
+) -> dict[str, object]:
+    treatment_solved = treatment["solved_by_world"]
+    reference_solved = reference["solved_by_world"]
+    assert isinstance(treatment_solved, list)
+    assert isinstance(reference_solved, list)
+    pairs = tuple(zip(treatment_solved, reference_solved, strict=True))
+    treatment_only = sum(int(bool(a) and not bool(b)) for a, b in pairs)
+    reference_only = sum(int(bool(b) and not bool(a)) for a, b in pairs)
+    both = sum(int(bool(a) and bool(b)) for a, b in pairs)
+    neither = len(pairs) - treatment_only - reference_only - both
+    differences = tuple(int(bool(a)) - int(bool(b)) for a, b in pairs)
+    delta = sum(differences) / len(differences)
+    seed = _bootstrap_seed(
+        comparison,
+        int(treatment["entity_count"]),
+        int(treatment["width"]),
+        str(treatment["mode"]),
+        int(reference["width"]),
+        str(reference["mode"]),
+    )
+    ci_low, ci_high = _bootstrap_ci(differences, seed=seed)
+    return {
+        "comparison": comparison,
+        "entity_count": treatment["entity_count"],
+        "treatment_width": treatment["width"],
+        "reference_width": reference["width"],
+        "treatment_mode": treatment["mode"],
+        "reference_mode": reference["mode"],
+        "world_count": 512,
+        "treatment_only": treatment_only,
+        "reference_only": reference_only,
+        "both_solved": both,
+        "neither_solved": neither,
+        "exact_solve_delta": delta,
+        "bootstrap_ci_low": ci_low,
+        "bootstrap_ci_high": ci_high,
+    }
 
 
 def _primary_key(row: dict[str, object]) -> bool:
@@ -88,6 +110,63 @@ def _primary_key(row: dict[str, object]) -> bool:
         and c == 256
         and w == 256
     )
+
+
+def _solved_vector(*ranges: tuple[int, int]) -> list[bool]:
+    solved = [False] * 512
+    for start, stop in ranges:
+        for index in range(start, stop):
+            solved[index] = True
+    return solved
+
+
+def _condition_solved(*, c: int, width: int, mode: str, failing: bool) -> list[bool]:
+    # Width-1 stable/reshuffled is deliberately exact identity at every C.
+    if c == 16:
+        stable_by_width = {
+            1: _solved_vector((0, 24)),
+            4: _solved_vector((0, 24), (100, 108)),
+            16: _solved_vector((0, 24), (100, 116)),
+        }
+        stable = stable_by_width[width]
+        if mode == "stable_persistent" or (mode == "reshuffled_locality" and width == 1):
+            return stable
+        if mode == "reshuffled_locality":
+            return _solved_vector((0, 24), (100, 102))
+        return _solved_vector((0, 20))
+
+    if c == 64:
+        stable_by_width = {
+            1: _solved_vector((0, 32)),
+            4: _solved_vector((0, 32), (100, 108)),
+            16: _solved_vector((0, 32), (100, 120)),
+            64: _solved_vector((0, 32), (100, 140)),
+        }
+        stable = stable_by_width[width]
+        if mode == "stable_persistent" or (mode == "reshuffled_locality" and width == 1):
+            return stable
+        if mode == "reshuffled_locality":
+            return _solved_vector((0, 30))
+        return _solved_vector((0, 28))
+
+    assert c == 256
+    stable_by_width = {
+        1: _solved_vector((0, 25)),
+        4: _solved_vector((0, 25), (100, 104)),
+        16: _solved_vector((0, 25), (100, 112)),
+        64: _solved_vector((0, 25), (100, 128)),
+        256: (
+            _solved_vector((0, 25))
+            if failing
+            else _solved_vector((0, 25), (100, 150))
+        ),
+    }
+    stable = stable_by_width[width]
+    if mode == "stable_persistent" or (mode == "reshuffled_locality" and width == 1):
+        return stable
+    if mode == "reshuffled_locality":
+        return _solved_vector((0, 10)) if failing and width == 256 else _solved_vector((0, 25), (100, 105))
+    return _solved_vector((0, 15)) if failing and width == 256 else _solved_vector((0, 25), (100, 110))
 
 
 def _build_root(root: Path, *, failing_seed: int | None = None) -> None:
@@ -107,15 +186,18 @@ def _build_root(root: Path, *, failing_seed: int | None = None) -> None:
         "bootstrap_samples": 2000,
         "device": "cuda",
         "idle_machine_attested": True,
-        "git_head": "test-head",
+        "git_head": MEASUREMENT_HEAD,
     }
     (root / "run-config.json").write_text(json.dumps(run_config), encoding="utf-8")
+    (root / "git-head.txt").write_text(MEASUREMENT_HEAD + "\n", encoding="utf-8")
+    (root / "git-status.txt").write_text("", encoding="utf-8")
 
     suite_seeds: list[dict[str, object]] = []
     all_pass = True
     world_seeds = list(range(CONFIRMATION_WORLD_START, CONFIRMATION_WORLD_START + 512))
 
     for seed in TRAINING_SEEDS:
+        failing = seed == failing_seed
         seed_root = root / f"seed_{seed}"
         seed_root.mkdir(parents=True)
         checkpoint = seed_root / "gate2-confirmation-checkpoint.pt"
@@ -124,30 +206,61 @@ def _build_root(root: Path, *, failing_seed: int | None = None) -> None:
         fingerprint = f"fingerprint-{seed}"
 
         conditions: list[dict[str, object]] = []
+        condition_index: dict[tuple[int, int, str], dict[str, object]] = {}
         for c in ENTITY_COUNTS:
             for width in WIDTHS[c]:
                 for mode in MODES:
-                    conditions.append(
-                        {
-                            "entity_count": c,
-                            "width": width,
-                            "mode": mode,
-                            "world_count": 512,
-                            "exact_solve_rate": 0.1,
-                            "bit_accuracy": 0.6,
-                            "collision_load": c // width,
-                            "learned_updates_per_world": 8 * c,
-                            "inspected_entities_per_world": c,
-                            "inspected_observations_per_world": 8 * c,
-                            "learned_parameter_count": 21580,
-                            "parameter_fingerprint": fingerprint,
-                            "world_seeds": world_seeds,
-                            "solved_by_world": [False] * 512,
-                        }
-                    )
+                    solved = _condition_solved(c=c, width=width, mode=mode, failing=failing)
+                    row: dict[str, object] = {
+                        "entity_count": c,
+                        "width": width,
+                        "mode": mode,
+                        "world_count": 512,
+                        "exact_solve_rate": sum(solved) / 512,
+                        "bit_accuracy": 0.6,
+                        "collision_load": c // width,
+                        "learned_updates_per_world": 8 * c,
+                        "inspected_entities_per_world": c,
+                        "inspected_observations_per_world": 8 * c,
+                        "learned_parameter_count": 21580,
+                        "parameter_fingerprint": fingerprint,
+                        "world_seeds": world_seeds,
+                        "solved_by_world": solved,
+                    }
+                    conditions.append(row)
+                    condition_index[(c, width, mode)] = row
         assert len(conditions) == 36
 
-        paired = _paired_rows(failing_seed=seed == failing_seed)
+        paired: list[dict[str, object]] = []
+        for c in ENTITY_COUNTS:
+            widths = WIDTHS[c]
+            reference = condition_index[(c, 1, "stable_persistent")]
+            for width in widths[1:]:
+                paired.append(
+                    _pair(
+                        "stable_width_vs_width1",
+                        condition_index[(c, width, "stable_persistent")],
+                        reference,
+                    )
+                )
+            for width in widths:
+                stable = condition_index[(c, width, "stable_persistent")]
+                paired.append(
+                    _pair(
+                        "stable_vs_reshuffled",
+                        stable,
+                        condition_index[(c, width, "reshuffled_locality")],
+                    )
+                )
+                paired.append(
+                    _pair(
+                        "stable_vs_reset",
+                        stable,
+                        condition_index[(c, width, "reset_state")],
+                    )
+                )
+        assert len(paired) == 33
+
         primary = []
         for row in paired:
             if not _primary_key(row):
@@ -163,8 +276,15 @@ def _build_root(root: Path, *, failing_seed: int | None = None) -> None:
                     "passed": float(row["bootstrap_ci_low"]) > 0.0,
                 }
             )
-        seed_passed = all(bool(row["passed"]) for row in primary)
+        assert len(primary) == 4
+        width1_identity = all(
+            condition_index[(c, 1, "stable_persistent")]["solved_by_world"]
+            == condition_index[(c, 1, "reshuffled_locality")]["solved_by_world"]
+            for c in ENTITY_COUNTS
+        )
+        seed_passed = width1_identity and all(bool(row["passed"]) for row in primary)
         all_pass = all_pass and seed_passed
+
         result = {
             "experiment_version": "gate2-persistent-state-confirmation-v0",
             "evaluation_split": "confirmation",
@@ -194,7 +314,7 @@ def _build_root(root: Path, *, failing_seed: int | None = None) -> None:
             "conditions": conditions,
             "paired_summaries": paired,
             "primary_comparisons": primary,
-            "width1_identity_passed": True,
+            "width1_identity_passed": width1_identity,
             "seed_passed": seed_passed,
             "scientific_status": "CONFIRMATION_SEED_RESULT",
             "gate2_verdict": "NOT_ASSIGNED_UNTIL_ALL_SEEDS_AND_RESOURCE_PROTOCOL_COMPLETE",
@@ -213,7 +333,7 @@ def _build_root(root: Path, *, failing_seed: int | None = None) -> None:
             {
                 "training_seed": seed,
                 "seed_passed": seed_passed,
-                "width1_identity_passed": True,
+                "width1_identity_passed": width1_identity,
                 "result_sha256": _sha256(result_path),
                 "checkpoint_sha256": checkpoint_sha,
                 "parameter_fingerprint": fingerprint,
@@ -240,6 +360,7 @@ class Gate2ConfirmationAuditTests(unittest.TestCase):
             self.assertTrue(audit.artifact_valid, audit.errors)
             self.assertTrue(audit.capability_confirmation_passed)
             self.assertEqual(audit.seed_passes, {3: True, 4: True, 5: True})
+            self.assertTrue(all(low > 0.0 for lows in audit.primary_ci_lows.values() for low in lows.values()))
 
     def test_valid_scientific_failure_remains_a_valid_artifact(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -249,6 +370,7 @@ class Gate2ConfirmationAuditTests(unittest.TestCase):
             self.assertTrue(audit.artifact_valid, audit.errors)
             self.assertFalse(audit.capability_confirmation_passed)
             self.assertFalse(audit.seed_passes[4])
+            self.assertEqual(audit.primary_ci_lows[4]["c256_w256_vs_w1"], 0.0)
 
     def test_checkpoint_tamper_is_invalid_provenance(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -278,6 +400,24 @@ class Gate2ConfirmationAuditTests(unittest.TestCase):
             audit = audit_confirmation_root(root)
             self.assertFalse(audit.artifact_valid)
             self.assertTrue(any("confirmation world seeds mismatch" in error for error in audit.errors))
+
+    def test_stored_paired_summary_tamper_is_invalid_even_when_raw_outcomes_are_unchanged(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _build_root(root)
+            result_path = root / "seed_3" / "gate2-confirmation.json"
+            result = json.loads(result_path.read_text(encoding="utf-8"))
+            result["paired_summaries"][0]["exact_solve_delta"] += 0.01
+            result_path.write_text(json.dumps(result), encoding="utf-8")
+            suite_path = root / "confirmation-suite.json"
+            suite = json.loads(suite_path.read_text(encoding="utf-8"))
+            for row in suite["seeds"]:
+                if row["training_seed"] == 3:
+                    row["result_sha256"] = _sha256(result_path)
+            suite_path.write_text(json.dumps(suite), encoding="utf-8")
+            audit = audit_confirmation_root(root)
+            self.assertFalse(audit.artifact_valid)
+            self.assertTrue(any("raw-world recomputation" in error for error in audit.errors))
 
 
 if __name__ == "__main__":
