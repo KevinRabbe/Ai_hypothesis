@@ -10,10 +10,15 @@ on:
       - 'ai_hypothesis/population_compute/gate3_hypothesis_model.py'
       - 'ai_hypothesis/population_compute/gate3_hypothesis_batch.py'
       - 'ai_hypothesis/population_compute/gate3_development.py'
+      - 'ai_hypothesis/population_compute/run_gate3_development_v0.py'
+      - 'ai_hypothesis/population_compute/analyze_gate3_development.py'
+      - 'scripts/run_gate3_development_v0.ps1'
       - 'tests/test_gate3_hypothesis_population.py'
       - 'tests/test_gate3_hypothesis_model.py'
       - 'tests/test_gate3_hypothesis_batch.py'
       - 'tests/test_gate3_development.py'
+      - 'tests/test_run_gate3_development_v0.py'
+      - 'tests/test_analyze_gate3_development.py'
       - 'experiments/population_compute_scaling_v0/gate3_hypothesis_population_protocol_v0.md'
       - 'experiments/population_compute_scaling_v0/gate3_development_recipe_v0.md'
       - 'experiments/population_compute_scaling_v0/gate3_numerical_decision_rule_v0.md'
@@ -51,21 +56,25 @@ jobs:
           grep -q 'POSITIVE_V0' experiments/population_compute_scaling_v0/gate2_v0_positive_result.md
           grep -q 'Gate 3 is scientifically unlocked' experiments/population_compute_scaling_v0/gate2_v0_positive_result.md
 
-      - name: Compile Gate3 mechanics scorer batch and development modules
+      - name: Compile Gate3 frozen modules
         run: |
           python -m compileall -q \
             ai_hypothesis/population_compute/gate3_hypothesis_population.py \
             ai_hypothesis/population_compute/gate3_hypothesis_model.py \
             ai_hypothesis/population_compute/gate3_hypothesis_batch.py \
-            ai_hypothesis/population_compute/gate3_development.py
+            ai_hypothesis/population_compute/gate3_development.py \
+            ai_hypothesis/population_compute/run_gate3_development_v0.py \
+            ai_hypothesis/population_compute/analyze_gate3_development.py
 
-      - name: Run Gate3 protocol and frozen development regressions
+      - name: Run Gate3 protocol development runner and audit regressions
         run: |
           python -m unittest \
             tests/test_gate3_hypothesis_population.py \
             tests/test_gate3_hypothesis_model.py \
             tests/test_gate3_hypothesis_batch.py \
-            tests/test_gate3_development.py
+            tests/test_gate3_development.py \
+            tests/test_run_gate3_development_v0.py \
+            tests/test_analyze_gate3_development.py
 
       - name: Verify frozen protocol model numerical and development constants
         shell: bash
@@ -92,6 +101,9 @@ jobs:
               GATE3_HINT_RELIABILITY,
               GATE3_WIDTHS_BY_DEPTH,
           )
+          from ai_hypothesis.population_compute.run_gate3_development_v0 import (
+              GATE3_FIRST_DEVELOPMENT_TRAINING_SEED,
+          )
 
           assert GATE3_DEPTHS == (4, 6, 8)
           assert GATE3_WIDTHS_BY_DEPTH == {
@@ -107,6 +119,7 @@ jobs:
           assert quantize_gate3_score(0.12349) == 123
           assert quantize_gate3_score(0.12351) == 124
           assert Gate3HypothesisScorer().trainable_parameter_count() == 19_873
+          assert GATE3_FIRST_DEVELOPMENT_TRAINING_SEED == 0
 
           config = Gate3TrainingConfig()
           assert config.steps == 1_200
@@ -121,17 +134,75 @@ jobs:
           assert len(gate3_stable_training_conditions()) == 12
           PY
 
+      - name: Verify admitted Python CLI exposes no scientific tuning flags
+        shell: bash
+        run: |
+          python -m ai_hypothesis.population_compute.run_gate3_development_v0 --help > gate3-help.txt
+          cat gate3-help.txt
+          grep -q -- '--output-root' gate3-help.txt
+          ! grep -q -- '--seed' gate3-help.txt
+          ! grep -q -- '--steps' gate3-help.txt
+          ! grep -q -- '--batch' gate3-help.txt
+          ! grep -q -- '--width' gate3-help.txt
+          ! grep -q -- '--world' gate3-help.txt
+          ! grep -q -- '--bootstrap' gate3-help.txt
+          ! grep -q -- '--learning-rate' gate3-help.txt
+          ! grep -q -- '--device' gate3-help.txt
+          ! grep -q -- '--compile' gate3-help.txt
+
       - name: Verify confirmation remains mechanically closed
         shell: bash
         run: |
           python - <<'PY'
           import inspect
           from ai_hypothesis.population_compute import gate3_development
+          from ai_hypothesis.population_compute import run_gate3_development_v0
 
           source = inspect.getsource(gate3_development.run_gate3_development)
           assert 'confirmation' not in inspect.signature(gate3_development.run_gate3_development).parameters
           assert 'confirmation_opened=False' in source
+          cli_source = inspect.getsource(run_gate3_development_v0)
+          assert 'GATE3_FIRST_DEVELOPMENT_TRAINING_SEED = 0' in cli_source
+          assert 'confirmation_opened' in cli_source
           PY
+
+      - name: Verify PowerShell admitted runner contract
+        shell: pwsh
+        run: |
+          $path = Resolve-Path 'scripts/run_gate3_development_v0.ps1'
+          $tokens = $null
+          $parseErrors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+              $path,
+              [ref]$tokens,
+              [ref]$parseErrors
+          ) | Out-Null
+          if ($parseErrors.Count -gt 0) {
+              $parseErrors | ForEach-Object { Write-Error $_.Message }
+              exit 1
+          }
+
+          $text = Get-Content -Raw $path
+          foreach ($required in @(
+              'IdleMachineAttested',
+              'Get-Process -Name "factorio"',
+              'agent/gate3-hypothesis-population-v0',
+              'training_seed = 0',
+              'steps = 1200',
+              'training_batch_size = 128',
+              'learned_parameter_count = 19873',
+              'score_quantization = 0.001',
+              'evaluation_world_start = 1073741824',
+              'evaluation_world_count = 256',
+              'evaluation_batch_size = 64',
+              'bootstrap_samples = 2000',
+              'compiler_enabled = $false',
+              'analyze_gate3_development'
+          )) {
+              if (-not $text.Contains($required)) {
+                  throw "Gate-3 admitted PowerShell runner missing frozen contract text: $required"
+              }
+          }
 
       - name: Verify protocol remains pre-result
         shell: bash
