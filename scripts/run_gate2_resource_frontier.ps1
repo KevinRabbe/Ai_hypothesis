@@ -120,7 +120,7 @@ try {
         batch_sizes = @(1,64)
         warmup_iterations = 10
         timed_iterations = 50
-        resource_world_seed_start = 17179869184
+        resource_world_seed_start = 4294967296
         execution_mode = "eager_cuda"
         compiler_enabled = $false
         idle_machine_attested = $true
