@@ -22,6 +22,8 @@ on:
       - 'experiments/population_compute_scaling_v0/gate3_hypothesis_population_protocol_v0.md'
       - 'experiments/population_compute_scaling_v0/gate3_development_recipe_v0.md'
       - 'experiments/population_compute_scaling_v0/gate3_numerical_decision_rule_v0.md'
+      - 'experiments/population_compute_scaling_v0/gate3_development_seed0_result_v0.md'
+      - 'experiments/population_compute_scaling_v0/gate3_v0_development_stop_decision.md'
       - '.github/workflows/gate3-hypothesis-population-protocol-ci.yml'
   workflow_dispatch:
 
@@ -225,13 +227,20 @@ jobs:
               }
           }
 
-      - name: Verify protocol remains pre-result
+      - name: Verify frozen preregistration and recorded seed0 stop state
         shell: bash
         run: |
           grep -q 'FROZEN DEVELOPMENT PROTOCOL — NO RESULT INSPECTED' experiments/population_compute_scaling_v0/gate3_hypothesis_population_protocol_v0.md
           grep -q 'FROZEN BEFORE FIRST ADMITTED DEVELOPMENT RESULT' experiments/population_compute_scaling_v0/gate3_development_recipe_v0.md
           grep -q 'FROZEN BEFORE FIRST ADMITTED DEVELOPMENT RESULT' experiments/population_compute_scaling_v0/gate3_numerical_decision_rule_v0.md
-          ! find experiments/population_compute_scaling_v0 -maxdepth 1 -type f -iname 'gate3*result*' | grep -q .
+          test -f experiments/population_compute_scaling_v0/gate3_development_seed0_result_v0.md
+          test -f experiments/population_compute_scaling_v0/gate3_v0_development_stop_decision.md
+          grep -q 'VALID DEVELOPMENT RESULT — OUTCOME A' experiments/population_compute_scaling_v0/gate3_development_seed0_result_v0.md
+          grep -q 'artifact_valid = true' experiments/population_compute_scaling_v0/gate3_development_seed0_result_v0.md
+          grep -q 'confirmation_opened = false' experiments/population_compute_scaling_v0/gate3_development_seed0_result_v0.md
+          grep -q 'GATE-3 v0 DEVELOPMENT CLOSED AFTER SEED 0' experiments/population_compute_scaling_v0/gate3_v0_development_stop_decision.md
+          grep -q 'Do \*\*not\*\* run Gate-3 v0 development seeds 1 or 2' experiments/population_compute_scaling_v0/gate3_v0_development_stop_decision.md
+          grep -q 'Do \*\*not\*\* open Gate-3 v0 confirmation' experiments/population_compute_scaling_v0/gate3_v0_development_stop_decision.md
 
   gate3-windows-powershell-wrapper-smoke:
     runs-on: windows-latest
