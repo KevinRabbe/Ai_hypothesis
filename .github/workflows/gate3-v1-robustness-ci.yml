@@ -1,0 +1,119 @@
+name: Gate3 v1 robustness qualification
+
+on:
+  push:
+    branches:
+      - agent/gate3-v1-seed0-analysis
+  pull_request:
+    paths:
+      - 'ai_hypothesis/population_compute/run_gate3_v1_robustness.py'
+      - 'ai_hypothesis/population_compute/run_gate3_v1_robustness_seed1.py'
+      - 'ai_hypothesis/population_compute/run_gate3_v1_robustness_seed2.py'
+      - 'ai_hypothesis/population_compute/analyze_gate3_v1_robustness.py'
+      - 'scripts/run_gate3_v1_robustness_common.ps1'
+      - 'scripts/run_gate3_v1_robustness_seed1.ps1'
+      - 'scripts/run_gate3_v1_robustness_seed2.ps1'
+      - 'tests/test_gate3_v1_robustness.py'
+      - 'experiments/population_compute_scaling_v0/gate3_v1_development_seed0_result.md'
+      - 'experiments/population_compute_scaling_v0/gate3_v1_robustness_policy_after_seed0.md'
+      - '.github/workflows/gate3-v1-robustness-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  robustness-qualification:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install CPU Torch
+        run: |
+          python -m pip install --disable-pip-version-check torch --index-url https://download.pytorch.org/whl/cpu
+          python -c "import torch; print('torch', torch.__version__)"
+
+      - name: Verify measured seed0 record and frozen robustness policy
+        shell: bash
+        run: |
+          grep -q '254e7994568c78349b23d71c41be61ca0dee7d98' experiments/population_compute_scaling_v0/gate3_v1_development_seed0_result.md
+          grep -q 'OUTCOME C: LATENT CAPACITY HELPS BUT SATURATES EARLY' experiments/population_compute_scaling_v0/gate3_v1_development_seed0_result.md
+          grep -qi 'e63748a1182472d03c540f9123c3442ce44e130519e2176681034568826db590' experiments/population_compute_scaling_v0/gate3_v1_development_seed0_result.md
+          grep -qi '26559f5c48ae2971dbb83507afbe9346c6575653e352202ad8b450b739423342' experiments/population_compute_scaling_v0/gate3_v1_development_seed0_result.md
+          grep -qi '289be3ba58c22a9276220804daf7358d97ff5402533cb89e21e1b3c5f53ccf32' experiments/population_compute_scaling_v0/gate3_v1_development_seed0_result.md
+          grep -qi 'd31fcd36bdaf3416a1926e390d934da926623f34a99497e04340bf1fbc2b773a' experiments/population_compute_scaling_v0/gate3_v1_development_seed0_result.md
+          grep -q 'FROZEN AFTER SEED 0, BEFORE ANY ADDITIONAL TRAINING SEED' experiments/population_compute_scaling_v0/gate3_v1_robustness_policy_after_seed0.md
+          grep -q 'Gate-3 v1 confirmation remains closed under every robustness outcome' experiments/population_compute_scaling_v0/gate3_v1_robustness_policy_after_seed0.md
+
+      - name: Compile robustness modules
+        run: |
+          python -m compileall -q \
+            ai_hypothesis/population_compute/run_gate3_v1_robustness.py \
+            ai_hypothesis/population_compute/run_gate3_v1_robustness_seed1.py \
+            ai_hypothesis/population_compute/run_gate3_v1_robustness_seed2.py \
+            ai_hypothesis/population_compute/analyze_gate3_v1_robustness.py
+
+      - name: Run robustness regressions
+        run: python -m unittest tests/test_gate3_v1_robustness.py
+
+      - name: Verify fixed seed entrypoint CLIs
+        shell: bash
+        run: |
+          python -m ai_hypothesis.population_compute.run_gate3_v1_robustness_seed1 --help > seed1-help.txt
+          python -m ai_hypothesis.population_compute.run_gate3_v1_robustness_seed2 --help > seed2-help.txt
+          grep -q -- '--output-root' seed1-help.txt
+          grep -q -- '--output-root' seed2-help.txt
+          ! grep -q -- '--training-seed' seed1-help.txt
+          ! grep -q -- '--training-seed' seed2-help.txt
+          ! grep -q -- '--steps' seed1-help.txt
+          ! grep -q -- '--steps' seed2-help.txt
+
+      - name: Verify seed0 analyzer remains unchanged on measured base
+        shell: bash
+        run: |
+          git diff --exit-code 254e7994568c78349b23d71c41be61ca0dee7d98 -- ai_hypothesis/population_compute/analyze_gate3_v1_development.py
+
+      - name: Verify confirmation remains absent from robustness execution
+        shell: bash
+        run: |
+          ! grep -R --line-number -- '--confirmation' ai_hypothesis/population_compute/run_gate3_v1_robustness*.py scripts/run_gate3_v1_robustness*.ps1
+          ! find experiments/population_compute_scaling_v0 -maxdepth 1 -type f -iname 'gate3_v1*confirmation*result*' | grep -q .
+
+  windows-powershell-smoke:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Put checkout on admitted robustness branch name
+        shell: powershell
+        run: git switch -C agent/gate3-v1-seed0-analysis
+
+      - name: Smoke seed1 wrapper under Windows PowerShell 5.1 StrictMode
+        shell: powershell
+        env:
+          GATE3_V1_ROBUSTNESS_WRAPPER_SMOKE: '1'
+        run: |
+          .\scripts\run_gate3_v1_robustness_seed1.ps1 `
+            -IdleMachineAttested `
+            -OutputRoot "$env:RUNNER_TEMP\gate3-v1-robustness-seed1-smoke"
+
+      - name: Smoke seed2 wrapper under Windows PowerShell 5.1 StrictMode
+        shell: powershell
+        env:
+          GATE3_V1_ROBUSTNESS_WRAPPER_SMOKE: '1'
+        run: |
+          .\scripts\run_gate3_v1_robustness_seed2.ps1 `
+            -IdleMachineAttested `
+            -OutputRoot "$env:RUNNER_TEMP\gate3-v1-robustness-seed2-smoke"
