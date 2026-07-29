@@ -1,0 +1,150 @@
+name: Gate4 confirmation qualification
+
+on:
+  push:
+    branches:
+      - agent/gate4-confirmation-v0
+  pull_request:
+    paths:
+      - 'ai_hypothesis/population_compute/gate4_confirmation.py'
+      - 'ai_hypothesis/population_compute/analyze_gate4_confirmation.py'
+      - 'ai_hypothesis/population_compute/run_gate4_confirmation.py'
+      - 'scripts/run_gate4_confirmation.ps1'
+      - 'tests/test_gate4_confirmation.py'
+      - 'tests/test_gate4_confirmation_audit.py'
+      - 'experiments/population_compute_scaling_v0/gate4_confirmation_protocol.md'
+      - 'experiments/population_compute_scaling_v0/gate4_confirmation_result.md'
+      - 'experiments/population_compute_scaling_v0/gate4_adaptive_activation_development_result.md'
+      - '.github/workflows/gate4-confirmation-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  confirmation-qualification:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install CPU Torch
+        run: |
+          python -m pip install --disable-pip-version-check torch --index-url https://download.pytorch.org/whl/cpu
+          python -c "import torch; print('torch', torch.__version__)"
+
+      - name: Verify Gate4 development mechanically permitted confirmation
+        shell: bash
+        run: |
+          grep -q 'G4_A2_ROBUST_ADAPTIVE_ACTIVATION_BENEFIT' experiments/population_compute_scaling_v0/gate4_adaptive_activation_development_result.md
+          grep -q '9d422d176d4840fc2608849aa9209d906c896f4cba701414211b628461c4616b' experiments/population_compute_scaling_v0/gate4_adaptive_activation_development_result.md
+          grep -q 'No Gate-4 confirmation world was generated or inspected by this development run' experiments/population_compute_scaling_v0/gate4_adaptive_activation_development_result.md
+
+      - name: Compile Gate4 confirmation modules
+        run: |
+          python -m compileall -q \
+            ai_hypothesis/population_compute/gate4_confirmation.py \
+            ai_hypothesis/population_compute/analyze_gate4_confirmation.py \
+            ai_hypothesis/population_compute/run_gate4_confirmation.py
+
+      - name: Run Gate4 confirmation regression tests
+        run: |
+          python -m unittest \
+            tests/test_gate4_confirmation.py \
+            tests/test_gate4_confirmation_audit.py
+
+      - name: Verify frozen confirmation constants
+        shell: bash
+        run: |
+          python - <<'PY'
+          from ai_hypothesis.population_compute.gate4_adaptive_activation import (
+              GATE4_DEPTH,
+              GATE4_HINT_RELIABILITY,
+              GATE4_RESERVE_CAPACITY,
+              GATE4_SCHEDULED_SLOTS,
+              GATE4_TOTAL_LEARNED_UPDATES,
+          )
+          from ai_hypothesis.population_compute.gate4_confirmation import (
+              GATE4_CONFIRMATION_BOOTSTRAP_SAMPLES,
+              GATE4_CONFIRMATION_CHECKPOINT_INDICES,
+              GATE4_CONFIRMATION_CONDITIONS,
+              GATE4_CONFIRMATION_EVAL_BATCH_SIZE,
+              GATE4_CONFIRMATION_VERSION,
+              GATE4_CONFIRMATION_WORLD_COUNT,
+          )
+          assert GATE4_CONFIRMATION_VERSION == 'gate4-adaptive-activation-confirmation-v0'
+          assert GATE4_CONFIRMATION_WORLD_COUNT == 512
+          assert GATE4_CONFIRMATION_EVAL_BATCH_SIZE == 64
+          assert GATE4_CONFIRMATION_BOOTSTRAP_SAMPLES == 4000
+          assert GATE4_CONFIRMATION_CHECKPOINT_INDICES == (0, 1, 2)
+          assert len(GATE4_CONFIRMATION_CONDITIONS) == 3
+          assert GATE4_DEPTH == 8
+          assert GATE4_HINT_RELIABILITY == 0.70
+          assert GATE4_RESERVE_CAPACITY == 256
+          assert GATE4_SCHEDULED_SLOTS == 159
+          assert GATE4_TOTAL_LEARNED_UPDATES == 2544
+          PY
+
+      - name: Verify development and confirmation namespaces remain separated
+        shell: bash
+        run: |
+          grep -q 'gate4-adaptive-activation-confirmation-hidden' ai_hypothesis/population_compute/gate4_confirmation.py
+          grep -q 'gate4-adaptive-activation-confirmation-hints' ai_hypothesis/population_compute/gate4_confirmation.py
+          grep -q 'gate4-adaptive-activation-confirmation-runtime' ai_hypothesis/population_compute/gate4_confirmation.py
+          ! grep -q 'gate4-adaptive-activation-development-hidden' ai_hypothesis/population_compute/gate4_confirmation.py
+          ! grep -q 'gate4-adaptive-activation-development-runtime' ai_hypothesis/population_compute/gate4_confirmation.py
+
+      - name: Verify admitted confirmation CLI has no scientific tuning knobs
+        shell: bash
+        run: |
+          python -m ai_hypothesis.population_compute.run_gate4_confirmation --help > gate4-confirmation-help.txt
+          grep -q -- '--output-root' gate4-confirmation-help.txt
+          grep -q -- '--checkpoint0' gate4-confirmation-help.txt
+          grep -q -- '--checkpoint1' gate4-confirmation-help.txt
+          grep -q -- '--checkpoint2' gate4-confirmation-help.txt
+          ! grep -q -- '--world-count' gate4-confirmation-help.txt
+          ! grep -q -- '--capacity' gate4-confirmation-help.txt
+          ! grep -q -- '--scheduled-slots' gate4-confirmation-help.txt
+          ! grep -q -- '--reliability' gate4-confirmation-help.txt
+          ! grep -q -- '--bootstrap' gate4-confirmation-help.txt
+          ! grep -q -- '--scheduler' gate4-confirmation-help.txt
+          ! grep -q -- '--training' gate4-confirmation-help.txt
+
+      - name: Verify final Gate4 confirmation evidence record
+        shell: bash
+        run: |
+          grep -q 'FINAL CONFIRMATION EVIDENCE' experiments/population_compute_scaling_v0/gate4_confirmation_result.md
+          grep -q 'GATE4_CONFIRMED_ADAPTIVE_ACTIVATION_BENEFIT' experiments/population_compute_scaling_v0/gate4_confirmation_result.md
+          grep -q 'cda2ba5741d64315fbec338981a8064eacbeb2aeb3849ed5436c26ac2fbabf8f' experiments/population_compute_scaling_v0/gate4_confirmation_result.md
+          grep -q 'b322c54ace0b5673e0476dd70fc15c07869e677731346ae725e4ca3bfdaf79be' experiments/population_compute_scaling_v0/gate4_confirmation_result.md
+          grep -q '6caa2580de3206bd183232b895adc53b24c1fc6e891b3cc7666138d90d482c9b' experiments/population_compute_scaling_v0/gate4_confirmation_result.md
+          grep -q 'Gate-4 v0 is closed' experiments/population_compute_scaling_v0/gate4_confirmation_result.md
+
+  windows-powershell-smoke:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Put checkout on admitted Gate4 confirmation branch name
+        shell: powershell
+        run: git switch -C agent/gate4-confirmation-v0
+
+      - name: Execute Gate4 confirmation pre-science wrapper under Windows PowerShell 5.1 StrictMode
+        shell: powershell
+        env:
+          GATE4_CONFIRMATION_WRAPPER_SMOKE: '1'
+        run: |
+          .\scripts\run_gate4_confirmation.ps1 `
+            -IdleMachineAttested `
+            -OutputRoot "$env:RUNNER_TEMP\gate4-confirmation-smoke"
