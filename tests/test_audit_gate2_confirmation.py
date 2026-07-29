@@ -8,8 +8,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import ai_hypothesis.population_compute.audit_gate2_confirmation as audit_module
 from ai_hypothesis.population_compute.audit_gate2_confirmation import (
-    BOOTSTRAP_SAMPLES,
     CONFIRMATION_WORLD_START,
     ENTITY_COUNTS,
     MEASUREMENT_HEAD,
@@ -18,6 +18,12 @@ from ai_hypothesis.population_compute.audit_gate2_confirmation import (
     WIDTHS,
     audit_confirmation_root,
 )
+
+
+FROZEN_BOOTSTRAP_SAMPLES = audit_module.BOOTSTRAP_SAMPLES
+TEST_BOOTSTRAP_SAMPLES = 32
+# Keep synthetic fixtures fast while preserving an explicit assertion on the production constant.
+audit_module.BOOTSTRAP_SAMPLES = TEST_BOOTSTRAP_SAMPLES
 
 
 def _sha256(path: Path) -> str:
@@ -45,14 +51,14 @@ def _bootstrap_ci(differences: tuple[int, ...], *, seed: int) -> tuple[float, fl
     rng = random.Random(seed)
     estimates: list[float] = []
     count = len(differences)
-    for _ in range(BOOTSTRAP_SAMPLES):
+    for _ in range(TEST_BOOTSTRAP_SAMPLES):
         total = 0
         for _ in range(count):
             total += differences[rng.randrange(count)]
         estimates.append(total / count)
     estimates.sort()
-    low = int(math.floor(0.025 * (BOOTSTRAP_SAMPLES - 1)))
-    high = int(math.ceil(0.975 * (BOOTSTRAP_SAMPLES - 1)))
+    low = int(math.floor(0.025 * (TEST_BOOTSTRAP_SAMPLES - 1)))
+    high = int(math.ceil(0.975 * (TEST_BOOTSTRAP_SAMPLES - 1)))
     return estimates[low], estimates[high]
 
 
@@ -183,7 +189,7 @@ def _build_root(root: Path, *, failing_seed: int | None = None) -> None:
         "gradient_clip_norm": 1.0,
         "evaluation_world_count": 512,
         "evaluation_batch_size": 64,
-        "bootstrap_samples": 2000,
+        "bootstrap_samples": TEST_BOOTSTRAP_SAMPLES,
         "device": "cuda",
         "idle_machine_attested": True,
         "git_head": MEASUREMENT_HEAD,
@@ -310,7 +316,7 @@ def _build_root(root: Path, *, failing_seed: int | None = None) -> None:
             },
             "evaluation_world_count": 512,
             "evaluation_batch_size": 64,
-            "bootstrap_samples": 2000,
+            "bootstrap_samples": TEST_BOOTSTRAP_SAMPLES,
             "conditions": conditions,
             "paired_summaries": paired,
             "primary_comparisons": primary,
@@ -352,6 +358,9 @@ def _build_root(root: Path, *, failing_seed: int | None = None) -> None:
 
 
 class Gate2ConfirmationAuditTests(unittest.TestCase):
+    def test_production_bootstrap_count_remains_frozen_at_2000(self) -> None:
+        self.assertEqual(FROZEN_BOOTSTRAP_SAMPLES, 2000)
+
     def test_valid_positive_confirmation_is_audited_as_pass(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
