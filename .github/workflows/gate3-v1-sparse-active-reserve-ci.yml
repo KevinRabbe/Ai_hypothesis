@@ -1,0 +1,109 @@
+name: Gate3 v1 sparse-active reserve qualification
+
+on:
+  push:
+    branches:
+      - agent/gate3-v1-sparse-active-reserve
+  pull_request:
+    paths:
+      - 'ai_hypothesis/population_compute/gate3_v1_sparse_active_reserve.py'
+      - 'tests/test_gate3_v1_sparse_active_reserve.py'
+      - 'experiments/population_compute_scaling_v0/gate3_v1_sparse_active_reserve_protocol.md'
+      - '.github/workflows/gate3-v1-sparse-active-reserve-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gate3-v1-sparse-active-reserve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHONPATH: .
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install CPU Torch for population-compute package imports
+        run: |
+          python -m pip install --disable-pip-version-check torch --index-url https://download.pytorch.org/whl/cpu
+          python -c "import torch; print('torch', torch.__version__)"
+
+      - name: Verify Gate3 v0 negative result is preserved and closed
+        shell: bash
+        run: |
+          test -f experiments/population_compute_scaling_v0/gate3_development_seed0_result_v0.md
+          test -f experiments/population_compute_scaling_v0/gate3_v0_development_stop_decision.md
+          grep -q 'OUTCOME A: NO OR INCOMPLETE BREADTH EFFECT' experiments/population_compute_scaling_v0/gate3_development_seed0_result_v0.md
+          grep -q 'GATE-3 v0 DEVELOPMENT CLOSED AFTER SEED 0' experiments/population_compute_scaling_v0/gate3_v0_development_stop_decision.md
+          grep -qi '39a037c27223ae4de8b069ecd2cadf591aa6793f0137480f3acd4c91b734438d' experiments/population_compute_scaling_v0/gate3_v0_development_stop_decision.md
+          grep -q 'confirmation_opened = false' experiments/population_compute_scaling_v0/gate3_v0_development_stop_decision.md
+
+      - name: Compile Gate3 v1 mechanics
+        run: |
+          python -m compileall -q ai_hypothesis/population_compute/gate3_v1_sparse_active_reserve.py
+
+      - name: Run Gate3 v1 mechanical regressions
+        run: |
+          python -m unittest tests/test_gate3_v1_sparse_active_reserve.py
+
+      - name: Verify frozen Gate3 v1 constants and work identity
+        shell: bash
+        run: |
+          python - <<'PY'
+          from ai_hypothesis.population_compute.gate3_v1_sparse_active_reserve import (
+              GATE3_V1_ACTIVE_CHILD_LANES,
+              GATE3_V1_CONFIRMATION_WORLD_START,
+              GATE3_V1_DEPTHS,
+              GATE3_V1_DEVELOPMENT_WORLD_START,
+              GATE3_V1_HINT_RELIABILITY,
+              GATE3_V1_RECURRENT_UPDATES_PER_CHILD,
+              GATE3_V1_RESERVE_CAPACITIES,
+              GATE3_V1_SCORE_QUANTIZATION,
+              GATE3_V1_SEARCH_ROUNDS,
+              Gate3V1ControlMode,
+              build_gate3_v1_condition_plan,
+          )
+
+          assert GATE3_V1_DEPTHS == (6, 8, 10)
+          assert GATE3_V1_RESERVE_CAPACITIES == {
+              6: (1, 4, 16),
+              8: (1, 4, 16, 64),
+              10: (1, 4, 16, 64, 256),
+          }
+          assert GATE3_V1_SEARCH_ROUNDS == {6: 16, 8: 64, 10: 256}
+          assert GATE3_V1_ACTIVE_CHILD_LANES == 2
+          assert GATE3_V1_RECURRENT_UPDATES_PER_CHILD == 8
+          assert GATE3_V1_HINT_RELIABILITY == 0.70
+          assert GATE3_V1_SCORE_QUANTIZATION == 1e-3
+          assert GATE3_V1_DEVELOPMENT_WORLD_START == 1 << 30
+          assert GATE3_V1_CONFIRMATION_WORLD_START == 1 << 31
+
+          expected_totals = {6: 256, 8: 1024, 10: 4096}
+          for depth, total in expected_totals.items():
+              signatures = set()
+              for capacity in GATE3_V1_RESERVE_CAPACITIES[depth]:
+                  for mode in Gate3V1ControlMode:
+                      plan = build_gate3_v1_condition_plan(
+                          depth=depth,
+                          reserve_capacity=capacity,
+                          mode=mode,
+                      )
+                      assert plan.total_learned_updates == total
+                      signatures.add(plan.mechanical_signature())
+              assert len(signatures) == 1
+          PY
+
+      - name: Verify v1 remains pre-result and confirmation closed
+        shell: bash
+        run: |
+          grep -q 'FROZEN DEVELOPMENT PROTOCOL — NO GATE-3 v1 RESULT INSPECTED' experiments/population_compute_scaling_v0/gate3_v1_sparse_active_reserve_protocol.md
+          grep -q 'confirmation remains mechanically closed' experiments/population_compute_scaling_v0/gate3_v1_sparse_active_reserve_protocol.md
+          ! find experiments/population_compute_scaling_v0 -maxdepth 1 -type f -iname 'gate3_v1*result*' | grep -q .
