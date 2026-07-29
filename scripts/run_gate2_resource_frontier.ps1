@@ -51,10 +51,17 @@ try {
         throw "Could not verify Gate-2 scientific-source identity."
     }
 
-    $resolvedConfirmationRoot = Join-Path $RepoRoot $ConfirmationRoot
-    if (-not (Test-Path $resolvedConfirmationRoot -PathType Container)) {
-        throw "Gate-2 confirmation root does not exist: $resolvedConfirmationRoot"
+    $confirmationCandidate = if ([System.IO.Path]::IsPathRooted($ConfirmationRoot)) {
+        $ConfirmationRoot
     }
+    else {
+        Join-Path $RepoRoot $ConfirmationRoot
+    }
+    if (-not (Test-Path $confirmationCandidate -PathType Container)) {
+        throw "Gate-2 confirmation root does not exist: $confirmationCandidate"
+    }
+    $resolvedConfirmationRoot = (Resolve-Path $confirmationCandidate).Path
+
     $checkpointPath = Join-Path $resolvedConfirmationRoot "seed_3/gate2-confirmation-checkpoint.pt"
     if (-not (Test-Path $checkpointPath -PathType Leaf)) {
         throw "Frozen seed-3 confirmation checkpoint is missing: $checkpointPath"
@@ -74,7 +81,12 @@ try {
         throw "Frozen Gate-2 capability confirmation did not pass; v0 resource timing is not admitted as the second half of a positive Gate-2 result."
     }
 
-    $resolvedOutputRoot = Join-Path $RepoRoot $OutputRoot
+    $resolvedOutputRoot = if ([System.IO.Path]::IsPathRooted($OutputRoot)) {
+        [System.IO.Path]::GetFullPath($OutputRoot)
+    }
+    else {
+        Join-Path $RepoRoot $OutputRoot
+    }
     if (Test-Path $resolvedOutputRoot) {
         throw "Gate-2 resource output root already exists: $resolvedOutputRoot"
     }
