@@ -94,9 +94,11 @@ For bounded-visibility conditions only, maintain live hypotheses in deterministi
 At each adaptive slot:
 
 1. let `N` be the current live nonterminal count;
-2. derive an answer-blind start index and stride from SHA-256 over experiment version, runtime seed, slot index and condition identifier;
+2. derive an answer-blind start index and stride from SHA-256 over experiment version, runtime seed, slot index and a **sampling-group identifier**;
 3. choose `min(K,N)` distinct reserve indices by modular traversal using a stride coprime to `N`;
 4. only those candidate scores are visible to the bounded-score selector for that slot.
+
+Sampling-group identifiers are frozen as `k4`, `k8`, `k16`, and `k32`. Both `bounded_score_k16` and `bounded_hash_k16` use the exact same `k16` sampling-group identifier, so their visible candidate subsets are identical within checkpoint/world/slot.
 
 The index-selection rule may inspect `N` and candidate path-order metadata but may not inspect non-sampled neural scores.
 
