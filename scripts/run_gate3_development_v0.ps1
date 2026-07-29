@@ -8,6 +8,17 @@ param(
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
+function Assert-RequiredLeaf {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+        throw "Gate-3 development runner did not produce required file: $Path"
+    }
+}
+
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 Push-Location $RepoRoot
 try {
@@ -39,13 +50,14 @@ try {
     }
 
     $resolvedOutputRoot = [System.IO.Path]::GetFullPath($OutputRoot)
-    if (Test-Path $resolvedOutputRoot) {
+    if (Test-Path -LiteralPath $resolvedOutputRoot) {
         throw "Gate-3 output root already exists: $resolvedOutputRoot"
     }
     New-Item -ItemType Directory -Path $resolvedOutputRoot | Out-Null
 
-    # Initialize every artifact path up front. Windows PowerShell 5.1 + StrictMode must never
-    # encounter a later artifact-path reference before its assignment, including in error paths.
+    # Initialize every later artifact path before any preflight or banner output. This keeps the
+    # Windows PowerShell 5.1 + StrictMode execution path deterministic and avoids deferred-variable
+    # failures before the scientific Python runner has started.
     $scienceRoot = Join-Path $resolvedOutputRoot "science"
     $resultPath = Join-Path $scienceRoot "gate3-development.json"
     $checkpointPath = Join-Path $scienceRoot "gate3-development-checkpoint.pt"
@@ -82,15 +94,20 @@ try {
     }
     $runConfig | ConvertTo-Json -Depth 8 | Set-Content -Encoding UTF8 (Join-Path $resolvedOutputRoot "run-config.json")
 
-    try {
-        & nvidia-smi | Set-Content -Encoding UTF8 (Join-Path $resolvedOutputRoot "nvidia-smi-before.txt")
-    }
-    catch {
-        "nvidia-smi capture failed: $($_.Exception.Message)" |
-            Set-Content -Encoding UTF8 (Join-Path $resolvedOutputRoot "nvidia-smi-before.txt")
-    }
+    # CI-only wrapper smoke mode exercises Windows PowerShell 5.1 + StrictMode through the banner
+    # without touching CUDA or the scientific Python runner. It cannot create scientific evidence.
+    $wrapperSmoke = $env:GATE3_WRAPPER_SMOKE -eq "1"
 
-    $preflight = @'
+    if (-not $wrapperSmoke) {
+        try {
+            & nvidia-smi | Set-Content -Encoding UTF8 (Join-Path $resolvedOutputRoot "nvidia-smi-before.txt")
+        }
+        catch {
+            "nvidia-smi capture failed: $($_.Exception.Message)" |
+                Set-Content -Encoding UTF8 (Join-Path $resolvedOutputRoot "nvidia-smi-before.txt")
+        }
+
+        $preflight = @'
 import json
 import torch
 print(json.dumps({
@@ -102,19 +119,25 @@ print(json.dumps({
 if not torch.cuda.is_available():
     raise SystemExit("CUDA is unavailable")
 '@
-    $preflight | python - | Tee-Object -FilePath (Join-Path $resolvedOutputRoot "cuda-preflight.json")
-    if ($LASTEXITCODE -ne 0) {
-        throw "Gate-3 CUDA preflight failed."
+        $preflight | python - | Tee-Object -FilePath (Join-Path $resolvedOutputRoot "cuda-preflight.json")
+        if ($LASTEXITCODE -ne 0) {
+            throw "Gate-3 CUDA preflight failed."
+        }
     }
 
     Write-Host ""
     Write-Host "============================================================"
-    Write-Host " Gate-3 v0 DEVELOPMENT ONLY — seed 0"
+    Write-Host " Gate-3 v0 DEVELOPMENT ONLY - seed 0"
     Write-Host "============================================================"
     Write-Host "Git head: $head"
     Write-Host "Output:   $resolvedOutputRoot"
     Write-Host "Confirmation remains CLOSED."
     Write-Host ""
+
+    if ($wrapperSmoke) {
+        Write-Host "Gate-3 wrapper smoke completed before scientific execution."
+        return
+    }
 
     python -m ai_hypothesis.population_compute.run_gate3_development_v0 `
         --output-root $scienceRoot
@@ -122,11 +145,9 @@ if not torch.cuda.is_available():
         throw "Gate-3 development science runner failed. Preserve the output root for diagnosis."
     }
 
-    foreach ($requiredPath in @($resultPath, $checkpointPath, $runtimePath)) {
-        if (-not (Test-Path $requiredPath -PathType Leaf)) {
-            throw "Gate-3 development runner did not produce required file: $requiredPath"
-        }
-    }
+    Assert-RequiredLeaf -Path $resultPath
+    Assert-RequiredLeaf -Path $checkpointPath
+    Assert-RequiredLeaf -Path $runtimePath
 
     Write-Host ""
     Write-Host "Independently auditing Gate-3 development artifact..."
@@ -169,7 +190,7 @@ if not torch.cuda.is_available():
     Write-Host "============================================================"
     Write-Host "Artifact valid:       $($audit.artifact_valid)"
     Write-Host "Development outcome:  $($audit.directional_outcome)"
-    Write-Host "Scientific status:    DEVELOPMENT ONLY — NO GATE VERDICT"
+    Write-Host "Scientific status:    DEVELOPMENT ONLY - NO GATE VERDICT"
     Write-Host "Confirmation opened:  False"
     Write-Host "Checkpoint SHA256:     $checkpointHash"
     Write-Host "Result SHA256:         $resultHash"
