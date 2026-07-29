@@ -1,0 +1,169 @@
+name: Gate5 confirmation qualification
+
+on:
+  push:
+    branches:
+      - agent/gate5-confirmation-v0
+  pull_request:
+    paths:
+      - 'ai_hypothesis/population_compute/gate5_confirmation.py'
+      - 'ai_hypothesis/population_compute/analyze_gate5_confirmation.py'
+      - 'ai_hypothesis/population_compute/run_gate5_confirmation.py'
+      - 'scripts/run_gate5_confirmation.ps1'
+      - 'tests/test_gate5_confirmation.py'
+      - 'tests/test_gate5_confirmation_audit.py'
+      - 'experiments/population_compute_scaling_v0/gate5_confirmation_protocol.md'
+      - 'experiments/population_compute_scaling_v0/gate5_bounded_score_activation_development_result.md'
+      - '.github/workflows/gate5-confirmation-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  confirmation-qualification:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install CPU Torch
+        run: |
+          python -m pip install --disable-pip-version-check torch --index-url https://download.pytorch.org/whl/cpu
+          python -c "import torch; print('torch', torch.__version__)"
+
+      - name: Verify Gate5 B2 development mechanically permits confirmation
+        shell: bash
+        run: |
+          RESULT=experiments/population_compute_scaling_v0/gate5_bounded_score_activation_development_result.md
+          grep -q 'G5_B2_ROBUST_BOUNDED_SCORE_ACTIVATION' "$RESULT"
+          grep -q '1064ab6b20b10691503b71b806a7ec5d516f0a80' "$RESULT"
+          grep -q 'be362de078d9d20025ecc2983ae0fd65a0069548fc094cae992a2aa7754be7e2' "$RESULT"
+          grep -q 'No Gate-5 confirmation world was generated or inspected by this development run' "$RESULT"
+
+      - name: Compile Gate5 confirmation modules
+        run: |
+          python -m compileall -q \
+            ai_hypothesis/population_compute/gate5_confirmation.py \
+            ai_hypothesis/population_compute/analyze_gate5_confirmation.py \
+            ai_hypothesis/population_compute/run_gate5_confirmation.py
+
+      - name: Run data-blind Gate5 confirmation tests
+        run: |
+          python -m unittest \
+            tests/test_gate5_confirmation.py \
+            tests/test_gate5_confirmation_audit.py
+
+      - name: Verify frozen confirmation constants without generating worlds
+        shell: bash
+        run: |
+          python - <<'PY'
+          from ai_hypothesis.population_compute.gate5_bounded_score_activation import (
+              GATE5_DEPTH,
+              GATE5_HINT_RELIABILITY,
+              GATE5_NONINFERIORITY_MARGIN,
+              GATE5_RESERVE_CAPACITY,
+              GATE5_SCHEDULED_SLOTS,
+              GATE5_STAGE_A_SLOTS,
+              GATE5_STAGE_B_SLOTS,
+              GATE5_TOTAL_LEARNED_UPDATES,
+          )
+          from ai_hypothesis.population_compute.gate5_confirmation import (
+              GATE5_CONFIRMATION_BOOTSTRAP_SAMPLES,
+              GATE5_CONFIRMATION_CHECKPOINT_INDICES,
+              GATE5_CONFIRMATION_CONDITIONS,
+              GATE5_CONFIRMATION_EVAL_BATCH_SIZE,
+              GATE5_CONFIRMATION_VERSION,
+              GATE5_CONFIRMATION_WORLD_COUNT,
+          )
+          assert GATE5_CONFIRMATION_VERSION == 'gate5-bounded-score-activation-confirmation-v0'
+          assert GATE5_CONFIRMATION_WORLD_COUNT == 512
+          assert GATE5_CONFIRMATION_EVAL_BATCH_SIZE == 64
+          assert GATE5_CONFIRMATION_BOOTSTRAP_SAMPLES == 4000
+          assert GATE5_CONFIRMATION_CHECKPOINT_INDICES == (0, 1, 2)
+          assert len(GATE5_CONFIRMATION_CONDITIONS) == 6
+          assert GATE5_DEPTH == 8
+          assert GATE5_HINT_RELIABILITY == 0.70
+          assert GATE5_RESERVE_CAPACITY == 256
+          assert GATE5_STAGE_A_SLOTS == 63
+          assert GATE5_STAGE_B_SLOTS == 96
+          assert GATE5_SCHEDULED_SLOTS == 159
+          assert GATE5_TOTAL_LEARNED_UPDATES == 2544
+          assert GATE5_NONINFERIORITY_MARGIN == 0.05
+          PY
+
+      - name: Verify confirmation namespace remains unexposed in qualification
+        shell: bash
+        run: |
+          ! grep -R --line-number 'generate_gate5_confirmation_world' tests/test_gate5_confirmation.py tests/test_gate5_confirmation_audit.py
+          grep -q 'gate5-bounded-score-activation-confirmation-hidden' ai_hypothesis/population_compute/gate5_confirmation.py
+          grep -q 'gate5-bounded-score-activation-confirmation-hints' ai_hypothesis/population_compute/gate5_confirmation.py
+          grep -q 'gate5-bounded-score-activation-confirmation-runtime' ai_hypothesis/population_compute/gate5_confirmation.py
+          ! grep -q 'gate5-bounded-score-activation-development-hidden' ai_hypothesis/population_compute/gate5_confirmation.py
+          ! grep -q 'gate5-bounded-score-activation-development-hints' ai_hypothesis/population_compute/gate5_confirmation.py
+          ! grep -q 'gate5-bounded-score-activation-development-runtime' ai_hypothesis/population_compute/gate5_confirmation.py
+
+      - name: Verify confirmation reuses strict bounded-selection kernel
+        shell: bash
+        run: |
+          grep -q 'from .gate5_bounded_score_batch import run_gate5_strict_world_batch' ai_hypothesis/population_compute/gate5_confirmation.py
+          ! grep -q 'run_gate5_world_batch' ai_hypothesis/population_compute/gate5_confirmation.py
+          grep -q 'run_gate5_strict_world_batch' ai_hypothesis/population_compute/gate5_confirmation.py
+
+      - name: Verify admitted confirmation CLI has no scientific tuning knobs
+        shell: bash
+        run: |
+          python -m ai_hypothesis.population_compute.run_gate5_confirmation --help > gate5-confirmation-help.txt
+          grep -q -- '--output-root' gate5-confirmation-help.txt
+          grep -q -- '--checkpoint0' gate5-confirmation-help.txt
+          grep -q -- '--checkpoint1' gate5-confirmation-help.txt
+          grep -q -- '--checkpoint2' gate5-confirmation-help.txt
+          ! grep -q -- '--world-count' gate5-confirmation-help.txt
+          ! grep -q -- '--capacity' gate5-confirmation-help.txt
+          ! grep -q -- '--scheduled-slots' gate5-confirmation-help.txt
+          ! grep -q -- '--stage-a' gate5-confirmation-help.txt
+          ! grep -q -- '--stage-b' gate5-confirmation-help.txt
+          ! grep -q -- '--k' gate5-confirmation-help.txt
+          ! grep -q -- '--margin' gate5-confirmation-help.txt
+          ! grep -q -- '--reliability' gate5-confirmation-help.txt
+          ! grep -q -- '--bootstrap' gate5-confirmation-help.txt
+          ! grep -q -- '--training' gate5-confirmation-help.txt
+
+      - name: Verify confirmation remains pre-result during qualification
+        shell: bash
+        run: |
+          PROTOCOL=experiments/population_compute_scaling_v0/gate5_confirmation_protocol.md
+          grep -q 'FROZEN BEFORE ANY GATE-5 CONFIRMATION WORLD IS GENERATED OR INSPECTED' "$PROTOCOL"
+          grep -q '512 untouched confirmation worlds' "$PROTOCOL"
+          grep -q 'delta_NI = 0.05' "$PROTOCOL"
+          grep -q 'GATE5_CONFIRMED_BOUNDED_SCORE_ACTIVATION' "$PROTOCOL"
+          ! find experiments/population_compute_scaling_v0 -maxdepth 1 -type f -iname 'gate5_confirmation_result.md' | grep -q .
+
+  windows-powershell-smoke:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Put checkout on admitted Gate5 confirmation branch name
+        shell: powershell
+        run: git switch -C agent/gate5-confirmation-v0
+
+      - name: Execute Gate5 confirmation pre-science wrapper under Windows PowerShell 5.1 StrictMode
+        shell: powershell
+        env:
+          GATE5_CONFIRMATION_WRAPPER_SMOKE: '1'
+        run: |
+          .\scripts\run_gate5_confirmation.ps1 `
+            -IdleMachineAttested `
+            -OutputRoot "$env:RUNNER_TEMP\gate5-confirmation-smoke"
