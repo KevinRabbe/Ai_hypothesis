@@ -9,12 +9,15 @@ on:
       - 'ai_hypothesis/population_compute/gate3_v1_sparse_active_reserve.py'
       - 'ai_hypothesis/population_compute/gate3_v1_model.py'
       - 'ai_hypothesis/population_compute/gate3_v1_batch.py'
+      - 'ai_hypothesis/population_compute/gate3_v1_development.py'
       - 'tests/test_gate3_v1_sparse_active_reserve.py'
       - 'tests/test_gate3_v1_model.py'
       - 'tests/test_gate3_v1_control_semantics.py'
       - 'tests/test_gate3_v1_batch.py'
+      - 'tests/test_gate3_v1_development.py'
       - 'experiments/population_compute_scaling_v0/gate3_v1_sparse_active_reserve_protocol.md'
       - 'experiments/population_compute_scaling_v0/gate3_v1_control_semantics_freeze.md'
+      - 'experiments/population_compute_scaling_v0/gate3_v1_development_recipe.md'
       - '.github/workflows/gate3-v1-sparse-active-reserve-ci.yml'
   workflow_dispatch:
 
@@ -24,7 +27,7 @@ permissions:
 jobs:
   gate3-v1-sparse-active-reserve:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     env:
       PYTHONPATH: .
 
@@ -52,25 +55,33 @@ jobs:
           grep -qi '39a037c27223ae4de8b069ecd2cadf591aa6793f0137480f3acd4c91b734438d' experiments/population_compute_scaling_v0/gate3_v0_development_stop_decision.md
           grep -q 'confirmation_opened = false' experiments/population_compute_scaling_v0/gate3_v0_development_stop_decision.md
 
-      - name: Compile Gate3 v1 mechanics scorer and batched evaluator
+      - name: Compile Gate3 v1 frozen modules
         run: |
           python -m compileall -q \
             ai_hypothesis/population_compute/gate3_v1_sparse_active_reserve.py \
             ai_hypothesis/population_compute/gate3_v1_model.py \
-            ai_hypothesis/population_compute/gate3_v1_batch.py
+            ai_hypothesis/population_compute/gate3_v1_batch.py \
+            ai_hypothesis/population_compute/gate3_v1_development.py
 
-      - name: Run Gate3 v1 mechanics scorer control and batch regressions
+      - name: Run Gate3 v1 frozen regressions
         run: |
           python -m unittest \
             tests/test_gate3_v1_sparse_active_reserve.py \
             tests/test_gate3_v1_model.py \
             tests/test_gate3_v1_control_semantics.py \
-            tests/test_gate3_v1_batch.py
+            tests/test_gate3_v1_batch.py \
+            tests/test_gate3_v1_development.py
 
-      - name: Verify frozen Gate3 v1 constants model and work identity
+      - name: Verify frozen Gate3 v1 constants model work and development recipe
         shell: bash
         run: |
           python - <<'PY'
+          from ai_hypothesis.population_compute.gate3_v1_development import (
+              GATE3_V1_DEVELOPMENT_BOOTSTRAP_SAMPLES,
+              GATE3_V1_DEVELOPMENT_EVAL_BATCH_SIZE,
+              GATE3_V1_DEVELOPMENT_WORLD_COUNT,
+              Gate3V1TrainingConfig,
+          )
           from ai_hypothesis.population_compute.gate3_v1_model import (
               GATE3_V1_INPUT_WIDTH,
               Gate3V1Scorer,
@@ -105,6 +116,16 @@ jobs:
           assert GATE3_V1_INPUT_WIDTH == 19
           assert Gate3V1Scorer().trainable_parameter_count() == 19_649
 
+          config = Gate3V1TrainingConfig()
+          assert config.steps == 1_200
+          assert config.batch_size == 256
+          assert config.learning_rate == 3e-4
+          assert config.weight_decay == 1e-4
+          assert config.gradient_clip_norm == 1.0
+          assert GATE3_V1_DEVELOPMENT_WORLD_COUNT == 256
+          assert GATE3_V1_DEVELOPMENT_EVAL_BATCH_SIZE == 64
+          assert GATE3_V1_DEVELOPMENT_BOOTSTRAP_SAMPLES == 2_000
+
           expected_totals = {6: 256, 8: 1024, 10: 4096}
           for depth, total in expected_totals.items():
               signatures = set()
@@ -120,11 +141,12 @@ jobs:
               assert len(signatures) == 1
           PY
 
-      - name: Verify v1 remains pre-result confirmation closed and control semantics frozen
+      - name: Verify v1 remains pre-result confirmation closed and all freezes recorded
         shell: bash
         run: |
           grep -q 'FROZEN DEVELOPMENT PROTOCOL — NO GATE-3 v1 RESULT INSPECTED' experiments/population_compute_scaling_v0/gate3_v1_sparse_active_reserve_protocol.md
           grep -q 'FROZEN BEFORE ANY GATE-3 v1 DEVELOPMENT RESULT OR TRAINING RUN' experiments/population_compute_scaling_v0/gate3_v1_control_semantics_freeze.md
           grep -q 'only the current top hypothesis is logically schedulable' experiments/population_compute_scaling_v0/gate3_v1_control_semantics_freeze.md
+          grep -q 'FROZEN BEFORE FIRST GATE-3 v1 DEVELOPMENT RESULT' experiments/population_compute_scaling_v0/gate3_v1_development_recipe.md
           grep -q 'confirmation remains mechanically closed' experiments/population_compute_scaling_v0/gate3_v1_sparse_active_reserve_protocol.md
           ! find experiments/population_compute_scaling_v0 -maxdepth 1 -type f -iname 'gate3_v1*result*' | grep -q .
