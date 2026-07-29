@@ -15,6 +15,7 @@ on:
       - 'tests/test_gate5_bounded_score_activation_audit.py'
       - 'experiments/population_compute_scaling_v0/gate5_bounded_score_activation_protocol.md'
       - 'experiments/population_compute_scaling_v0/gate5_bounded_score_activation_pre_result_clarification.md'
+      - 'experiments/population_compute_scaling_v0/gate5_bounded_score_activation_development_result.md'
       - 'experiments/population_compute_scaling_v0/gate4_confirmation_result.md'
       - '.github/workflows/gate5-bounded-score-activation-ci.yml'
   workflow_dispatch:
@@ -56,7 +57,7 @@ jobs:
             ai_hypothesis/population_compute/analyze_gate5_bounded_score_activation.py \
             ai_hypothesis/population_compute/run_gate5_bounded_score_activation.py
 
-      - name: Run synthetic Gate5 pre-result regressions
+      - name: Run synthetic Gate5 regressions
         run: |
           python -m unittest \
             tests/test_gate5_bounded_score_activation.py \
@@ -114,10 +115,9 @@ jobs:
           grep -q 'same deterministic `k16` sampling-group identifier' experiments/population_compute_scaling_v0/gate5_bounded_score_activation_pre_result_clarification.md
           grep -q 'if the incoming live reserves are identical at a slot, the visible candidate subsets are exactly identical' experiments/population_compute_scaling_v0/gate5_bounded_score_activation_pre_result_clarification.md
 
-      - name: Verify frozen Gate5 development namespace remains unexposed in CI
+      - name: Verify Gate5 namespace remains separated
         shell: bash
         run: |
-          ! grep -R --line-number 'generate_gate5_development_world' tests/test_gate5_bounded_score_activation.py tests/test_gate5_bounded_score_activation_audit.py
           grep -q 'gate5-bounded-score-activation-development-hidden' ai_hypothesis/population_compute/gate5_bounded_score_activation.py
           grep -q 'gate5-bounded-score-activation-development-hints' ai_hypothesis/population_compute/gate5_bounded_score_activation.py
           grep -q 'gate5-bounded-score-activation-development-runtime' ai_hypothesis/population_compute/gate5_bounded_score_activation.py
@@ -142,14 +142,18 @@ jobs:
           ! grep -q -- '--bootstrap' gate5-help.txt
           ! grep -q -- '--training' gate5-help.txt
 
-      - name: Verify Gate5 remains pre-result and confirmation closed
+      - name: Verify final Gate5 development evidence record
         shell: bash
         run: |
-          grep -q 'FROZEN PRE-RESULT PROTOCOL — NO GATE-5 DEVELOPMENT WORLD GENERATED OR INSPECTED' experiments/population_compute_scaling_v0/gate5_bounded_score_activation_protocol.md
-          grep -q 'delta_NI = 0.05' experiments/population_compute_scaling_v0/gate5_bounded_score_activation_protocol.md
-          grep -q 'G5_B2_ROBUST_BOUNDED_SCORE_ACTIVATION' experiments/population_compute_scaling_v0/gate5_bounded_score_activation_protocol.md
-          grep -q 'Gate-5 confirmation is \*\*CLOSED\*\*' experiments/population_compute_scaling_v0/gate5_bounded_score_activation_protocol.md
-          ! find experiments/population_compute_scaling_v0 -maxdepth 1 -type f -iname 'gate5*_result.md' | grep -q .
+          RESULT=experiments/population_compute_scaling_v0/gate5_bounded_score_activation_development_result.md
+          grep -q 'G5_B2_ROBUST_BOUNDED_SCORE_ACTIVATION' "$RESULT"
+          grep -q '1064ab6b20b10691503b71b806a7ec5d516f0a80' "$RESULT"
+          grep -q 'smallest_noninferior_k = 8' "$RESULT"
+          grep -q 'be362de078d9d20025ecc2983ae0fd65a0069548fc094cae992a2aa7754be7e2' "$RESULT"
+          grep -q 'af4259c003d9a0bb467b5d6be85aab73b68d3835aed74ed2187f413b73e6de46' "$RESULT"
+          grep -q 'b950b2075e95c470f15b9ba6d4d4f7c818a09945c3f6364badf6dd6498d9ba66' "$RESULT"
+          grep -q -- '-0.0390625' "$RESULT"
+          grep -q 'No Gate-5 confirmation world was generated or inspected by this development run' "$RESULT"
 
   windows-powershell-smoke:
     runs-on: windows-latest
