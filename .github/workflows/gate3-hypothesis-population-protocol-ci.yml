@@ -204,8 +204,6 @@ jobs:
               }
           }
 
-          # Regression for Windows PowerShell 5.1 + StrictMode: every artifact path that is
-          # consumed after the science run must already be initialized before CUDA preflight.
           $preflightIndex = $text.IndexOf('$preflight = @''')
           if ($preflightIndex -lt 0) {
               throw 'Gate-3 admitted runner is missing CUDA preflight block.'
@@ -234,3 +232,41 @@ jobs:
           grep -q 'FROZEN BEFORE FIRST ADMITTED DEVELOPMENT RESULT' experiments/population_compute_scaling_v0/gate3_development_recipe_v0.md
           grep -q 'FROZEN BEFORE FIRST ADMITTED DEVELOPMENT RESULT' experiments/population_compute_scaling_v0/gate3_numerical_decision_rule_v0.md
           ! find experiments/population_compute_scaling_v0 -maxdepth 1 -type f -iname 'gate3*result*' | grep -q .
+
+  gate3-windows-powershell-wrapper-smoke:
+    runs-on: windows-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Put checkout on the admitted Gate3 branch name
+        shell: powershell
+        run: |
+          git switch -C agent/gate3-hypothesis-population-v0
+          if ($LASTEXITCODE -ne 0) {
+              throw 'Could not place Windows smoke checkout on the admitted Gate-3 branch.'
+          }
+
+      - name: Execute wrapper pre-science path under Windows PowerShell 5.1 StrictMode
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:GATE3_WRAPPER_SMOKE = '1'
+          $output = Join-Path $env:RUNNER_TEMP 'gate3-wrapper-smoke'
+          if (Test-Path -LiteralPath $output) {
+              Remove-Item -LiteralPath $output -Recurse -Force
+          }
+
+          .\scripts\run_gate3_development_v0.ps1 `
+              -IdleMachineAttested `
+              -OutputRoot $output
+
+          if (-not (Test-Path -LiteralPath (Join-Path $output 'run-config.json') -PathType Leaf)) {
+              throw 'Windows wrapper smoke did not create the frozen run config.'
+          }
+          if (Test-Path -LiteralPath (Join-Path $output 'science')) {
+              throw 'Windows wrapper smoke unexpectedly entered scientific execution.'
+          }
