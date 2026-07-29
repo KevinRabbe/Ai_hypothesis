@@ -1,0 +1,76 @@
+name: Gate3 hypothesis-population protocol qualification
+
+on:
+  push:
+    branches:
+      - agent/gate3-hypothesis-population-v0
+  pull_request:
+    paths:
+      - 'ai_hypothesis/population_compute/gate3_hypothesis_population.py'
+      - 'tests/test_gate3_hypothesis_population.py'
+      - 'experiments/population_compute_scaling_v0/gate3_hypothesis_population_protocol_v0.md'
+      - '.github/workflows/gate3-hypothesis-population-protocol-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gate3-hypothesis-population-protocol:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PYTHONPATH: .
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Verify Gate2 positive result is present at Gate3 base
+        shell: bash
+        run: |
+          test -f experiments/population_compute_scaling_v0/gate2_v0_positive_result.md
+          grep -q 'POSITIVE_V0' experiments/population_compute_scaling_v0/gate2_v0_positive_result.md
+          grep -q 'Gate 3 is scientifically unlocked' experiments/population_compute_scaling_v0/gate2_v0_positive_result.md
+
+      - name: Compile Gate3 mechanics
+        run: |
+          python -m compileall -q ai_hypothesis/population_compute/gate3_hypothesis_population.py
+
+      - name: Run Gate3 mechanics regressions
+        run: |
+          python -m unittest tests/test_gate3_hypothesis_population.py
+
+      - name: Verify frozen protocol constants
+        shell: bash
+        run: |
+          python - <<'PY'
+          from ai_hypothesis.population_compute.gate3_hypothesis_population import (
+              GATE3_CONFIRMATION_WORLD_START,
+              GATE3_DEPTHS,
+              GATE3_DEVELOPMENT_WORLD_START,
+              GATE3_HINT_RELIABILITY,
+              GATE3_WIDTHS_BY_DEPTH,
+          )
+
+          assert GATE3_DEPTHS == (4, 6, 8)
+          assert GATE3_WIDTHS_BY_DEPTH == {
+              4: (1, 4, 16),
+              6: (1, 4, 16, 64),
+              8: (1, 4, 16, 64, 256),
+          }
+          assert GATE3_HINT_RELIABILITY == 0.70
+          assert GATE3_DEVELOPMENT_WORLD_START == 1 << 30
+          assert GATE3_CONFIRMATION_WORLD_START == 1 << 31
+          PY
+
+      - name: Verify protocol remains pre-result
+        shell: bash
+        run: |
+          grep -q 'FROZEN DEVELOPMENT PROTOCOL — NO RESULT INSPECTED' experiments/population_compute_scaling_v0/gate3_hypothesis_population_protocol_v0.md
+          ! find experiments/population_compute_scaling_v0 -maxdepth 1 -type f -iname 'gate3*result*' | grep -q .
