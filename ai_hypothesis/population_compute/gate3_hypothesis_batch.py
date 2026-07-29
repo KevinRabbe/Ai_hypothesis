@@ -20,6 +20,7 @@ from .gate3_hypothesis_model import (
     GATE3_KIND_FEATURE_WIDTH,
     GATE3_MAX_PHASES,
     Gate3HypothesisScorer,
+    quantize_gate3_score,
 )
 from .gate3_hypothesis_population import (
     GATE3_DEPTHS,
@@ -75,19 +76,15 @@ def _batch_phase_inputs(
     cursor = 0
     inputs[:, :, cursor + phase_index] = 1.0
     cursor += GATE3_MAX_PHASES
-
     depth_index = GATE3_DEPTHS.index(depth)
     inputs[:, :, cursor + depth_index] = 1.0
     cursor += GATE3_DEPTH_FEATURE_WIDTH
-
     kind_index = 0 if kind is Gate3ObservationKind.BRANCH_HINT else 1
     inputs[:, :, cursor + kind_index] = 1.0
     cursor += GATE3_KIND_FEATURE_WIDTH
-
     bit_index = observed_bits.view(batch_size, 1, 1).expand(-1, candidate_count, 1)
     inputs[:, :, cursor : cursor + GATE3_BIT_FEATURE_WIDTH].scatter_(2, bit_index, 1.0)
     cursor += GATE3_BIT_FEATURE_WIDTH
-
     if action_bits is None:
         inputs[:, :, cursor + 2] = 1.0
     else:
@@ -127,7 +124,7 @@ def _rank_indices(
         ordering = sorted(
             range(len(scores_cpu[world_index])),
             key=lambda candidate_index: (
-                -float(scores_cpu[world_index][candidate_index]),
+                -quantize_gate3_score(float(scores_cpu[world_index][candidate_index])),
                 deterministic_tie_break(
                     world_seed=world.seed,
                     phase_index=phase_index,
@@ -202,9 +199,19 @@ def run_gate3_world_batch(
     model = model.to(target_device)
     plans = tuple(build_gate3_condition_plan(world, width=width, mode=mode) for world in materialized)
     reference_plan = plans[0]
-    if any(plan.mechanical_signature() != reference_plan.mechanical_signature() for plan in plans[1:]):
-        # The world seed and observation signature differ across worlds, so compare only phase mechanics.
-        reference_phase_mechanics = tuple(
+    reference_phase_mechanics = tuple(
+        (
+            phase.kind,
+            phase.active_state_slots_before,
+            phase.evaluated_state_slots,
+            phase.retained_state_slots_after,
+            phase.recurrent_updates_per_evaluated_state,
+            phase.learned_updates_in_phase,
+        )
+        for phase in reference_plan.phases
+    )
+    for plan in plans[1:]:
+        phase_mechanics = tuple(
             (
                 phase.kind,
                 phase.active_state_slots_before,
@@ -213,29 +220,16 @@ def run_gate3_world_batch(
                 phase.recurrent_updates_per_evaluated_state,
                 phase.learned_updates_in_phase,
             )
-            for phase in reference_plan.phases
+            for phase in plan.phases
         )
-        for plan in plans[1:]:
-            phase_mechanics = tuple(
-                (
-                    phase.kind,
-                    phase.active_state_slots_before,
-                    phase.evaluated_state_slots,
-                    phase.retained_state_slots_after,
-                    phase.recurrent_updates_per_evaluated_state,
-                    phase.learned_updates_in_phase,
-                )
-                for phase in plan.phases
-            )
-            if phase_mechanics != reference_phase_mechanics:
-                raise RuntimeError("Gate-3 batched worlds do not share one frozen phase schedule")
+        if phase_mechanics != reference_phase_mechanics:
+            raise RuntimeError("Gate-3 batched worlds do not share one frozen phase schedule")
 
     batch_size = len(materialized)
     depth = first.depth
     states = model.initial_state(batch_size, device=target_device).unsqueeze(1)
     paths = torch.full((batch_size, 1, depth), -1, dtype=torch.int64, device=target_device)
     scores = torch.zeros((batch_size, 1), dtype=torch.float32, device=target_device)
-
     unique_by_phase_per_world: list[list[int]] = [[] for _ in materialized]
     correct_by_phase_per_world: list[list[bool]] = [[] for _ in materialized]
 
