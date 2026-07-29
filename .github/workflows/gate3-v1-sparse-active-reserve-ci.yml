@@ -1,0 +1,228 @@
+name: Gate3 v1 sparse-active reserve qualification
+
+on:
+  push:
+    branches:
+      - agent/gate3-v1-sparse-active-reserve
+  pull_request:
+    paths:
+      - 'ai_hypothesis/population_compute/gate3_v1_sparse_active_reserve.py'
+      - 'ai_hypothesis/population_compute/gate3_v1_model.py'
+      - 'ai_hypothesis/population_compute/gate3_v1_batch.py'
+      - 'ai_hypothesis/population_compute/gate3_v1_development.py'
+      - 'ai_hypothesis/population_compute/run_gate3_v1_development.py'
+      - 'ai_hypothesis/population_compute/analyze_gate3_v1_development.py'
+      - 'scripts/run_gate3_v1_development.ps1'
+      - 'tests/test_gate3_v1_sparse_active_reserve.py'
+      - 'tests/test_gate3_v1_model.py'
+      - 'tests/test_gate3_v1_control_semantics.py'
+      - 'tests/test_gate3_v1_batch.py'
+      - 'tests/test_gate3_v1_development.py'
+      - 'tests/test_run_gate3_v1_development.py'
+      - 'tests/test_analyze_gate3_v1_development.py'
+      - 'experiments/population_compute_scaling_v0/gate3_v1_sparse_active_reserve_protocol.md'
+      - 'experiments/population_compute_scaling_v0/gate3_v1_control_semantics_freeze.md'
+      - 'experiments/population_compute_scaling_v0/gate3_v1_development_recipe.md'
+      - '.github/workflows/gate3-v1-sparse-active-reserve-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gate3-v1-sparse-active-reserve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PYTHONPATH: .
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install CPU Torch for population-compute package imports
+        run: |
+          python -m pip install --disable-pip-version-check torch --index-url https://download.pytorch.org/whl/cpu
+          python -c "import torch; print('torch', torch.__version__)"
+
+      - name: Verify Gate3 v0 negative result is preserved and closed
+        shell: bash
+        run: |
+          test -f experiments/population_compute_scaling_v0/gate3_development_seed0_result_v0.md
+          test -f experiments/population_compute_scaling_v0/gate3_v0_development_stop_decision.md
+          grep -q 'OUTCOME A: NO OR INCOMPLETE BREADTH EFFECT' experiments/population_compute_scaling_v0/gate3_development_seed0_result_v0.md
+          grep -q 'GATE-3 v0 DEVELOPMENT CLOSED AFTER SEED 0' experiments/population_compute_scaling_v0/gate3_v0_development_stop_decision.md
+          grep -qi '39a037c27223ae4de8b069ecd2cadf591aa6793f0137480f3acd4c91b734438d' experiments/population_compute_scaling_v0/gate3_v0_development_stop_decision.md
+          grep -q 'confirmation_opened = false' experiments/population_compute_scaling_v0/gate3_v0_development_stop_decision.md
+
+      - name: Compile Gate3 v1 frozen modules
+        run: |
+          python -m compileall -q \
+            ai_hypothesis/population_compute/gate3_v1_sparse_active_reserve.py \
+            ai_hypothesis/population_compute/gate3_v1_model.py \
+            ai_hypothesis/population_compute/gate3_v1_batch.py \
+            ai_hypothesis/population_compute/gate3_v1_development.py \
+            ai_hypothesis/population_compute/run_gate3_v1_development.py \
+            ai_hypothesis/population_compute/analyze_gate3_v1_development.py
+
+      - name: Run Gate3 v1 frozen regressions
+        run: |
+          python -m unittest \
+            tests/test_gate3_v1_sparse_active_reserve.py \
+            tests/test_gate3_v1_model.py \
+            tests/test_gate3_v1_control_semantics.py \
+            tests/test_gate3_v1_batch.py \
+            tests/test_gate3_v1_development.py \
+            tests/test_run_gate3_v1_development.py \
+            tests/test_analyze_gate3_v1_development.py
+
+      - name: Verify frozen constants model work and development recipe
+        shell: bash
+        run: |
+          python - <<'PY'
+          from ai_hypothesis.population_compute.gate3_v1_development import (
+              GATE3_V1_DEVELOPMENT_BOOTSTRAP_SAMPLES,
+              GATE3_V1_DEVELOPMENT_EVAL_BATCH_SIZE,
+              GATE3_V1_DEVELOPMENT_WORLD_COUNT,
+              Gate3V1TrainingConfig,
+          )
+          from ai_hypothesis.population_compute.gate3_v1_model import GATE3_V1_INPUT_WIDTH, Gate3V1Scorer
+          from ai_hypothesis.population_compute.gate3_v1_sparse_active_reserve import (
+              GATE3_V1_ACTIVE_CHILD_LANES,
+              GATE3_V1_CONFIRMATION_WORLD_START,
+              GATE3_V1_DEPTHS,
+              GATE3_V1_DEVELOPMENT_WORLD_START,
+              GATE3_V1_HINT_RELIABILITY,
+              GATE3_V1_RECURRENT_UPDATES_PER_CHILD,
+              GATE3_V1_RESERVE_CAPACITIES,
+              GATE3_V1_SCORE_QUANTIZATION,
+              GATE3_V1_SEARCH_ROUNDS,
+              Gate3V1ControlMode,
+              build_gate3_v1_condition_plan,
+          )
+          from ai_hypothesis.population_compute.run_gate3_v1_development import GATE3_V1_FIRST_DEVELOPMENT_TRAINING_SEED
+
+          assert GATE3_V1_DEPTHS == (6, 8, 10)
+          assert GATE3_V1_RESERVE_CAPACITIES == {6: (1, 4, 16), 8: (1, 4, 16, 64), 10: (1, 4, 16, 64, 256)}
+          assert GATE3_V1_SEARCH_ROUNDS == {6: 16, 8: 64, 10: 256}
+          assert GATE3_V1_ACTIVE_CHILD_LANES == 2
+          assert GATE3_V1_RECURRENT_UPDATES_PER_CHILD == 8
+          assert GATE3_V1_HINT_RELIABILITY == 0.70
+          assert GATE3_V1_SCORE_QUANTIZATION == 1e-3
+          assert GATE3_V1_DEVELOPMENT_WORLD_START == 1 << 30
+          assert GATE3_V1_CONFIRMATION_WORLD_START == 1 << 31
+          assert GATE3_V1_INPUT_WIDTH == 19
+          assert Gate3V1Scorer().trainable_parameter_count() == 19_649
+          assert GATE3_V1_FIRST_DEVELOPMENT_TRAINING_SEED == 0
+
+          config = Gate3V1TrainingConfig()
+          assert config.steps == 1_200
+          assert config.batch_size == 256
+          assert config.learning_rate == 3e-4
+          assert config.weight_decay == 1e-4
+          assert config.gradient_clip_norm == 1.0
+          assert GATE3_V1_DEVELOPMENT_WORLD_COUNT == 256
+          assert GATE3_V1_DEVELOPMENT_EVAL_BATCH_SIZE == 64
+          assert GATE3_V1_DEVELOPMENT_BOOTSTRAP_SAMPLES == 2_000
+
+          expected_totals = {6: 256, 8: 1024, 10: 4096}
+          for depth, total in expected_totals.items():
+              signatures = set()
+              for capacity in GATE3_V1_RESERVE_CAPACITIES[depth]:
+                  for mode in Gate3V1ControlMode:
+                      plan = build_gate3_v1_condition_plan(depth=depth, reserve_capacity=capacity, mode=mode)
+                      assert plan.total_learned_updates == total
+                      signatures.add(plan.mechanical_signature())
+              assert len(signatures) == 1
+          PY
+
+      - name: Verify admitted Python CLI exposes no scientific tuning flags
+        shell: bash
+        run: |
+          python -m ai_hypothesis.population_compute.run_gate3_v1_development --help > gate3-v1-help.txt
+          cat gate3-v1-help.txt
+          grep -q -- '--output-root' gate3-v1-help.txt
+          ! grep -q -- '--seed' gate3-v1-help.txt
+          ! grep -q -- '--steps' gate3-v1-help.txt
+          ! grep -q -- '--batch' gate3-v1-help.txt
+          ! grep -q -- '--capacity' gate3-v1-help.txt
+          ! grep -q -- '--world' gate3-v1-help.txt
+          ! grep -q -- '--bootstrap' gate3-v1-help.txt
+          ! grep -q -- '--learning-rate' gate3-v1-help.txt
+          ! grep -q -- '--device' gate3-v1-help.txt
+          ! grep -q -- '--compile' gate3-v1-help.txt
+
+      - name: Verify PowerShell admitted runner contract
+        shell: pwsh
+        run: |
+          $path = Resolve-Path 'scripts/run_gate3_v1_development.ps1'
+          $tokens = $null
+          $parseErrors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$tokens, [ref]$parseErrors) | Out-Null
+          if ($parseErrors.Count -gt 0) {
+              $parseErrors | ForEach-Object { Write-Error $_.Message }
+              exit 1
+          }
+          $text = Get-Content -Raw $path
+          foreach ($required in @(
+              'IdleMachineAttested',
+              'Get-Process -Name "factorio"',
+              'agent/gate3-v1-sparse-active-reserve',
+              'training_seed = 0',
+              'steps = 1200',
+              'training_batch_size = 256',
+              'learned_parameter_count = 19649',
+              'active_child_lanes = 2',
+              'recurrent_updates_per_child = 8',
+              'score_quantization = 0.001',
+              'evaluation_world_start = 1073741824',
+              'evaluation_world_count = 256',
+              'evaluation_batch_size = 64',
+              'bootstrap_samples = 2000',
+              'compiler_enabled = $false',
+              'analyze_gate3_v1_development'
+          )) {
+              if (-not $text.Contains($required)) { throw "Gate-3 v1 wrapper missing: $required" }
+          }
+
+      - name: Verify v1 remains pre-result confirmation closed and all freezes recorded
+        shell: bash
+        run: |
+          grep -q 'FROZEN DEVELOPMENT PROTOCOL — NO GATE-3 v1 RESULT INSPECTED' experiments/population_compute_scaling_v0/gate3_v1_sparse_active_reserve_protocol.md
+          grep -q 'FROZEN BEFORE ANY GATE-3 v1 DEVELOPMENT RESULT OR TRAINING RUN' experiments/population_compute_scaling_v0/gate3_v1_control_semantics_freeze.md
+          grep -q 'only the current top hypothesis is logically schedulable' experiments/population_compute_scaling_v0/gate3_v1_control_semantics_freeze.md
+          grep -q 'FROZEN BEFORE FIRST GATE-3 v1 DEVELOPMENT RESULT' experiments/population_compute_scaling_v0/gate3_v1_development_recipe.md
+          grep -q 'confirmation remains mechanically closed' experiments/population_compute_scaling_v0/gate3_v1_sparse_active_reserve_protocol.md
+          ! find experiments/population_compute_scaling_v0 -maxdepth 1 -type f -iname 'gate3_v1*result*' | grep -q .
+
+  gate3-v1-windows-powershell-wrapper-smoke:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Put checkout on admitted Gate3 v1 branch name
+        shell: powershell
+        run: |
+          git switch -C agent/gate3-v1-sparse-active-reserve
+          if ($LASTEXITCODE -ne 0) { throw 'Could not set Gate-3 v1 branch name.' }
+      - name: Execute pre-science wrapper under Windows PowerShell 5.1 StrictMode
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:GATE3_V1_WRAPPER_SMOKE = '1'
+          $output = Join-Path $env:RUNNER_TEMP 'gate3-v1-wrapper-smoke'
+          if (Test-Path -LiteralPath $output) { Remove-Item -LiteralPath $output -Recurse -Force }
+          .\scripts\run_gate3_v1_development.ps1 -IdleMachineAttested -OutputRoot $output
+          if (-not (Test-Path -LiteralPath (Join-Path $output 'run-config.json') -PathType Leaf)) {
+              throw 'Windows Gate-3 v1 wrapper smoke did not create run-config.json.'
+          }
+          if (Test-Path -LiteralPath (Join-Path $output 'science')) {
+              throw 'Windows Gate-3 v1 wrapper smoke unexpectedly entered scientific execution.'
+          }
