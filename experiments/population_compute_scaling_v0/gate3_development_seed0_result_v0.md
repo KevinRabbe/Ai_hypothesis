@@ -155,11 +155,15 @@ Recursive manifest SHA-256:
 
 `99248d21c45d8feedb6a99592e8d347e126d0e7360ec326a767d88bc0df635ab`
 
+Final preserved development archive SHA-256:
+
+`39a037c27223ae4de8b069ecd2cadf591aa6793f0137480f3acd4c91b734438d`
+
 Parameter fingerprint:
 
 `aca4aed31805ae4d0005245c6c692b1dd2bb3061c286efb44f98cd8b6de4e24a`
 
-These hashes are transcribed from the preserved local runner output. Repository recording does not independently possess or rehash the external local artifact bytes.
+The checkpoint/result/audit/manifest hashes are transcribed from the preserved local runner output. The final ZIP archive hash is transcribed from a separate post-run `Get-FileHash` over the complete preserved development output directory archive. Repository recording does not independently possess or rehash the external local artifact bytes.
 
 ## Scientific boundary
 
