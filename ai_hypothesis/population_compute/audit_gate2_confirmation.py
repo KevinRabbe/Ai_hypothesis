@@ -1,7 +1,8 @@
 """Independent structural/scientific auditor for frozen Gate-2 confirmation artifacts.
 
-A scientifically negative confirmation is a valid artifact.  Structural/provenance corruption is
-reported separately as an invalid audit.
+A scientifically negative confirmation is a valid artifact. Structural/provenance corruption is
+reported separately as an invalid audit. The auditor reconstructs every paired comparison and
+bootstrap interval directly from per-world solved vectors rather than trusting stored summaries.
 """
 
 from __future__ import annotations
@@ -9,6 +10,8 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
+import random
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -16,6 +19,7 @@ from typing import Any
 
 PROTOCOL = "gate2-persistent-state-confirmation-v0"
 EXPERIMENT_VERSION = "gate2-persistent-state-confirmation-v0"
+MEASUREMENT_HEAD = "c2a26a17a94746ca88f29950197131689405917b"
 TRAINING_SEEDS = (3, 4, 5)
 ENTITY_COUNTS = (16, 64, 256)
 WIDTHS = {16: (1, 4, 16), 64: (1, 4, 16, 64), 256: (1, 4, 16, 64, 256)}
@@ -70,6 +74,140 @@ def _primary_key(row: dict[str, Any]) -> str | None:
     return None
 
 
+def _paired_key(row: dict[str, Any]) -> tuple[Any, ...]:
+    return (
+        row.get("comparison"),
+        row.get("entity_count"),
+        row.get("treatment_width"),
+        row.get("reference_width"),
+        row.get("treatment_mode"),
+        row.get("reference_mode"),
+    )
+
+
+def _paired_specs() -> tuple[tuple[str, int, int, str, int, str], ...]:
+    specs: list[tuple[str, int, int, str, int, str]] = []
+    for c in ENTITY_COUNTS:
+        widths = WIDTHS[c]
+        for width in widths[1:]:
+            specs.append(("stable_width_vs_width1", c, width, "stable_persistent", 1, "stable_persistent"))
+        for width in widths:
+            specs.append(("stable_vs_reshuffled", c, width, "stable_persistent", width, "reshuffled_locality"))
+            specs.append(("stable_vs_reset", c, width, "stable_persistent", width, "reset_state"))
+    assert len(specs) == EXPECTED_PAIRED_COUNT
+    return tuple(specs)
+
+
+def _bootstrap_seed(
+    comparison: str,
+    entity_count: int,
+    treatment_width: int,
+    treatment_mode: str,
+    reference_width: int,
+    reference_mode: str,
+) -> int:
+    digest = hashlib.sha256(
+        (
+            f"gate2-bootstrap-v0:{comparison}:{entity_count}:"
+            f"{treatment_width}:{treatment_mode}:{reference_width}:{reference_mode}"
+        ).encode("ascii")
+    ).digest()
+    return int.from_bytes(digest[:8], "big")
+
+
+def _bootstrap_ci(differences: tuple[int, ...], *, seed: int) -> tuple[float, float]:
+    rng = random.Random(seed)
+    count = len(differences)
+    estimates: list[float] = []
+    for _ in range(BOOTSTRAP_SAMPLES):
+        total = 0
+        for _ in range(count):
+            total += differences[rng.randrange(count)]
+        estimates.append(total / count)
+    estimates.sort()
+    low_index = int(math.floor(0.025 * (BOOTSTRAP_SAMPLES - 1)))
+    high_index = int(math.ceil(0.975 * (BOOTSTRAP_SAMPLES - 1)))
+    return estimates[low_index], estimates[high_index]
+
+
+def _recompute_pair(
+    *,
+    comparison: str,
+    entity_count: int,
+    treatment_width: int,
+    treatment_mode: str,
+    reference_width: int,
+    reference_mode: str,
+    condition_index: dict[tuple[int, int, str], dict[str, Any]],
+) -> dict[str, Any]:
+    treatment = condition_index[(entity_count, treatment_width, treatment_mode)]
+    reference = condition_index[(entity_count, reference_width, reference_mode)]
+    if treatment.get("world_seeds") != reference.get("world_seeds"):
+        raise ValueError("paired conditions use different world ordering")
+    treatment_solved = treatment.get("solved_by_world")
+    reference_solved = reference.get("solved_by_world")
+    if not isinstance(treatment_solved, list) or not isinstance(reference_solved, list):
+        raise ValueError("paired conditions are missing solved vectors")
+    if len(treatment_solved) != WORLD_COUNT or len(reference_solved) != WORLD_COUNT:
+        raise ValueError("paired solved vectors do not contain 512 worlds")
+    pairs = tuple(zip(treatment_solved, reference_solved, strict=True))
+    treatment_only = sum(int(bool(a) and not bool(b)) for a, b in pairs)
+    reference_only = sum(int(bool(b) and not bool(a)) for a, b in pairs)
+    both = sum(int(bool(a) and bool(b)) for a, b in pairs)
+    neither = len(pairs) - treatment_only - reference_only - both
+    differences = tuple(int(bool(a)) - int(bool(b)) for a, b in pairs)
+    delta = sum(differences) / len(differences)
+    ci_low, ci_high = _bootstrap_ci(
+        differences,
+        seed=_bootstrap_seed(
+            comparison,
+            entity_count,
+            treatment_width,
+            treatment_mode,
+            reference_width,
+            reference_mode,
+        ),
+    )
+    return {
+        "comparison": comparison,
+        "entity_count": entity_count,
+        "treatment_width": treatment_width,
+        "reference_width": reference_width,
+        "treatment_mode": treatment_mode,
+        "reference_mode": reference_mode,
+        "world_count": WORLD_COUNT,
+        "treatment_only": treatment_only,
+        "reference_only": reference_only,
+        "both_solved": both,
+        "neither_solved": neither,
+        "exact_solve_delta": delta,
+        "bootstrap_ci_low": ci_low,
+        "bootstrap_ci_high": ci_high,
+    }
+
+
+def _compare_paired_row(seed: int, expected: dict[str, Any], observed: dict[str, Any], errors: list[str]) -> None:
+    key = _paired_key(expected)
+    for field in (
+        "comparison",
+        "entity_count",
+        "treatment_width",
+        "reference_width",
+        "treatment_mode",
+        "reference_mode",
+        "world_count",
+        "treatment_only",
+        "reference_only",
+        "both_solved",
+        "neither_solved",
+        "exact_solve_delta",
+        "bootstrap_ci_low",
+        "bootstrap_ci_high",
+    ):
+        if observed.get(field) != expected.get(field):
+            errors.append(f"seed {seed}: paired summary {key} field {field} differs from raw-world recomputation")
+
+
 def audit_confirmation_root(root: Path) -> ConfirmationAudit:
     root = root.resolve()
     errors: list[str] = []
@@ -78,10 +216,11 @@ def audit_confirmation_root(root: Path) -> ConfirmationAudit:
 
     suite_path = root / "confirmation-suite.json"
     config_path = root / "run-config.json"
-    if not suite_path.is_file():
-        errors.append("missing confirmation-suite.json")
-    if not config_path.is_file():
-        errors.append("missing run-config.json")
+    git_head_path = root / "git-head.txt"
+    git_status_path = root / "git-status.txt"
+    for path in (suite_path, config_path, git_head_path, git_status_path):
+        if not path.is_file():
+            errors.append(f"missing {path.name}")
     if errors:
         return ConfirmationAudit(False, None, seed_passes, primary_ci_lows, tuple(errors))
 
@@ -107,10 +246,15 @@ def audit_confirmation_root(root: Path) -> ConfirmationAudit:
         "bootstrap_samples": BOOTSTRAP_SAMPLES,
         "device": "cuda",
         "idle_machine_attested": True,
+        "git_head": MEASUREMENT_HEAD,
     }
     for key, expected in expected_config.items():
         if config.get(key) != expected:
             errors.append(f"run-config {key!r} expected {expected!r}, got {config.get(key)!r}")
+    if git_head_path.read_text(encoding="utf-8-sig").strip() != MEASUREMENT_HEAD:
+        errors.append("git-head.txt does not match the frozen confirmation measurement head")
+    if git_status_path.read_text(encoding="utf-8-sig").strip():
+        errors.append("confirmation runner recorded a dirty Git working tree")
 
     if suite.get("protocol") != PROTOCOL:
         errors.append("suite protocol mismatch")
@@ -167,13 +311,12 @@ def audit_confirmation_root(root: Path) -> ConfirmationAudit:
         training = result.get("training", {})
         training_config = result.get("training_config", {})
         model_config = training_config.get("model", {}) if isinstance(training_config, dict) else {}
-        expected_training = {
+        for key, expected in {
             "training_seed": seed,
             "steps": 1000,
             "examples_seen": 32000,
             "stable_training_condition_count": 12,
-        }
-        for key, expected in expected_training.items():
+        }.items():
             if training.get(key) != expected:
                 errors.append(f"seed {seed}: training {key} mismatch")
         for key, expected in {
@@ -226,18 +369,12 @@ def audit_confirmation_root(root: Path) -> ConfirmationAudit:
                 errors.append(f"seed {seed}: duplicate condition {key}")
             condition_index[key] = row
 
-        expected_keys = {
-            (c, w, mode)
-            for c in ENTITY_COUNTS
-            for w in WIDTHS[c]
-            for mode in MODES
-        }
+        expected_keys = {(c, w, mode) for c in ENTITY_COUNTS for w in WIDTHS[c] for mode in MODES}
         if set(condition_index) != expected_keys:
             errors.append(f"seed {seed}: condition matrix is not canonical")
 
         for c in ENTITY_COUNTS:
             expected_world_seeds = list(range(CONFIRMATION_WORLD_START, CONFIRMATION_WORLD_START + WORLD_COUNT))
-            reference_worlds: list[int] | None = None
             for w in WIDTHS[c]:
                 for mode in MODES:
                     row = condition_index.get((c, w, mode))
@@ -245,13 +382,8 @@ def audit_confirmation_root(root: Path) -> ConfirmationAudit:
                         continue
                     if row.get("world_count") != WORLD_COUNT:
                         errors.append(f"seed {seed}: C{c}/W{w}/{mode} world_count mismatch")
-                    worlds = row.get("world_seeds")
-                    if worlds != expected_world_seeds:
+                    if row.get("world_seeds") != expected_world_seeds:
                         errors.append(f"seed {seed}: C{c}/W{w}/{mode} confirmation world seeds mismatch")
-                    if reference_worlds is None:
-                        reference_worlds = worlds
-                    elif worlds != reference_worlds:
-                        errors.append(f"seed {seed}: C{c} world ordering differs across conditions")
                     if row.get("learned_updates_per_world") != 8 * c:
                         errors.append(f"seed {seed}: C{c}/W{w}/{mode} learned work mismatch")
                     if row.get("inspected_entities_per_world") != c:
@@ -265,50 +397,64 @@ def audit_confirmation_root(root: Path) -> ConfirmationAudit:
                     if row.get("parameter_fingerprint") != fingerprint:
                         errors.append(f"seed {seed}: condition fingerprint mismatch")
                     solved = row.get("solved_by_world")
-                    if not isinstance(solved, list) or len(solved) != WORLD_COUNT:
+                    if not isinstance(solved, list) or len(solved) != WORLD_COUNT or not all(isinstance(value, bool) for value in solved):
                         errors.append(f"seed {seed}: C{c}/W{w}/{mode} solved vector mismatch")
+                    elif row.get("exact_solve_rate") != sum(solved) / WORLD_COUNT:
+                        errors.append(f"seed {seed}: C{c}/W{w}/{mode} exact solve rate differs from solved vector")
 
         paired = result.get("paired_summaries")
         if not isinstance(paired, list) or len(paired) != EXPECTED_PAIRED_COUNT:
             errors.append(f"seed {seed}: expected {EXPECTED_PAIRED_COUNT} paired summaries")
             paired = []
-
-        # Width-1 stable vs reshuffled must be an exact identity in every entity tier.
-        for c in ENTITY_COUNTS:
-            identities = [
-                row for row in paired
-                if row.get("comparison") == "stable_vs_reshuffled"
-                and row.get("entity_count") == c
-                and row.get("treatment_width") == 1
-            ]
-            if len(identities) != 1:
-                errors.append(f"seed {seed}: missing width-1 identity at C{c}")
-                continue
-            row = identities[0]
-            if not (
-                row.get("exact_solve_delta") == 0.0
-                and row.get("treatment_only") == 0
-                and row.get("reference_only") == 0
-                and row.get("bootstrap_ci_low") == 0.0
-                and row.get("bootstrap_ci_high") == 0.0
-            ):
-                errors.append(f"seed {seed}: width-1 identity failed at C{c}")
-
-        primaries: dict[str, dict[str, Any]] = {}
+        stored_paired: dict[tuple[Any, ...], dict[str, Any]] = {}
         for row in paired:
-            key = _primary_key(row)
-            if key is not None:
-                if key in primaries:
-                    errors.append(f"seed {seed}: duplicate primary comparison {key}")
-                primaries[key] = row
+            if not isinstance(row, dict):
+                errors.append(f"seed {seed}: paired summary must be an object")
+                continue
+            key = _paired_key(row)
+            if key in stored_paired:
+                errors.append(f"seed {seed}: duplicate paired summary {key}")
+            stored_paired[key] = row
+
+        recomputed_paired: dict[tuple[Any, ...], dict[str, Any]] = {}
+        if set(condition_index) == expected_keys:
+            for comparison, c, tw, tm, rw, rm in _paired_specs():
+                try:
+                    expected_row = _recompute_pair(
+                        comparison=comparison,
+                        entity_count=c,
+                        treatment_width=tw,
+                        treatment_mode=tm,
+                        reference_width=rw,
+                        reference_mode=rm,
+                        condition_index=condition_index,
+                    )
+                except ValueError as exc:
+                    errors.append(f"seed {seed}: cannot recompute paired comparison: {exc}")
+                    continue
+                key = _paired_key(expected_row)
+                recomputed_paired[key] = expected_row
+                observed = stored_paired.get(key)
+                if observed is None:
+                    errors.append(f"seed {seed}: missing stored paired summary {key}")
+                else:
+                    _compare_paired_row(seed, expected_row, observed, errors)
+        if set(stored_paired) != set(recomputed_paired):
+            errors.append(f"seed {seed}: stored paired-summary key set differs from raw-world recomputation")
+
         expected_primary_keys = {
             "c64_w64_vs_w1",
             "c256_w256_vs_w1",
             "c256_stable_vs_reshuffled",
             "c256_stable_vs_reset",
         }
+        primaries: dict[str, dict[str, Any]] = {}
+        for row in recomputed_paired.values():
+            key = _primary_key(row)
+            if key is not None:
+                primaries[key] = row
         if set(primaries) != expected_primary_keys:
-            errors.append(f"seed {seed}: primary comparison set mismatch")
+            errors.append(f"seed {seed}: independently recomputed primary comparison set mismatch")
 
         primary_result_rows = result.get("primary_comparisons")
         if not isinstance(primary_result_rows, list) or len(primary_result_rows) != 4:
@@ -323,43 +469,51 @@ def audit_confirmation_root(root: Path) -> ConfirmationAudit:
             if row is None:
                 recomputed_seed_pass = False
                 continue
-            low = row.get("bootstrap_ci_low")
-            high = row.get("bootstrap_ci_high")
-            delta = row.get("exact_solve_delta")
-            if not all(isinstance(value, (int, float)) for value in (low, high, delta)):
-                errors.append(f"seed {seed}: malformed primary values for {key}")
-                recomputed_seed_pass = False
-                continue
-            lows[key] = float(low)
-            passed = float(low) > 0.0
+            low = float(row["bootstrap_ci_low"])
+            lows[key] = low
+            passed = low > 0.0
             recomputed_seed_pass = recomputed_seed_pass and passed
             declared = declared_by_key.get(key)
             if declared is None:
                 errors.append(f"seed {seed}: missing declared primary row {key}")
             else:
-                if declared.get("bootstrap_ci_low") != low or declared.get("bootstrap_ci_high") != high:
-                    errors.append(f"seed {seed}: declared primary CI differs from paired summary for {key}")
-                if declared.get("exact_solve_delta") != delta:
-                    errors.append(f"seed {seed}: declared primary delta differs for {key}")
+                for field in ("exact_solve_delta", "bootstrap_ci_low", "bootstrap_ci_high"):
+                    if declared.get(field) != row.get(field):
+                        errors.append(f"seed {seed}: declared primary {field} differs from raw-world recomputation for {key}")
                 if declared.get("passed") is not passed:
                     errors.append(f"seed {seed}: declared primary pass differs for {key}")
 
+        width1_identity = all(
+            recomputed_paired[
+                ("stable_vs_reshuffled", c, 1, 1, "stable_persistent", "reshuffled_locality")
+            ]["exact_solve_delta"] == 0.0
+            and recomputed_paired[
+                ("stable_vs_reshuffled", c, 1, 1, "stable_persistent", "reshuffled_locality")
+            ]["treatment_only"] == 0
+            and recomputed_paired[
+                ("stable_vs_reshuffled", c, 1, 1, "stable_persistent", "reshuffled_locality")
+            ]["reference_only"] == 0
+            for c in ENTITY_COUNTS
+        ) if recomputed_paired else False
+        if result.get("width1_identity_passed") is not width1_identity:
+            errors.append(f"seed {seed}: declared width1 identity differs from raw-world recomputation")
+
         primary_ci_lows[seed] = lows
-        recomputed_seed_pass = recomputed_seed_pass and result.get("width1_identity_passed") is True
+        recomputed_seed_pass = recomputed_seed_pass and width1_identity
         seed_passes[seed] = recomputed_seed_pass
         if result.get("seed_passed") is not recomputed_seed_pass:
-            errors.append(f"seed {seed}: declared seed_passed differs from independent recomputation")
+            errors.append(f"seed {seed}: declared seed_passed differs from raw-world recomputation")
         if runtime.get("seed_passed") is not recomputed_seed_pass:
-            errors.append(f"seed {seed}: runtime seed_passed differs from independent recomputation")
+            errors.append(f"seed {seed}: runtime seed_passed differs from raw-world recomputation")
         if suite_row and suite_row.get("seed_passed") is not recomputed_seed_pass:
-            errors.append(f"seed {seed}: suite seed_passed differs from independent recomputation")
+            errors.append(f"seed {seed}: suite seed_passed differs from raw-world recomputation")
 
     if errors:
         return ConfirmationAudit(False, None, seed_passes, primary_ci_lows, tuple(errors))
 
     capability_passed = len(seed_passes) == 3 and all(seed_passes.get(seed, False) for seed in TRAINING_SEEDS)
     if suite.get("capability_confirmation_passed") is not capability_passed:
-        errors.append("suite capability_confirmation_passed differs from independent recomputation")
+        errors.append("suite capability_confirmation_passed differs from raw-world recomputation")
         return ConfirmationAudit(False, None, seed_passes, primary_ci_lows, tuple(errors))
 
     return ConfirmationAudit(True, capability_passed, seed_passes, primary_ci_lows, ())
@@ -372,8 +526,7 @@ def main() -> int:
     args = parser.parse_args()
 
     audit = audit_confirmation_root(args.root)
-    payload = audit.to_dict()
-    text = json.dumps(payload, indent=2, sort_keys=True) + "\n"
+    text = json.dumps(audit.to_dict(), indent=2, sort_keys=True) + "\n"
     if args.output:
         args.output.write_text(text, encoding="utf-8")
     print(text, end="")
