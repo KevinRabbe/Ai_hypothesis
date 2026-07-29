@@ -1,18 +1,16 @@
 """Mechanical substrate for Gate-3 v1 sparse-active hypothesis search.
 
-This module intentionally contains no neural model and no scientific result. It freezes public
-world generation, fixed-work accounting, reserve capacity/control semantics and answer-blind
-ordering before any Gate-3 v1 development data can exist.
+No neural model or scientific result lives here. Runtime-facing objects never contain the hidden
+answer; evaluation-only wrappers do.
 """
 
 from __future__ import annotations
 
 import hashlib
 import random
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from enum import Enum
 from typing import Iterable
-
 
 GATE3_V1_EXPERIMENT_VERSION = "gate3-v1-sparse-active-reserve"
 GATE3_V1_DEPTHS = (6, 8, 10)
@@ -25,9 +23,7 @@ GATE3_V1_SEARCH_ROUNDS = {6: 16, 8: 64, 10: 256}
 GATE3_V1_HINT_RELIABILITY = 0.70
 GATE3_V1_ACTIVE_CHILD_LANES = 2
 GATE3_V1_RECURRENT_UPDATES_PER_CHILD = 8
-GATE3_V1_UPDATES_PER_ROUND = (
-    GATE3_V1_ACTIVE_CHILD_LANES * GATE3_V1_RECURRENT_UPDATES_PER_CHILD
-)
+GATE3_V1_UPDATES_PER_ROUND = GATE3_V1_ACTIVE_CHILD_LANES * GATE3_V1_RECURRENT_UPDATES_PER_CHILD
 GATE3_V1_SCORE_QUANTIZATION = 1e-3
 GATE3_V1_DEVELOPMENT_WORLD_START = 1 << 30
 GATE3_V1_CONFIRMATION_WORLD_START = 1 << 31
@@ -41,8 +37,6 @@ class Gate3V1ControlMode(str, Enum):
 
 @dataclass(frozen=True, slots=True)
 class Gate3V1PublicWorld:
-    """The only world object admissible to the search runtime."""
-
     seed: int
     depth: int
     noisy_hints: tuple[int, ...]
@@ -60,8 +54,6 @@ class Gate3V1PublicWorld:
 
 @dataclass(frozen=True, slots=True)
 class Gate3V1EvaluationWorld:
-    """Evaluation-only wrapper containing the hidden answer plus runtime-public evidence."""
-
     public: Gate3V1PublicWorld
     hidden_path: tuple[int, ...]
 
@@ -92,13 +84,13 @@ class Gate3V1ConditionPlan:
         if self.search_rounds != GATE3_V1_SEARCH_ROUNDS[self.depth]:
             raise ValueError("search-round count differs from frozen Gate-3 v1 budget")
         if self.active_child_lanes != GATE3_V1_ACTIVE_CHILD_LANES:
-            raise ValueError("Gate-3 v1 active child lanes must remain fixed at two")
+            raise ValueError("active child lanes must remain fixed at two")
         if self.recurrent_updates_per_child != GATE3_V1_RECURRENT_UPDATES_PER_CHILD:
-            raise ValueError("Gate-3 v1 per-child recurrent refinement must remain fixed at eight")
+            raise ValueError("per-child recurrent refinement must remain fixed at eight")
         if self.learned_updates_per_round != GATE3_V1_UPDATES_PER_ROUND:
-            raise ValueError("Gate-3 v1 learned updates/round differ from frozen budget")
+            raise ValueError("learned updates/round differ from frozen budget")
         if self.total_learned_updates != self.search_rounds * self.learned_updates_per_round:
-            raise ValueError("Gate-3 v1 total learned work is inconsistent")
+            raise ValueError("total learned work is inconsistent")
 
     def mechanical_signature(self) -> tuple[int, int, int, int]:
         return (
@@ -111,8 +103,6 @@ class Gate3V1ConditionPlan:
 
 @dataclass(frozen=True, slots=True)
 class Gate3V1Candidate:
-    """Answer-blind reserve representation used by mechanical/control tests."""
-
     path: tuple[int, ...]
     score: float
     state_token: str
@@ -149,9 +139,9 @@ class Gate3V1SearchAccounting:
             mode=self.mode,
         )
         if self.scheduled_rounds != plan.search_rounds:
-            raise ValueError("search accounting round count differs from frozen plan")
+            raise ValueError("round count differs from frozen plan")
         if self.productive_rounds < 0 or self.sink_rounds < 0:
-            raise ValueError("productive/sink round counts must be non-negative")
+            raise ValueError("round counts must be non-negative")
         if self.productive_rounds + self.sink_rounds != self.scheduled_rounds:
             raise ValueError("productive + sink rounds must equal scheduled rounds")
         if self.productive_learned_updates != self.productive_rounds * GATE3_V1_UPDATES_PER_ROUND:
@@ -159,9 +149,14 @@ class Gate3V1SearchAccounting:
         if self.sink_learned_updates != self.sink_rounds * GATE3_V1_UPDATES_PER_ROUND:
             raise ValueError("sink learned-work accounting is invalid")
         if self.total_learned_updates != plan.total_learned_updates:
-            raise ValueError("total learned-work accounting differs from frozen plan")
+            raise ValueError("total learned work differs from frozen plan")
         if self.productive_learned_updates + self.sink_learned_updates != self.total_learned_updates:
-            raise ValueError("productive + sink learned work must equal total learned work")
+            raise ValueError("productive + sink learned work must equal total")
+
+
+def _seed_from_parts(*parts: object) -> int:
+    digest = hashlib.sha256(":".join(str(part) for part in parts).encode("ascii")).digest()
+    return int.from_bytes(digest[:8], "big")
 
 
 def generate_gate3_v1_world(*, seed: int, depth: int) -> Gate3V1EvaluationWorld:
@@ -169,7 +164,6 @@ def generate_gate3_v1_world(*, seed: int, depth: int) -> Gate3V1EvaluationWorld:
         raise ValueError("depth is outside the frozen Gate-3 v1 ladder")
     if seed < 0:
         raise ValueError("world seed must be non-negative")
-
     hidden_rng = random.Random(_seed_from_parts("gate3-v1-hidden", seed, depth))
     hidden_path = tuple(hidden_rng.randrange(2) for _ in range(depth))
     hint_rng = random.Random(_seed_from_parts("gate3-v1-hints", seed, depth))
@@ -186,10 +180,7 @@ def generate_gate3_v1_world(*, seed: int, depth: int) -> Gate3V1EvaluationWorld:
 
 
 def build_gate3_v1_condition_plan(
-    *,
-    depth: int,
-    reserve_capacity: int,
-    mode: Gate3V1ControlMode,
+    *, depth: int, reserve_capacity: int, mode: Gate3V1ControlMode
 ) -> Gate3V1ConditionPlan:
     if depth not in GATE3_V1_DEPTHS:
         raise ValueError("depth is outside the frozen Gate-3 v1 ladder")
@@ -210,19 +201,13 @@ def build_gate3_v1_condition_plan(
 
 
 def quantize_gate3_v1_score(score: float) -> int:
-    # Deliberately avoids any hidden-world dependency. Python round is deterministic for finite
-    # scores generated by the same runtime; neural implementation qualification later proves the
-    # batched/reference decision path under this exact rule.
     if score != score or score in (float("inf"), float("-inf")):
         raise ValueError("candidate score must be finite")
     return int(round(score / GATE3_V1_SCORE_QUANTIZATION))
 
 
 def deterministic_gate3_v1_tie_break(
-    *,
-    world_seed: int,
-    expansion_index: int,
-    candidate_path: tuple[int, ...],
+    *, world_seed: int, expansion_index: int, candidate_path: tuple[int, ...]
 ) -> int:
     digest = hashlib.sha256()
     digest.update(b"gate3-v1-tie-break\0")
@@ -235,15 +220,11 @@ def deterministic_gate3_v1_tie_break(
 
 
 def rank_gate3_v1_candidates(
-    candidates: Iterable[Gate3V1Candidate],
-    *,
-    world_seed: int,
-    expansion_index: int,
+    candidates: Iterable[Gate3V1Candidate], *, world_seed: int, expansion_index: int
 ) -> tuple[Gate3V1Candidate, ...]:
-    rows = tuple(candidates)
     return tuple(
         sorted(
-            rows,
+            tuple(candidates),
             key=lambda candidate: (
                 -quantize_gate3_v1_score(candidate.score),
                 deterministic_gate3_v1_tie_break(
@@ -256,7 +237,9 @@ def rank_gate3_v1_candidates(
     )
 
 
-def _deterministic_permutation(*, world_seed: int, expansion_index: int, count: int) -> tuple[int, ...]:
+def _deterministic_permutation(
+    *, world_seed: int, expansion_index: int, count: int
+) -> tuple[int, ...]:
     if count <= 0:
         raise ValueError("permutation count must be positive")
     rng = random.Random(_seed_from_parts("gate3-v1-reshuffle", world_seed, expansion_index, count))
@@ -282,20 +265,18 @@ def apply_gate3_v1_reserve_control(
     if not rows:
         return ()
 
-    ranked = rank_gate3_v1_candidates(
+    retained = rank_gate3_v1_candidates(
         rows,
         world_seed=world_seed,
         expansion_index=expansion_index,
-    )
-    retained = ranked[:reserve_capacity]
+    )[:reserve_capacity]
 
     if mode is Gate3V1ControlMode.STABLE_RESERVE:
         return retained
-
     if mode is Gate3V1ControlMode.COLLAPSED_DIVERSITY:
-        top = retained[0]
-        return tuple(replace(top) for _ in range(len(retained)))
-
+        # One logical hypothesis is schedulable. The nominal reserve/state-bank capacity remains a
+        # resource allocation property of the condition, not extra search breadth.
+        return (retained[0],)
     if mode is Gate3V1ControlMode.RESHUFFLED_CONTINUITY:
         if len(retained) == 1:
             return retained
@@ -313,20 +294,13 @@ def apply_gate3_v1_reserve_control(
             )
             for index, candidate in enumerate(retained)
         )
-
     raise ValueError(f"unknown Gate-3 v1 control mode: {mode}")
 
 
 def score_generated_solution(
-    *,
-    hidden_path: tuple[int, ...],
-    generated_terminal_paths: Iterable[tuple[int, ...]],
+    *, hidden_path: tuple[int, ...], generated_terminal_paths: Iterable[tuple[int, ...]]
 ) -> bool:
-    """Evaluation-only exact search-coverage scoring.
-
-    Search runtime code must never call this function while deciding which hypothesis to expand.
-    """
-
+    """Evaluation-only exact search-coverage scoring."""
     return hidden_path in set(generated_terminal_paths)
 
 
@@ -358,8 +332,3 @@ def make_gate3_v1_accounting(
     )
     accounting.validate()
     return accounting
-
-
-def _seed_from_parts(*parts: object) -> int:
-    digest = hashlib.sha256(":".join(str(part) for part in parts).encode("ascii")).digest()
-    return int.from_bytes(digest[:8], "big")
