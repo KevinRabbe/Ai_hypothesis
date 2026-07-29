@@ -9,10 +9,13 @@ on:
       - 'ai_hypothesis/population_compute/gate3_hypothesis_population.py'
       - 'ai_hypothesis/population_compute/gate3_hypothesis_model.py'
       - 'ai_hypothesis/population_compute/gate3_hypothesis_batch.py'
+      - 'ai_hypothesis/population_compute/gate3_development.py'
       - 'tests/test_gate3_hypothesis_population.py'
       - 'tests/test_gate3_hypothesis_model.py'
       - 'tests/test_gate3_hypothesis_batch.py'
+      - 'tests/test_gate3_development.py'
       - 'experiments/population_compute_scaling_v0/gate3_hypothesis_population_protocol_v0.md'
+      - 'experiments/population_compute_scaling_v0/gate3_development_recipe_v0.md'
       - '.github/workflows/gate3-hypothesis-population-protocol-ci.yml'
   workflow_dispatch:
 
@@ -22,7 +25,7 @@ permissions:
 jobs:
   gate3-hypothesis-population-protocol:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
       PYTHONPATH: .
 
@@ -47,24 +50,34 @@ jobs:
           grep -q 'POSITIVE_V0' experiments/population_compute_scaling_v0/gate2_v0_positive_result.md
           grep -q 'Gate 3 is scientifically unlocked' experiments/population_compute_scaling_v0/gate2_v0_positive_result.md
 
-      - name: Compile Gate3 mechanics scorer and batch evaluator
+      - name: Compile Gate3 mechanics scorer batch and development modules
         run: |
           python -m compileall -q \
             ai_hypothesis/population_compute/gate3_hypothesis_population.py \
             ai_hypothesis/population_compute/gate3_hypothesis_model.py \
-            ai_hypothesis/population_compute/gate3_hypothesis_batch.py
+            ai_hypothesis/population_compute/gate3_hypothesis_batch.py \
+            ai_hypothesis/population_compute/gate3_development.py
 
-      - name: Run Gate3 protocol runtime regressions
+      - name: Run Gate3 protocol and frozen development regressions
         run: |
           python -m unittest \
             tests/test_gate3_hypothesis_population.py \
             tests/test_gate3_hypothesis_model.py \
-            tests/test_gate3_hypothesis_batch.py
+            tests/test_gate3_hypothesis_batch.py \
+            tests/test_gate3_development.py
 
-      - name: Verify frozen protocol and model constants
+      - name: Verify frozen protocol model and development constants
         shell: bash
         run: |
           python - <<'PY'
+          from ai_hypothesis.population_compute.gate3_development import (
+              GATE3_DEVELOPMENT_BOOTSTRAP_SAMPLES,
+              GATE3_DEVELOPMENT_EVAL_BATCH_SIZE,
+              GATE3_DEVELOPMENT_EVAL_WORLD_COUNT,
+              GATE3_REVEAL_MISMATCH_PENALTY,
+              Gate3TrainingConfig,
+              gate3_stable_training_conditions,
+          )
           from ai_hypothesis.population_compute.gate3_hypothesis_model import (
               GATE3_INPUT_WIDTH,
               Gate3HypothesisScorer,
@@ -88,10 +101,35 @@ jobs:
           assert GATE3_CONFIRMATION_WORLD_START == 1 << 31
           assert GATE3_INPUT_WIDTH == 26
           assert Gate3HypothesisScorer().trainable_parameter_count() == 19_873
+
+          config = Gate3TrainingConfig()
+          assert config.steps == 1_200
+          assert config.batch_size == 128
+          assert config.learning_rate == 3e-4
+          assert config.weight_decay == 1e-4
+          assert config.gradient_clip_norm == 1.0
+          assert GATE3_DEVELOPMENT_EVAL_WORLD_COUNT == 256
+          assert GATE3_DEVELOPMENT_EVAL_BATCH_SIZE == 64
+          assert GATE3_DEVELOPMENT_BOOTSTRAP_SAMPLES == 2_000
+          assert GATE3_REVEAL_MISMATCH_PENALTY == 16.0
+          assert len(gate3_stable_training_conditions()) == 12
+          PY
+
+      - name: Verify confirmation remains mechanically closed
+        shell: bash
+        run: |
+          python - <<'PY'
+          import inspect
+          from ai_hypothesis.population_compute import gate3_development
+
+          source = inspect.getsource(gate3_development.run_gate3_development)
+          assert 'confirmation' not in inspect.signature(gate3_development.run_gate3_development).parameters
+          assert 'confirmation_opened=False' in source
           PY
 
       - name: Verify protocol remains pre-result
         shell: bash
         run: |
           grep -q 'FROZEN DEVELOPMENT PROTOCOL — NO RESULT INSPECTED' experiments/population_compute_scaling_v0/gate3_hypothesis_population_protocol_v0.md
+          grep -q 'FROZEN BEFORE FIRST ADMITTED DEVELOPMENT RESULT' experiments/population_compute_scaling_v0/gate3_development_recipe_v0.md
           ! find experiments/population_compute_scaling_v0 -maxdepth 1 -type f -iname 'gate3*result*' | grep -q .
