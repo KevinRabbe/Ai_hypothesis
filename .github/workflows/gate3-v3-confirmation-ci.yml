@@ -13,6 +13,7 @@ on:
       - 'tests/test_gate3_v3_confirmation.py'
       - 'tests/test_gate3_v3_confirmation_audit.py'
       - 'experiments/population_compute_scaling_v0/gate3_v3_confirmation_protocol.md'
+      - 'experiments/population_compute_scaling_v0/gate3_v3_confirmation_result.md'
       - 'experiments/population_compute_scaling_v0/gate3_v3_generation_pressure_development_result.md'
       - '.github/workflows/gate3-v3-confirmation-ci.yml'
   workflow_dispatch:
@@ -40,7 +41,7 @@ jobs:
           python -m pip install --disable-pip-version-check torch --index-url https://download.pytorch.org/whl/cpu
           python -c "import torch; print('torch', torch.__version__)"
 
-      - name: Verify development mechanically permits confirmation
+      - name: Verify development mechanically permitted confirmation
         shell: bash
         run: |
           grep -q 'V3_G1_ROBUST_GENERATION_PRESSURE_BENEFIT' experiments/population_compute_scaling_v0/gate3_v3_generation_pressure_development_result.md
@@ -53,13 +54,13 @@ jobs:
             ai_hypothesis/population_compute/analyze_gate3_v3_confirmation.py \
             ai_hypothesis/population_compute/run_gate3_v3_confirmation.py
 
-      - name: Run data-blind confirmation qualification tests
+      - name: Run confirmation qualification tests
         run: |
           python -m unittest \
             tests/test_gate3_v3_confirmation.py \
             tests/test_gate3_v3_confirmation_audit.py
 
-      - name: Verify frozen confirmation constants without generating worlds
+      - name: Verify frozen confirmation constants
         shell: bash
         run: |
           python - <<'PY'
@@ -107,13 +108,15 @@ jobs:
           ! grep -q -- '--scheduled-slots' gate3-v3-confirmation-help.txt
           ! grep -q -- '--training' gate3-v3-confirmation-help.txt
 
-      - name: Verify confirmation remains unexposed during qualification
+      - name: Verify final confirmation evidence is preserved
         shell: bash
         run: |
-          grep -q 'FROZEN BEFORE ANY GATE-3 v3 CONFIRMATION WORLD IS GENERATED OR INSPECTED' experiments/population_compute_scaling_v0/gate3_v3_confirmation_protocol.md
-          grep -q 'Exactly \*\*512 confirmation worlds\*\*' experiments/population_compute_scaling_v0/gate3_v3_confirmation_protocol.md
-          grep -q 'GATE3_V3_CONFIRMED_GENERATION_PRESSURE_BENEFIT' experiments/population_compute_scaling_v0/gate3_v3_confirmation_protocol.md
-          ! find experiments/population_compute_scaling_v0 -maxdepth 1 -type f -iname 'gate3_v3*confirmation*result*' | grep -q .
+          grep -q 'GATE3_V3_CONFIRMED_GENERATION_PRESSURE_BENEFIT' experiments/population_compute_scaling_v0/gate3_v3_confirmation_result.md
+          grep -q 'FINAL_GATE3_V3_CONFIRMATION_EVIDENCE' experiments/population_compute_scaling_v0/gate3_v3_confirmation_result.md
+          grep -q '638f4965e015b2f6d0f709231cf5116fe17cec78006a1deec66ba66f29c07283' experiments/population_compute_scaling_v0/gate3_v3_confirmation_result.md
+          grep -q '0a66bb4d2943a38d706ea7fafa581763ee4bdb81ae5ae88644fd23c51d90a1dc' experiments/population_compute_scaling_v0/gate3_v3_confirmation_result.md
+          grep -q '1b8170860fe709f12ac09db8cdc5f09c27deab2d3f2c7ec8c6edec1782495f43' experiments/population_compute_scaling_v0/gate3_v3_confirmation_result.md
+          grep -q 'Measured confirmation head:' experiments/population_compute_scaling_v0/gate3_v3_confirmation_result.md
 
   windows-powershell-smoke:
     runs-on: windows-latest
