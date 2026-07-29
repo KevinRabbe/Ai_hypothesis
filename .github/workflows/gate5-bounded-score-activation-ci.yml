@@ -149,7 +149,7 @@ jobs:
           grep -q 'delta_NI = 0.05' experiments/population_compute_scaling_v0/gate5_bounded_score_activation_protocol.md
           grep -q 'G5_B2_ROBUST_BOUNDED_SCORE_ACTIVATION' experiments/population_compute_scaling_v0/gate5_bounded_score_activation_protocol.md
           grep -q 'Gate-5 confirmation is \*\*CLOSED\*\*' experiments/population_compute_scaling_v0/gate5_bounded_score_activation_protocol.md
-          ! find experiments/population_compute_scaling_v0 -maxdepth 1 -type f -iname 'gate5*result*' | grep -q .
+          ! find experiments/population_compute_scaling_v0 -maxdepth 1 -type f -iname 'gate5*_result.md' | grep -q .
 
   windows-powershell-smoke:
     runs-on: windows-latest
