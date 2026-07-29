@@ -141,7 +141,8 @@ try {
         "nvidia-smi capture failed: $($_.Exception.Message)" | Set-Content -Encoding UTF8 -Path (Join-Path $resolvedOutputRoot "nvidia-smi-after.txt")
     }
 
-    $capabilityPassed = ($seedSummaries.Count -eq 3) -and (($seedSummaries | Where-Object { -not $_.seed_passed }).Count -eq 0)
+    $failedSeeds = @($seedSummaries | Where-Object { -not $_.seed_passed })
+    $capabilityPassed = ($seedSummaries.Count -eq 3) -and ($failedSeeds.Count -eq 0)
     $suite = [ordered]@{
         protocol = "gate2-persistent-state-confirmation-v0"
         confirmation_training_seeds = @(3, 4, 5)
