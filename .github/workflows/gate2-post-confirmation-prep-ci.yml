@@ -7,10 +7,12 @@ on:
   pull_request:
     paths:
       - 'ai_hypothesis/population_compute/audit_gate2_confirmation.py'
+      - 'ai_hypothesis/population_compute/audit_gate2_resource_frontier.py'
       - 'ai_hypothesis/population_compute/gate2_resource_frontier.py'
       - 'ai_hypothesis/population_compute/run_gate2_resource_frontier.py'
       - 'scripts/run_gate2_resource_frontier.ps1'
       - 'tests/test_audit_gate2_confirmation.py'
+      - 'tests/test_audit_gate2_resource_frontier.py'
       - 'tests/test_gate2_resource_frontier.py'
       - '.github/workflows/gate2-post-confirmation-prep-ci.yml'
   workflow_dispatch:
@@ -54,13 +56,15 @@ jobs:
         run: |
           python -m compileall -q \
             ai_hypothesis/population_compute/audit_gate2_confirmation.py \
+            ai_hypothesis/population_compute/audit_gate2_resource_frontier.py \
             ai_hypothesis/population_compute/gate2_resource_frontier.py \
             ai_hypothesis/population_compute/run_gate2_resource_frontier.py
 
-      - name: Run confirmation-audit and resource-contract regressions
+      - name: Run confirmation/resource audit and frozen resource-contract regressions
         run: |
           python -m unittest \
             tests/test_audit_gate2_confirmation.py \
+            tests/test_audit_gate2_resource_frontier.py \
             tests/test_gate2_resource_frontier.py \
             tests/test_gate2_persistent_model.py \
             tests/test_gate2_confirmation.py
@@ -78,6 +82,14 @@ jobs:
           ! grep -q -- '--width' resource-help.txt
           ! grep -q -- '--device' resource-help.txt
           ! grep -q -- '--compile' resource-help.txt
+
+      - name: Verify auditor CLIs are read-only/root-output surfaces
+        shell: bash
+        run: |
+          python -m ai_hypothesis.population_compute.audit_gate2_confirmation --help > confirmation-audit-help.txt
+          python -m ai_hypothesis.population_compute.audit_gate2_resource_frontier --help > resource-audit-help.txt
+          grep -q -- '--output' confirmation-audit-help.txt
+          grep -q -- '--output' resource-audit-help.txt
 
       - name: Verify PowerShell resource runner contract
         shell: pwsh
