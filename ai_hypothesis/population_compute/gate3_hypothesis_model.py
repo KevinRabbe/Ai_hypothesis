@@ -31,6 +31,7 @@ GATE3_DEPTH_FEATURE_WIDTH = len(GATE3_DEPTHS)
 GATE3_KIND_FEATURE_WIDTH = 2
 GATE3_BIT_FEATURE_WIDTH = 2
 GATE3_ACTION_FEATURE_WIDTH = 3  # branch 0 / branch 1 / no branch
+GATE3_SCORE_QUANTIZATION = 1e-3
 GATE3_INPUT_WIDTH = (
     GATE3_MAX_PHASES
     + GATE3_DEPTH_FEATURE_WIDTH
@@ -38,6 +39,18 @@ GATE3_INPUT_WIDTH = (
     + GATE3_BIT_FEATURE_WIDTH
     + GATE3_ACTION_FEATURE_WIDTH
 )
+
+
+def quantize_gate3_score(score: float) -> int:
+    """Canonical beam-order score robust to irrelevant FP32 schedule drift.
+
+    The integer rank is the neural score rounded to the nearest 1e-3. Raw scores remain available
+    descriptively; only beam ordering uses this frozen numerical decision rule.
+    """
+
+    if not torch.isfinite(torch.tensor(score)):
+        raise ValueError("Gate-3 hypothesis score must be finite")
+    return int(round(score / GATE3_SCORE_QUANTIZATION))
 
 
 @dataclass(frozen=True, slots=True)
@@ -178,20 +191,15 @@ def encode_gate3_phase_input(
 
     vector = torch.zeros(GATE3_INPUT_WIDTH, dtype=torch.float32, device=device)
     cursor = 0
-
     vector[cursor + observation.phase_index] = 1.0
     cursor += GATE3_MAX_PHASES
-
     vector[cursor + GATE3_DEPTHS.index(depth)] = 1.0
     cursor += GATE3_DEPTH_FEATURE_WIDTH
-
     kind_index = 0 if observation.kind is Gate3ObservationKind.BRANCH_HINT else 1
     vector[cursor + kind_index] = 1.0
     cursor += GATE3_KIND_FEATURE_WIDTH
-
     vector[cursor + observation.observed_bit] = 1.0
     cursor += GATE3_BIT_FEATURE_WIDTH
-
     action_index = 2 if branch_action is None else branch_action
     vector[cursor + action_index] = 1.0
     return vector
@@ -216,7 +224,7 @@ def _rank_candidates(
     return sorted(
         candidates,
         key=lambda candidate: (
-            -candidate.score,
+            -quantize_gate3_score(candidate.score),
             deterministic_tie_break(
                 world_seed=world_seed,
                 phase_index=phase_index,
