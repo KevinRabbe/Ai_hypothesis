@@ -8,8 +8,10 @@ on:
     paths:
       - 'ai_hypothesis/population_compute/gate3_hypothesis_population.py'
       - 'ai_hypothesis/population_compute/gate3_hypothesis_model.py'
+      - 'ai_hypothesis/population_compute/gate3_hypothesis_batch.py'
       - 'tests/test_gate3_hypothesis_population.py'
       - 'tests/test_gate3_hypothesis_model.py'
+      - 'tests/test_gate3_hypothesis_batch.py'
       - 'experiments/population_compute_scaling_v0/gate3_hypothesis_population_protocol_v0.md'
       - '.github/workflows/gate3-hypothesis-population-protocol-ci.yml'
   workflow_dispatch:
@@ -45,17 +47,19 @@ jobs:
           grep -q 'POSITIVE_V0' experiments/population_compute_scaling_v0/gate2_v0_positive_result.md
           grep -q 'Gate 3 is scientifically unlocked' experiments/population_compute_scaling_v0/gate2_v0_positive_result.md
 
-      - name: Compile Gate3 mechanics and scorer
+      - name: Compile Gate3 mechanics scorer and batch evaluator
         run: |
           python -m compileall -q \
             ai_hypothesis/population_compute/gate3_hypothesis_population.py \
-            ai_hypothesis/population_compute/gate3_hypothesis_model.py
+            ai_hypothesis/population_compute/gate3_hypothesis_model.py \
+            ai_hypothesis/population_compute/gate3_hypothesis_batch.py
 
-      - name: Run Gate3 mechanics and scorer regressions
+      - name: Run Gate3 protocol runtime regressions
         run: |
           python -m unittest \
             tests/test_gate3_hypothesis_population.py \
-            tests/test_gate3_hypothesis_model.py
+            tests/test_gate3_hypothesis_model.py \
+            tests/test_gate3_hypothesis_batch.py
 
       - name: Verify frozen protocol and model constants
         shell: bash
