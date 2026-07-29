@@ -61,16 +61,16 @@ try {
     }
 
     Write-Host "Auditing completed Gate-2 capability confirmation before resource timing..."
-    $auditText = (& python -m ai_hypothesis.population_compute.audit_gate2_confirmation $resolvedConfirmationRoot | Out-String)
+    $capabilityAuditText = (& python -m ai_hypothesis.population_compute.audit_gate2_confirmation $resolvedConfirmationRoot | Out-String)
     if ($LASTEXITCODE -ne 0) {
-        Write-Host $auditText
+        Write-Host $capabilityAuditText
         throw "Gate-2 confirmation artifact audit failed."
     }
-    $audit = $auditText | ConvertFrom-Json
-    if (-not [bool]$audit.artifact_valid) {
+    $capabilityAudit = $capabilityAuditText | ConvertFrom-Json
+    if (-not [bool]$capabilityAudit.artifact_valid) {
         throw "Gate-2 confirmation artifacts are structurally invalid."
     }
-    if (-not [bool]$audit.capability_confirmation_passed) {
+    if (-not [bool]$capabilityAudit.capability_confirmation_passed) {
         throw "Frozen Gate-2 capability confirmation did not pass; v0 resource timing is not admitted as the second half of a positive Gate-2 result."
     }
 
@@ -102,7 +102,7 @@ try {
     }
 
     New-Item -ItemType Directory -Force -Path $resolvedOutputRoot | Out-Null
-    $audit | ConvertTo-Json -Depth 12 | Set-Content -Encoding UTF8 -Path (Join-Path $resolvedOutputRoot "confirmation-audit.json")
+    $capabilityAudit | ConvertTo-Json -Depth 12 | Set-Content -Encoding UTF8 -Path (Join-Path $resolvedOutputRoot "confirmation-audit.json")
     Set-Content -Encoding UTF8 -Path (Join-Path $resolvedOutputRoot "git-head.txt") -Value $head
     New-Item -ItemType File -Force -Path (Join-Path $resolvedOutputRoot "git-status.txt") | Out-Null
 
@@ -166,7 +166,7 @@ try {
     }
     $summary | ConvertTo-Json -Depth 8 | Set-Content -Encoding UTF8 -Path (Join-Path $resolvedOutputRoot "gate2-v0-summary.json")
 
-    $artifactNames = @(
+    $baseArtifactNames = @(
         "gate2-resource-frontier.json",
         "gate2-v0-summary.json",
         "confirmation-audit.json",
@@ -176,7 +176,7 @@ try {
         "nvidia-smi-before.txt",
         "nvidia-smi-after.txt"
     )
-    $manifest = foreach ($name in $artifactNames) {
+    $manifest = foreach ($name in $baseArtifactNames) {
         $path = Join-Path $resolvedOutputRoot $name
         if (-not (Test-Path $path -PathType Leaf)) {
             throw "Expected Gate-2 resource artifact missing: $name"
@@ -184,16 +184,38 @@ try {
         $hash = (Get-FileHash -Algorithm SHA256 $path).Hash.ToLowerInvariant()
         "$hash  $name"
     }
-    $manifest | Set-Content -Encoding ASCII -Path (Join-Path $resolvedOutputRoot "result-manifest.sha256")
+    $manifestPath = Join-Path $resolvedOutputRoot "result-manifest.sha256"
+    $manifest | Set-Content -Encoding ASCII -Path $manifestPath
+
+    Write-Host "Independently auditing Gate-2 resource result and final v0 verdict..."
+    $resourceAuditPath = Join-Path $resolvedOutputRoot "resource-audit.json"
+    $resourceAuditText = (& python -m ai_hypothesis.population_compute.audit_gate2_resource_frontier $resolvedOutputRoot --output $resourceAuditPath | Out-String)
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host $resourceAuditText
+        throw "Independent Gate-2 resource artifact audit failed."
+    }
+    $resourceAudit = $resourceAuditText | ConvertFrom-Json
+    if (-not [bool]$resourceAudit.artifact_valid) {
+        throw "Gate-2 resource artifact audit reported invalid evidence."
+    }
+
+    $finalArtifactNames = @($baseArtifactNames) + @("resource-audit.json")
+    $finalManifest = foreach ($name in $finalArtifactNames) {
+        $path = Join-Path $resolvedOutputRoot $name
+        $hash = (Get-FileHash -Algorithm SHA256 $path).Hash.ToLowerInvariant()
+        "$hash  $name"
+    }
+    $finalManifest | Set-Content -Encoding ASCII -Path $manifestPath
 
     Write-Host ""
     Write-Host "============================================================"
     Write-Host " Gate-2 v0 resource measurement complete"
     Write-Host "============================================================"
-    Write-Host "Capability confirmation passed: True"
-    Write-Host "Resource frontier passed: $($result.resource_frontier_passed)"
-    Write-Host "Overall Gate-2 v0 verdict: $($summary.overall_gate2_verdict)"
+    Write-Host "Capability confirmation passed: $($resourceAudit.capability_confirmation_passed)"
+    Write-Host "Resource frontier passed: $($resourceAudit.resource_frontier_passed)"
+    Write-Host "Overall Gate-2 v0 positive: $($resourceAudit.overall_gate2_v0_positive)"
     Write-Host "Result: $resultPath"
+    Write-Host "Audit:  $resourceAuditPath"
 }
 finally {
     Pop-Location
