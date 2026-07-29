@@ -1,0 +1,136 @@
+name: Gate3 v2 ambiguity frontier qualification
+
+on:
+  push:
+    branches:
+      - agent/gate3-v2-frontier-scaling-v0
+  pull_request:
+    paths:
+      - 'ai_hypothesis/population_compute/gate3_v2_frontier.py'
+      - 'ai_hypothesis/population_compute/analyze_gate3_v2_frontier.py'
+      - 'ai_hypothesis/population_compute/run_gate3_v2_frontier.py'
+      - 'scripts/run_gate3_v2_frontier.ps1'
+      - 'tests/test_gate3_v2_frontier.py'
+      - 'tests/test_gate3_v2_frontier_audit.py'
+      - 'experiments/population_compute_scaling_v0/gate3_v2_frontier_scaling_protocol.md'
+      - 'experiments/population_compute_scaling_v0/gate3_v1_three_seed_robustness_result.md'
+      - '.github/workflows/gate3-v2-frontier-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  frontier-qualification:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install CPU Torch
+        run: |
+          python -m pip install --disable-pip-version-check torch --index-url https://download.pytorch.org/whl/cpu
+          python -c "import torch; print('torch', torch.__version__)"
+
+      - name: Verify Gate3 v1 R1 result is preserved
+        shell: bash
+        run: |
+          grep -q 'R1_ROBUST_LATENT_POPULATION_MECHANISM' experiments/population_compute_scaling_v0/gate3_v1_three_seed_robustness_result.md
+          grep -q 'seed 0: L256 - L64 = 0.0' experiments/population_compute_scaling_v0/gate3_v1_three_seed_robustness_result.md
+          grep -q 'seed 1: L256 - L64 = 0.0' experiments/population_compute_scaling_v0/gate3_v1_three_seed_robustness_result.md
+          grep -q 'seed 2: L256 - L64 = 0.0' experiments/population_compute_scaling_v0/gate3_v1_three_seed_robustness_result.md
+
+      - name: Compile Gate3 v2 frozen modules
+        run: |
+          python -m compileall -q \
+            ai_hypothesis/population_compute/gate3_v2_frontier.py \
+            ai_hypothesis/population_compute/analyze_gate3_v2_frontier.py \
+            ai_hypothesis/population_compute/run_gate3_v2_frontier.py
+
+      - name: Run Gate3 v2 pre-result regressions
+        run: |
+          python -m unittest \
+            tests/test_gate3_v2_frontier.py \
+            tests/test_gate3_v2_frontier_audit.py
+
+      - name: Verify frozen frontier constants and work identity
+        shell: bash
+        run: |
+          python - <<'PY'
+          from ai_hypothesis.population_compute.gate3_v2_frontier import (
+              GATE3_V2_BOOTSTRAP_SAMPLES,
+              GATE3_V2_CHECKPOINT_INDICES,
+              GATE3_V2_CONDITIONS,
+              GATE3_V2_DEPTH,
+              GATE3_V2_EVAL_BATCH_SIZE,
+              GATE3_V2_HINT_RELIABILITY,
+              GATE3_V2_SEARCH_ROUNDS,
+              GATE3_V2_TOTAL_LEARNED_UPDATES,
+              GATE3_V2_WORLD_COUNT,
+              Gate3V2AmbiguityTier,
+          )
+          assert GATE3_V2_CHECKPOINT_INDICES == (0, 1, 2)
+          assert GATE3_V2_DEPTH == 10
+          assert GATE3_V2_SEARCH_ROUNDS == 256
+          assert GATE3_V2_TOTAL_LEARNED_UPDATES == 4096
+          assert GATE3_V2_WORLD_COUNT == 256
+          assert GATE3_V2_EVAL_BATCH_SIZE == 64
+          assert GATE3_V2_BOOTSTRAP_SAMPLES == 2000
+          assert GATE3_V2_HINT_RELIABILITY == {
+              Gate3V2AmbiguityTier.A60: 0.60,
+              Gate3V2AmbiguityTier.A55: 0.55,
+          }
+          assert len(GATE3_V2_CONDITIONS) == 6
+          assert 3 * 2 * len(GATE3_V2_CONDITIONS) == 36
+          PY
+
+      - name: Verify admitted CLI exposes no scientific tuning knobs
+        shell: bash
+        run: |
+          python -m ai_hypothesis.population_compute.run_gate3_v2_frontier --help > gate3-v2-help.txt
+          grep -q -- '--output-root' gate3-v2-help.txt
+          grep -q -- '--checkpoint0' gate3-v2-help.txt
+          grep -q -- '--checkpoint1' gate3-v2-help.txt
+          grep -q -- '--checkpoint2' gate3-v2-help.txt
+          ! grep -q -- '--capacity' gate3-v2-help.txt
+          ! grep -q -- '--reliability' gate3-v2-help.txt
+          ! grep -q -- '--world-count' gate3-v2-help.txt
+          ! grep -q -- '--search-rounds' gate3-v2-help.txt
+          ! grep -q -- '--training' gate3-v2-help.txt
+
+      - name: Verify v2 remains pre-result and confirmation closed
+        shell: bash
+        run: |
+          grep -q 'FROZEN PRE-RESULT PROTOCOL — NO GATE-3 v2 FRONTIER RESULT INSPECTED' experiments/population_compute_scaling_v0/gate3_v2_frontier_scaling_protocol.md
+          grep -q 'Gate-3 v2 confirmation is CLOSED' experiments/population_compute_scaling_v0/gate3_v2_frontier_scaling_protocol.md
+          ! find experiments/population_compute_scaling_v0 -maxdepth 1 -type f -iname 'gate3_v2*result*' | grep -q .
+          ! grep -R --line-number -- '--confirmation' ai_hypothesis/population_compute/run_gate3_v2_frontier.py scripts/run_gate3_v2_frontier.ps1
+
+  windows-powershell-smoke:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Put checkout on admitted Gate3 v2 branch name
+        shell: powershell
+        run: git switch -C agent/gate3-v2-frontier-scaling-v0
+
+      - name: Execute Gate3 v2 pre-science wrapper under Windows PowerShell 5.1 StrictMode
+        shell: powershell
+        env:
+          GATE3_V2_WRAPPER_SMOKE: '1'
+        run: |
+          .\scripts\run_gate3_v2_frontier.ps1 `
+            -IdleMachineAttested `
+            -OutputRoot "$env:RUNNER_TEMP\gate3-v2-frontier-smoke"
