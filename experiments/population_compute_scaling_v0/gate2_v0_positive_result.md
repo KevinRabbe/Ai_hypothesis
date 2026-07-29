@@ -97,18 +97,35 @@ Observed frozen resource result:
 all_preflights_passed = true
 resource_frontier_passed = true
 
-c64_w64_b1     = true
-c64_w64_b64    = true
-c256_w256_b1   = true
-c256_w256_b64  = true
+c64_w64_b1      = true
+c64_w64_b64     = true
+c256_w256_b1    = true
+c256_w256_b64   = true
 ```
+
+Preregistered decision-endpoint measurements (median CUDA-event latency):
+
+| Endpoint | Parallel median | Serial median | Serial / parallel speedup | Parallel samples/s | Serial samples/s |
+|---|---:|---:|---:|---:|---:|
+| C64 W64 B1 | 1.4340 ms | 37.5798 ms | 26.206× | 697.33 | 26.61 |
+| C64 W64 B64 | 1.5089 ms | 64.8162 ms | 42.957× | 42,416.02 | 987.41 |
+| C256 W256 B1 | 1.5427 ms | 164.4221 ms | 106.582× | 648.22 | 6.08 |
+| C256 W256 B64 | 5.1779 ms | 246.0729 ms | 47.524× | 12,360.33 | 260.09 |
+
+These are measured execution speedups against the frozen serial-persistent implementation for the same learned checkpoint, information, learned-update count and persistent-state population at the corresponding cells. They are not per-FLOP or hardware-independent efficiency claims.
 
 The guarded resource runner then invoked the independent resource auditor, which reported:
 
 ```text
-Capability confirmation passed: True
-Resource frontier passed: True
-Overall Gate-2 v0 positive: True
+artifact_valid = true
+capability_confirmation_passed = true
+errors = []
+resource_frontier_passed = true
+c64_w64_b1 = true
+c64_w64_b64 = true
+c256_w256_b1 = true
+c256_w256_b64 = true
+overall_gate2_v0_positive = true
 ```
 
 ## Gate-2 v0 verdict
@@ -148,7 +165,7 @@ This result does **not** establish:
 
 Compiler/runtime optimization remains a separate experimental variable.
 
-## Artifact provenance known at result recording
+## Artifact provenance
 
 Finalized confirmation archive SHA-256:
 
@@ -162,11 +179,27 @@ Independent confirmation-audit JSON SHA-256:
 
 `51ac0374eca1621df3f047a2eb52a8f1abc30b0b45ac9650606e3c4447318c5b`
 
-The local resource directory was produced at:
+Final resource archive SHA-256:
+
+`5770f7c3bfaa737cb371db096e715ae11db3125de3130deb480663358940ed4a`
+
+Recursive resource tree-manifest SHA-256:
+
+`17573638f90ea90f5e4c70e19c7a1bfdc6cc74c38e87d4da891fd96ac0a7cf33`
+
+Frozen resource-result JSON SHA-256:
+
+`d5fd8425136cdb74de17edc08d20c5755034c20c5f91508b218b2437112bc7a7`
+
+Independent resource-audit JSON SHA-256:
+
+`fd5da302d2c2eb5baec9c491879f6ae65793efea46c2ea4d723799b1019b1046`
+
+Local preserved resource evidence:
 
 `F:\gate2_resource_frontier_v0`
 
-Its final archive SHA-256 and recursive-manifest hash are **not yet recorded**. They must be appended after local preservation. This is provenance hardening only; it is not an additional scientific decision criterion and does not change the completed frozen Gate-2 verdict.
+The archive/hash capture is provenance hardening and is not an additional scientific decision criterion.
 
 ## Next gate
 
