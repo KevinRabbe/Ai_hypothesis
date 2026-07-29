@@ -204,6 +204,29 @@ jobs:
               }
           }
 
+          # Regression for Windows PowerShell 5.1 + StrictMode: every artifact path that is
+          # consumed after the science run must already be initialized before CUDA preflight.
+          $preflightIndex = $text.IndexOf('$preflight = @''')
+          if ($preflightIndex -lt 0) {
+              throw 'Gate-3 admitted runner is missing CUDA preflight block.'
+          }
+          foreach ($assignment in @(
+              '$scienceRoot =',
+              '$resultPath =',
+              '$checkpointPath =',
+              '$runtimePath =',
+              '$auditPath =',
+              '$manifestPath ='
+          )) {
+              $assignmentIndex = $text.IndexOf($assignment)
+              if ($assignmentIndex -lt 0) {
+                  throw "Gate-3 admitted runner is missing artifact-path assignment: $assignment"
+              }
+              if ($assignmentIndex -ge $preflightIndex) {
+                  throw "Gate-3 artifact path is initialized after CUDA preflight under StrictMode: $assignment"
+              }
+          }
+
       - name: Verify protocol remains pre-result
         shell: bash
         run: |
