@@ -16,6 +16,7 @@ on:
       - 'tests/test_gate3_development.py'
       - 'experiments/population_compute_scaling_v0/gate3_hypothesis_population_protocol_v0.md'
       - 'experiments/population_compute_scaling_v0/gate3_development_recipe_v0.md'
+      - 'experiments/population_compute_scaling_v0/gate3_numerical_decision_rule_v0.md'
       - '.github/workflows/gate3-hypothesis-population-protocol-ci.yml'
   workflow_dispatch:
 
@@ -66,7 +67,7 @@ jobs:
             tests/test_gate3_hypothesis_batch.py \
             tests/test_gate3_development.py
 
-      - name: Verify frozen protocol model and development constants
+      - name: Verify frozen protocol model numerical and development constants
         shell: bash
         run: |
           python - <<'PY'
@@ -80,7 +81,9 @@ jobs:
           )
           from ai_hypothesis.population_compute.gate3_hypothesis_model import (
               GATE3_INPUT_WIDTH,
+              GATE3_SCORE_QUANTIZATION,
               Gate3HypothesisScorer,
+              quantize_gate3_score,
           )
           from ai_hypothesis.population_compute.gate3_hypothesis_population import (
               GATE3_CONFIRMATION_WORLD_START,
@@ -100,6 +103,9 @@ jobs:
           assert GATE3_DEVELOPMENT_WORLD_START == 1 << 30
           assert GATE3_CONFIRMATION_WORLD_START == 1 << 31
           assert GATE3_INPUT_WIDTH == 26
+          assert GATE3_SCORE_QUANTIZATION == 1e-3
+          assert quantize_gate3_score(0.12349) == 123
+          assert quantize_gate3_score(0.12351) == 124
           assert Gate3HypothesisScorer().trainable_parameter_count() == 19_873
 
           config = Gate3TrainingConfig()
@@ -132,4 +138,5 @@ jobs:
         run: |
           grep -q 'FROZEN DEVELOPMENT PROTOCOL — NO RESULT INSPECTED' experiments/population_compute_scaling_v0/gate3_hypothesis_population_protocol_v0.md
           grep -q 'FROZEN BEFORE FIRST ADMITTED DEVELOPMENT RESULT' experiments/population_compute_scaling_v0/gate3_development_recipe_v0.md
+          grep -q 'FROZEN BEFORE FIRST ADMITTED DEVELOPMENT RESULT' experiments/population_compute_scaling_v0/gate3_numerical_decision_rule_v0.md
           ! find experiments/population_compute_scaling_v0 -maxdepth 1 -type f -iname 'gate3*result*' | grep -q .
