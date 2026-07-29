@@ -13,6 +13,7 @@ on:
       - 'tests/test_gate4_confirmation.py'
       - 'tests/test_gate4_confirmation_audit.py'
       - 'experiments/population_compute_scaling_v0/gate4_confirmation_protocol.md'
+      - 'experiments/population_compute_scaling_v0/gate4_confirmation_result.md'
       - 'experiments/population_compute_scaling_v0/gate4_adaptive_activation_development_result.md'
       - '.github/workflows/gate4-confirmation-ci.yml'
   workflow_dispatch:
@@ -40,7 +41,7 @@ jobs:
           python -m pip install --disable-pip-version-check torch --index-url https://download.pytorch.org/whl/cpu
           python -c "import torch; print('torch', torch.__version__)"
 
-      - name: Verify Gate4 development mechanically permits confirmation
+      - name: Verify Gate4 development mechanically permitted confirmation
         shell: bash
         run: |
           grep -q 'G4_A2_ROBUST_ADAPTIVE_ACTIVATION_BENEFIT' experiments/population_compute_scaling_v0/gate4_adaptive_activation_development_result.md
@@ -54,13 +55,13 @@ jobs:
             ai_hypothesis/population_compute/analyze_gate4_confirmation.py \
             ai_hypothesis/population_compute/run_gate4_confirmation.py
 
-      - name: Run data-blind Gate4 confirmation tests
+      - name: Run Gate4 confirmation regression tests
         run: |
           python -m unittest \
             tests/test_gate4_confirmation.py \
             tests/test_gate4_confirmation_audit.py
 
-      - name: Verify frozen confirmation constants without generating worlds
+      - name: Verify frozen confirmation constants
         shell: bash
         run: |
           python - <<'PY'
@@ -92,10 +93,9 @@ jobs:
           assert GATE4_TOTAL_LEARNED_UPDATES == 2544
           PY
 
-      - name: Verify confirmation namespace remains unexposed in qualification
+      - name: Verify development and confirmation namespaces remain separated
         shell: bash
         run: |
-          ! grep -R --line-number 'generate_gate4_confirmation_world' tests/test_gate4_confirmation.py tests/test_gate4_confirmation_audit.py
           grep -q 'gate4-adaptive-activation-confirmation-hidden' ai_hypothesis/population_compute/gate4_confirmation.py
           grep -q 'gate4-adaptive-activation-confirmation-hints' ai_hypothesis/population_compute/gate4_confirmation.py
           grep -q 'gate4-adaptive-activation-confirmation-runtime' ai_hypothesis/population_compute/gate4_confirmation.py
@@ -118,13 +118,15 @@ jobs:
           ! grep -q -- '--scheduler' gate4-confirmation-help.txt
           ! grep -q -- '--training' gate4-confirmation-help.txt
 
-      - name: Verify confirmation remains pre-result during qualification
+      - name: Verify final Gate4 confirmation evidence record
         shell: bash
         run: |
-          grep -q 'FROZEN BEFORE ANY GATE-4 CONFIRMATION WORLD IS GENERATED OR INSPECTED' experiments/population_compute_scaling_v0/gate4_confirmation_protocol.md
-          grep -q '512 untouched worlds' experiments/population_compute_scaling_v0/gate4_confirmation_protocol.md
-          grep -q 'GATE4_CONFIRMED_ADAPTIVE_ACTIVATION_BENEFIT' experiments/population_compute_scaling_v0/gate4_confirmation_protocol.md
-          ! find experiments/population_compute_scaling_v0 -maxdepth 1 -type f -iname 'gate4*confirmation*result*' | grep -q .
+          grep -q 'FINAL CONFIRMATION EVIDENCE' experiments/population_compute_scaling_v0/gate4_confirmation_result.md
+          grep -q 'GATE4_CONFIRMED_ADAPTIVE_ACTIVATION_BENEFIT' experiments/population_compute_scaling_v0/gate4_confirmation_result.md
+          grep -q 'cda2ba5741d64315fbec338981a8064eacbeb2aeb3849ed5436c26ac2fbabf8f' experiments/population_compute_scaling_v0/gate4_confirmation_result.md
+          grep -q 'b322c54ace0b5673e0476dd70fc15c07869e677731346ae725e4ca3bfdaf79be' experiments/population_compute_scaling_v0/gate4_confirmation_result.md
+          grep -q '6caa2580de3206bd183232b895adc53b24c1fc6e891b3cc7666138d90d482c9b' experiments/population_compute_scaling_v0/gate4_confirmation_result.md
+          grep -q 'Gate-4 v0 is closed' experiments/population_compute_scaling_v0/gate4_confirmation_result.md
 
   windows-powershell-smoke:
     runs-on: windows-latest
