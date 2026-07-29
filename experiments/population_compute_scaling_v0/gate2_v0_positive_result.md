@@ -103,7 +103,7 @@ c256_w256_b1    = true
 c256_w256_b64   = true
 ```
 
-Preregistered decision-endpoint measurements (median CUDA-event latency):
+Preregistered decision-endpoint measurements (median CUDA-event latency, transcribed from the preserved local resource JSON):
 
 | Endpoint | Parallel median | Serial median | Serial / parallel speedup | Parallel samples/s | Serial samples/s |
 |---|---:|---:|---:|---:|---:|
