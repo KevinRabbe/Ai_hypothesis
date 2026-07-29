@@ -97,9 +97,9 @@ Observed frozen resource result:
 all_preflights_passed = true
 resource_frontier_passed = true
 
-c64_w64_b1   = true
-c64_w64_b64  = true
-c256_w256_b1 = true
+c64_w64_b1    = true
+c64_w64_b64   = true
+c256_w256_b1  = true
 c256_w256_b64 = true
 ```
 
@@ -166,7 +166,7 @@ The local resource directory was produced at:
 
 `F:\gate2_resource_frontier_v0`
 
-Its final archive and recursive-manifest hashes should be appended to this record after preservation. The scientific Gate-2 verdict above is based on the completed frozen runner plus independent resource auditor output; archival hashing is provenance hardening, not an additional scientific decision criterion.
+Its final archive SHA-256 and recursive-manifest hash are **not yet recorded**. They must be appended after local preservation. This is provenance hardening only; it is not an additional scientific decision criterion and does not change the completed frozen Gate-2 verdict.
 
 ## Next gate
 
