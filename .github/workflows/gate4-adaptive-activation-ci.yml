@@ -13,6 +13,7 @@ on:
       - 'tests/test_gate4_adaptive_activation.py'
       - 'tests/test_gate4_adaptive_activation_audit.py'
       - 'experiments/population_compute_scaling_v0/gate4_adaptive_activation_protocol.md'
+      - 'experiments/population_compute_scaling_v0/gate4_adaptive_activation_development_result.md'
       - 'experiments/population_compute_scaling_v0/gate3_v3_confirmation_result.md'
       - '.github/workflows/gate4-adaptive-activation-ci.yml'
   workflow_dispatch:
@@ -53,7 +54,7 @@ jobs:
             ai_hypothesis/population_compute/analyze_gate4_adaptive_activation.py \
             ai_hypothesis/population_compute/run_gate4_adaptive_activation.py
 
-      - name: Run synthetic Gate4 pre-result regressions
+      - name: Run synthetic Gate4 regressions
         run: |
           python -m unittest \
             tests/test_gate4_adaptive_activation.py \
@@ -92,7 +93,7 @@ jobs:
           assert 3 * len(GATE4_CONDITIONS) == 9
           PY
 
-      - name: Verify frozen development namespace remains unexposed in CI
+      - name: Verify frozen development namespace remains isolated
         shell: bash
         run: |
           ! grep -R --line-number 'generate_gate4_development_world' tests/test_gate4_adaptive_activation.py tests/test_gate4_adaptive_activation_audit.py
@@ -118,13 +119,17 @@ jobs:
           ! grep -q -- '--scheduler' gate4-help.txt
           ! grep -q -- '--training' gate4-help.txt
 
-      - name: Verify Gate4 remains pre-result and confirmation closed
+      - name: Verify recorded Gate4 A2 evidence and confirmation boundary
         shell: bash
         run: |
           grep -q 'FROZEN PRE-RESULT PROTOCOL — NO GATE-4 DEVELOPMENT RESULT INSPECTED' experiments/population_compute_scaling_v0/gate4_adaptive_activation_protocol.md
           grep -q 'A4 → A2 → A1 → A3 → A0 → mixed' experiments/population_compute_scaling_v0/gate4_adaptive_activation_protocol.md
           grep -q 'Gate-4 confirmation is \*\*CLOSED\*\*' experiments/population_compute_scaling_v0/gate4_adaptive_activation_protocol.md
-          ! find experiments/population_compute_scaling_v0 -maxdepth 1 -type f -iname 'gate4*result*' | grep -q .
+          grep -q 'G4_A2_ROBUST_ADAPTIVE_ACTIVATION_BENEFIT' experiments/population_compute_scaling_v0/gate4_adaptive_activation_development_result.md
+          grep -q '9d422d176d4840fc2608849aa9209d906c896f4cba701414211b628461c4616b' experiments/population_compute_scaling_v0/gate4_adaptive_activation_development_result.md
+          grep -q '90f3d201cdeebc075caa89d5f0235c1d86ad654ad8000405f663996cf96f659a' experiments/population_compute_scaling_v0/gate4_adaptive_activation_development_result.md
+          grep -q 'ef20892e8a179598c4c0894a4391a2d013a70879849daaf05718ec76b508b336' experiments/population_compute_scaling_v0/gate4_adaptive_activation_development_result.md
+          grep -q 'No Gate-4 confirmation world was generated or inspected by this development run' experiments/population_compute_scaling_v0/gate4_adaptive_activation_development_result.md
 
   windows-powershell-smoke:
     runs-on: windows-latest
