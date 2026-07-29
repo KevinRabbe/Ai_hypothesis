@@ -13,6 +13,7 @@ on:
       - 'tests/test_gate3_v3_generation_pressure.py'
       - 'tests/test_gate3_v3_generation_pressure_audit.py'
       - 'experiments/population_compute_scaling_v0/gate3_v3_generation_pressure_protocol.md'
+      - 'experiments/population_compute_scaling_v0/gate3_v3_generation_pressure_development_result.md'
       - 'experiments/population_compute_scaling_v0/gate3_v2_frontier_development_result.md'
       - '.github/workflows/gate3-v3-generation-pressure-ci.yml'
   workflow_dispatch:
@@ -53,7 +54,7 @@ jobs:
             ai_hypothesis/population_compute/analyze_gate3_v3_generation_pressure.py \
             ai_hypothesis/population_compute/run_gate3_v3_generation_pressure.py
 
-      - name: Run Gate3 v3 pre-result regressions
+      - name: Run Gate3 v3 regressions
         run: |
           python -m unittest \
             tests/test_gate3_v3_generation_pressure.py \
@@ -111,13 +112,17 @@ jobs:
           ! grep -q -- '--depth' gate3-v3-help.txt
           ! grep -q -- '--training' gate3-v3-help.txt
 
-      - name: Verify v3 remains pre-result and confirmation closed
+      - name: Verify v3 protocol/result boundary
         shell: bash
         run: |
-          grep -q 'FROZEN PRE-RESULT PROTOCOL — NO GATE-3 v3 RESULT INSPECTED' experiments/population_compute_scaling_v0/gate3_v3_generation_pressure_protocol.md
           grep -q 'Gate-3 v3 confirmation is CLOSED' experiments/population_compute_scaling_v0/gate3_v3_generation_pressure_protocol.md
-          ! find experiments/population_compute_scaling_v0 -maxdepth 1 -type f -iname 'gate3_v3*result*' | grep -q .
           ! grep -R --line-number -- '--confirmation' ai_hypothesis/population_compute/run_gate3_v3_generation_pressure.py scripts/run_gate3_v3_generation_pressure.ps1
+          if [ -f experiments/population_compute_scaling_v0/gate3_v3_generation_pressure_development_result.md ]; then
+            grep -q 'V3_G1_ROBUST_GENERATION_PRESSURE_BENEFIT' experiments/population_compute_scaling_v0/gate3_v3_generation_pressure_development_result.md
+            grep -q 'Confirmation opened during this run: \*\*false\*\*' experiments/population_compute_scaling_v0/gate3_v3_generation_pressure_development_result.md
+          else
+            grep -q 'FROZEN PRE-RESULT PROTOCOL — NO GATE-3 v3 RESULT INSPECTED' experiments/population_compute_scaling_v0/gate3_v3_generation_pressure_protocol.md
+          fi
 
   windows-powershell-smoke:
     runs-on: windows-latest
