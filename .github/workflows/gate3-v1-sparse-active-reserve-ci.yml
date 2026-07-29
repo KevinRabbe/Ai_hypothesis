@@ -10,6 +10,7 @@ on:
       - 'ai_hypothesis/population_compute/gate3_v1_model.py'
       - 'tests/test_gate3_v1_sparse_active_reserve.py'
       - 'tests/test_gate3_v1_model.py'
+      - 'tests/test_gate3_v1_control_semantics.py'
       - 'experiments/population_compute_scaling_v0/gate3_v1_sparse_active_reserve_protocol.md'
       - '.github/workflows/gate3-v1-sparse-active-reserve-ci.yml'
   workflow_dispatch:
@@ -54,11 +55,12 @@ jobs:
             ai_hypothesis/population_compute/gate3_v1_sparse_active_reserve.py \
             ai_hypothesis/population_compute/gate3_v1_model.py
 
-      - name: Run Gate3 v1 mechanics and scorer regressions
+      - name: Run Gate3 v1 mechanics scorer and control regressions
         run: |
           python -m unittest \
             tests/test_gate3_v1_sparse_active_reserve.py \
-            tests/test_gate3_v1_model.py
+            tests/test_gate3_v1_model.py \
+            tests/test_gate3_v1_control_semantics.py
 
       - name: Verify frozen Gate3 v1 constants model and work identity
         shell: bash
