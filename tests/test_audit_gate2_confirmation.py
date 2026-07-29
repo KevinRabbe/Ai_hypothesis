@@ -397,7 +397,8 @@ class Gate2ConfirmationAuditTests(unittest.TestCase):
             _build_root(root)
             result_path = root / "seed_5" / "gate2-confirmation.json"
             result = json.loads(result_path.read_text(encoding="utf-8"))
-            result["conditions"][0]["world_seeds"][0] += 1
+            # Tamper a non-width1 condition so the auditor can finish and report invalid evidence.
+            result["conditions"][3]["world_seeds"][0] += 1
             result_path.write_text(json.dumps(result), encoding="utf-8")
             # Keep suite hash aligned so the auditor reaches the world-seed check.
             suite_path = root / "confirmation-suite.json"
