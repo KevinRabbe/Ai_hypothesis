@@ -160,3 +160,7 @@ No confirmation world was generated or inspected by the development run.
 - independent-audit SHA-256: `2d74260a224a5a6c107d9df29882456b5acca450dce217b28abe89e3022e11ec`
 - recursive manifest SHA-256: `d749b58c9a9b010d4c10cf617034c7016cfab72386f596acc9a749bf5a742ba8`
 - output root: `F:\gate3_v3_generation_pressure_development_v0`
+
+## Repository lineage
+
+The evidence record was added only after the development artifact and independent audit were complete. Later repository-only qualification changes do not alter the measured scientific artifact or hashes above.
