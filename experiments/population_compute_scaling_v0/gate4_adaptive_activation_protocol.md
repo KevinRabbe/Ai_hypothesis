@@ -187,13 +187,11 @@ For each checkpoint reconstruct from raw per-world exact-coverage vectors:
 
 ## Frozen development interpretation
 
-### G4-A0 — no adaptive allocation benefit
+The following precedence is part of the preregistration and makes the classes mutually exclusive. Evaluate in this exact order: **A4 → A2 → A1 → A3 → A0 → mixed**.
 
-Assign `G4_A0_NO_ADAPTIVE_ALLOCATION_BENEFIT` if `adaptive_score - static_generation` has CI low `<= 0` in all three checkpoints.
+### G4-A4 — learned routing is harmful
 
-### G4-A1 — learned routing signal without static-schedule advantage
-
-Assign `G4_A1_ROUTING_SIGNAL_ONLY` if all three checkpoints have `adaptive_score - adaptive_hash` CI low `> 0`, but the primary `adaptive_score - static_generation` comparison does not have CI low `> 0` in all three checkpoints.
+Assign `G4_A4_LEARNED_ROUTING_HARMFUL` if `adaptive_score - adaptive_hash` is negative with bootstrap CI high `< 0` in one or more checkpoints.
 
 ### G4-A2 — robust adaptive activation benefit
 
@@ -205,15 +203,21 @@ Assign `G4_A2_ROBUST_ADAPTIVE_ACTIVATION_BENEFIT` only if all three checkpoints 
 
 This would support the narrow mechanism that a persistent population can use learned hypothesis scores to decide **where** to spend a fixed active neural-work budget more effectively than a matched static breadth schedule.
 
+### G4-A1 — learned routing signal without static-schedule advantage
+
+Assign `G4_A1_ROUTING_SIGNAL_ONLY` if all three checkpoints have `adaptive_score - adaptive_hash` CI low `> 0`, but the primary `adaptive_score - static_generation` comparison does not have CI low `> 0` in all three checkpoints.
+
 ### G4-A3 — checkpoint-sensitive adaptive effect
 
-Assign `G4_A3_CHECKPOINT_SENSITIVE_ADAPTIVE_EFFECT` if the primary significance differs across checkpoints while artifact and work invariants remain valid.
+Assign `G4_A3_CHECKPOINT_SENSITIVE_ADAPTIVE_EFFECT` if the primary `adaptive_score - static_generation` significance differs across checkpoints and no earlier class applies.
 
-### G4-A4 — learned routing is harmful
+### G4-A0 — no adaptive allocation benefit
 
-Assign `G4_A4_LEARNED_ROUTING_HARMFUL` if `adaptive_score - adaptive_hash` is negative with bootstrap CI high `< 0` in one or more checkpoints.
+Assign `G4_A0_NO_ADAPTIVE_ALLOCATION_BENEFIT` if `adaptive_score - static_generation` has CI low `<= 0` in all three checkpoints, the learned-routing comparison is not positive across all three checkpoints, and no earlier class applies.
 
 Otherwise assign `G4_MIXED_ADAPTIVE_PATTERN`.
+
+This outcome precedence was frozen before any Gate-4 development data were generated or inspected.
 
 ## Confirmation boundary
 
