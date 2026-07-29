@@ -60,13 +60,37 @@ class Gate3HypothesisScorer(nn.Module):
         config.validate()
         self.config = config
         self.input_projection = nn.Linear(GATE3_INPUT_WIDTH, config.input_projection_width)
-        self.update = nn.GRUCell(config.input_projection_width, config.state_width)
+        # Standard eager PyTorch GRU sequence primitive. This is deliberately not torch.compile,
+        # CUDA graphs or a compiler experiment; it simply executes repeated recurrent updates
+        # without a Python kernel-launch loop.
+        self.update = nn.GRU(
+            config.input_projection_width,
+            config.state_width,
+            batch_first=True,
+        )
         self.output_norm = nn.LayerNorm(config.state_width)
         self.score_head = nn.Linear(config.state_width, 1)
 
-    def step(self, state: torch.Tensor, phase_input: torch.Tensor) -> torch.Tensor:
+    def advance(
+        self,
+        state: torch.Tensor,
+        phase_input: torch.Tensor,
+        *,
+        repeats: int,
+    ) -> torch.Tensor:
+        if repeats <= 0:
+            raise ValueError("repeats must be positive")
+        if state.ndim != 2 or phase_input.ndim != 2:
+            raise ValueError("Gate-3 recurrent state/input tensors must be rank two")
+        if state.shape[0] != phase_input.shape[0]:
+            raise ValueError("Gate-3 recurrent state/input batch sizes must match")
         projected = torch.nn.functional.silu(self.input_projection(phase_input))
-        return self.update(projected, state)
+        sequence = projected.unsqueeze(1).expand(-1, repeats, -1).contiguous()
+        _, final_state = self.update(sequence, state.unsqueeze(0))
+        return final_state[0]
+
+    def step(self, state: torch.Tensor, phase_input: torch.Tensor) -> torch.Tensor:
+        return self.advance(state, phase_input, repeats=1)
 
     def score(self, state: torch.Tensor) -> torch.Tensor:
         return self.score_head(self.output_norm(state)).squeeze(-1)
@@ -180,15 +204,7 @@ def _repeat_update(
     *,
     repeats: int,
 ) -> torch.Tensor:
-    if repeats <= 0:
-        raise ValueError("repeats must be positive")
-    if states.ndim != 2 or phase_inputs.ndim != 2:
-        raise ValueError("Gate-3 recurrent update tensors must be rank two")
-    if states.shape[0] != phase_inputs.shape[0]:
-        raise ValueError("Gate-3 state/input batch sizes must match")
-    for _ in range(repeats):
-        states = model.step(states, phase_inputs)
-    return states
+    return model.advance(states, phase_inputs, repeats=repeats)
 
 
 def _rank_candidates(
