@@ -110,7 +110,7 @@ Gate-4 v0 is closed. Do not alter checkpoints, L256, 159-slot / 2,544-update wor
 Local admitted confirmation artifact hashes reported by the runner:
 
 - result SHA-256: `cda2ba5741d64315fbec338981a8064eacbeb2aeb3849ed5436c26ac2fbabf8f`
-- independent audit SHA-256: `b322c54ace0b5673e0476dd70fc15c07869e677731346ae725e4ca3bfdaF79be`
+- independent audit SHA-256: `b322c54ace0b5673e0476dd70fc15c07869e677731346ae725e4ca3bfdaf79be`
 - recursive manifest SHA-256: `6caa2580de3206bd183232b895adc53b24c1fc6e891b3cc7666138d90d482c9b`
 
 Local evidence root reported by the runner:
