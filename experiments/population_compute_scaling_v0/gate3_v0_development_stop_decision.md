@@ -72,6 +72,17 @@ A next experiment must be versioned separately and justified by diagnosis of thi
 
 None of those alternatives may rewrite or reinterpret the Gate-3 v0 result.
 
+## Preserved provenance
+
+Final preserved local development archive:
+
+```text
+F:\gate3_hypothesis_population_v0_development_seed_0.zip
+SHA-256 = 39a037c27223ae4de8b069ecd2cadf591aa6793f0137480f3acd4c91b734438d
+```
+
+The archive hash was measured locally after the complete output tree had been compressed. Repository recording does not independently possess or rehash those local archive bytes.
+
 ## Confirmation boundary
 
 `confirmation_opened = false`
