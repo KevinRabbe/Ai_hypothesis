@@ -44,8 +44,14 @@ try {
     }
     New-Item -ItemType Directory -Path $resolvedOutputRoot | Out-Null
 
+    # Initialize every artifact path up front. Windows PowerShell 5.1 + StrictMode must never
+    # encounter a later artifact-path reference before its assignment, including in error paths.
     $scienceRoot = Join-Path $resolvedOutputRoot "science"
+    $resultPath = Join-Path $scienceRoot "gate3-development.json"
+    $checkpointPath = Join-Path $scienceRoot "gate3-development-checkpoint.pt"
+    $runtimePath = Join-Path $scienceRoot "runtime.json"
     $auditPath = Join-Path $resolvedOutputRoot "development-audit.json"
+    $manifestPath = Join-Path $resolvedOutputRoot "manifest.sha256"
 
     $head | Set-Content -Encoding ASCII (Join-Path $resolvedOutputRoot "git-head.txt")
     (git status --porcelain) | Set-Content -Encoding UTF8 (Join-Path $resolvedOutputRoot "git-status.txt")
@@ -116,9 +122,6 @@ if not torch.cuda.is_available():
         throw "Gate-3 development science runner failed. Preserve the output root for diagnosis."
     }
 
-    $resultPath = Join-Path $scienceRoot "gate3-development.json"
-    $checkpointPath = Join-Path $scienceRoot "gate3-development-checkpoint.pt"
-    $runtimePath = Join-Path $scienceRoot "runtime.json"
     foreach ($requiredPath in @($resultPath, $checkpointPath, $runtimePath)) {
         if (-not (Test-Path $requiredPath -PathType Leaf)) {
             throw "Gate-3 development runner did not produce required file: $requiredPath"
@@ -142,7 +145,6 @@ if not torch.cuda.is_available():
             Set-Content -Encoding UTF8 (Join-Path $resolvedOutputRoot "nvidia-smi-after.txt")
     }
 
-    $manifestPath = Join-Path $resolvedOutputRoot "manifest.sha256"
     $resolvedBase = (Resolve-Path $resolvedOutputRoot).Path.TrimEnd("\")
     @(
         Get-ChildItem -LiteralPath $resolvedBase -File -Recurse |
