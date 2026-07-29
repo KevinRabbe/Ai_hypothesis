@@ -7,7 +7,9 @@ on:
   pull_request:
     paths:
       - 'ai_hypothesis/population_compute/gate3_v1_sparse_active_reserve.py'
+      - 'ai_hypothesis/population_compute/gate3_v1_model.py'
       - 'tests/test_gate3_v1_sparse_active_reserve.py'
+      - 'tests/test_gate3_v1_model.py'
       - 'experiments/population_compute_scaling_v0/gate3_v1_sparse_active_reserve_protocol.md'
       - '.github/workflows/gate3-v1-sparse-active-reserve-ci.yml'
   workflow_dispatch:
@@ -18,7 +20,7 @@ permissions:
 jobs:
   gate3-v1-sparse-active-reserve:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
       PYTHONPATH: .
 
@@ -46,18 +48,26 @@ jobs:
           grep -qi '39a037c27223ae4de8b069ecd2cadf591aa6793f0137480f3acd4c91b734438d' experiments/population_compute_scaling_v0/gate3_v0_development_stop_decision.md
           grep -q 'confirmation_opened = false' experiments/population_compute_scaling_v0/gate3_v0_development_stop_decision.md
 
-      - name: Compile Gate3 v1 mechanics
+      - name: Compile Gate3 v1 mechanics and scorer
         run: |
-          python -m compileall -q ai_hypothesis/population_compute/gate3_v1_sparse_active_reserve.py
+          python -m compileall -q \
+            ai_hypothesis/population_compute/gate3_v1_sparse_active_reserve.py \
+            ai_hypothesis/population_compute/gate3_v1_model.py
 
-      - name: Run Gate3 v1 mechanical regressions
+      - name: Run Gate3 v1 mechanics and scorer regressions
         run: |
-          python -m unittest tests/test_gate3_v1_sparse_active_reserve.py
+          python -m unittest \
+            tests/test_gate3_v1_sparse_active_reserve.py \
+            tests/test_gate3_v1_model.py
 
-      - name: Verify frozen Gate3 v1 constants and work identity
+      - name: Verify frozen Gate3 v1 constants model and work identity
         shell: bash
         run: |
           python - <<'PY'
+          from ai_hypothesis.population_compute.gate3_v1_model import (
+              GATE3_V1_INPUT_WIDTH,
+              Gate3V1Scorer,
+          )
           from ai_hypothesis.population_compute.gate3_v1_sparse_active_reserve import (
               GATE3_V1_ACTIVE_CHILD_LANES,
               GATE3_V1_CONFIRMATION_WORLD_START,
@@ -85,6 +95,8 @@ jobs:
           assert GATE3_V1_SCORE_QUANTIZATION == 1e-3
           assert GATE3_V1_DEVELOPMENT_WORLD_START == 1 << 30
           assert GATE3_V1_CONFIRMATION_WORLD_START == 1 << 31
+          assert GATE3_V1_INPUT_WIDTH == 19
+          assert Gate3V1Scorer().trainable_parameter_count() == 19_649
 
           expected_totals = {6: 256, 8: 1024, 10: 4096}
           for depth, total in expected_totals.items():
