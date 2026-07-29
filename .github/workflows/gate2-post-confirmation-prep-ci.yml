@@ -112,6 +112,7 @@ jobs:
               'Get-Process -Name "factorio"',
               'c2a26a17a94746ca88f29950197131689405917b',
               'audit_gate2_confirmation',
+              'audit_gate2_resource_frontier',
               'checkpoint_training_seed = 3',
               'warmup_iterations = 10',
               'timed_iterations = 50',
