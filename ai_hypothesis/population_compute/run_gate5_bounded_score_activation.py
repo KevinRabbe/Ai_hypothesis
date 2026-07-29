@@ -28,8 +28,8 @@ from .gate5_bounded_score_activation import (
     Gate5CheckpointIdentity,
     Gate5DevelopmentResult,
     build_gate5_paired_summaries,
-    evaluate_gate5_condition,
 )
+from .gate5_bounded_score_batch import evaluate_gate5_strict_condition
 from .run_gate3_v2_frontier import load_verified_checkpoint
 
 
@@ -86,6 +86,7 @@ def run_gate5_bounded_score_activation(
         flush=True,
     )
     print("Primary bounded visibility: K16; NI margin: 0.05", flush=True)
+    print("Admitted runtime: strict bounded-score visibility path", flush=True)
     print("Confirmation remains CLOSED.", flush=True)
 
     for checkpoint_index, checkpoint_path in zip(
@@ -105,7 +106,7 @@ def run_gate5_bounded_score_activation(
         )
 
         for mode in GATE5_CONDITIONS:
-            condition = evaluate_gate5_condition(
+            condition = evaluate_gate5_strict_condition(
                 model,
                 checkpoint_index=checkpoint_index,
                 mode=mode,
@@ -162,6 +163,7 @@ def run_gate5_bounded_score_activation(
         "scientific_status": "DEVELOPMENT_ONLY_NO_GATE_VERDICT",
         "confirmation_opened": False,
         "training_performed": False,
+        "strict_bounded_visibility_runtime": True,
         "torch_version": torch.__version__,
         "cuda_runtime": torch.version.cuda,
         "cuda_device_name": torch.cuda.get_device_name(0),
@@ -180,6 +182,7 @@ def run_gate5_bounded_score_activation(
                 "scientific_decision": "DEVELOPMENT_ONLY_NOT_ASSIGNED",
                 "confirmation_opened": False,
                 "training_performed": False,
+                "strict_bounded_visibility_runtime": True,
                 "result": str(result_path),
                 "result_sha256": runtime["result_sha256"],
                 "checkpoints": [
