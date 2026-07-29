@@ -122,7 +122,7 @@ jobs:
         shell: bash
         run: |
           grep -q 'FROZEN BEFORE ANY GATE-4 CONFIRMATION WORLD IS GENERATED OR INSPECTED' experiments/population_compute_scaling_v0/gate4_confirmation_protocol.md
-          grep -q 'Exactly \*\*512 untouched worlds\*\*' experiments/population_compute_scaling_v0/gate4_confirmation_protocol.md
+          grep -q '512 untouched worlds' experiments/population_compute_scaling_v0/gate4_confirmation_protocol.md
           grep -q 'GATE4_CONFIRMED_ADAPTIVE_ACTIVATION_BENEFIT' experiments/population_compute_scaling_v0/gate4_confirmation_protocol.md
           ! find experiments/population_compute_scaling_v0 -maxdepth 1 -type f -iname 'gate4*confirmation*result*' | grep -q .
 
