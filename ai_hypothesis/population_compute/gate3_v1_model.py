@@ -1,8 +1,4 @@
-"""Shared recurrent scorer and reference runtime for Gate-3 v1 sparse-active search.
-
-No training or development evidence is defined here. The reference runtime intentionally accepts
-only ``Gate3V1PublicWorld`` so hidden answers cannot influence search decisions.
-"""
+"""Shared recurrent scorer and answer-blind reference runtime for Gate-3 v1."""
 
 from __future__ import annotations
 
@@ -24,10 +20,9 @@ from .gate3_v1_sparse_active_reserve import (
     quantize_gate3_v1_score,
 )
 
-
 GATE3_V1_MAX_DEPTH = max(GATE3_V1_DEPTHS)
 GATE3_V1_DEPTH_FEATURE_WIDTH = len(GATE3_V1_DEPTHS)
-GATE3_V1_HINT_FEATURE_WIDTH = 3  # bit 0 / bit 1 / sink
+GATE3_V1_HINT_FEATURE_WIDTH = 3  # 0 / 1 / sink
 GATE3_V1_ACTION_FEATURE_WIDTH = 3  # branch 0 / branch 1 / sink
 GATE3_V1_INPUT_WIDTH = (
     GATE3_V1_MAX_DEPTH
@@ -43,25 +38,17 @@ class Gate3V1ModelConfig:
     state_width: int = 64
 
     def validate(self) -> None:
-        if self.input_projection_width <= 0:
-            raise ValueError("input_projection_width must be positive")
-        if self.state_width <= 0:
-            raise ValueError("state_width must be positive")
+        if self.input_projection_width <= 0 or self.state_width <= 0:
+            raise ValueError("Gate-3 v1 model widths must be positive")
 
 
 class Gate3V1Scorer(nn.Module):
-    """One shared recurrent prefix scorer reused across all reserve capacities."""
-
     def __init__(self, config: Gate3V1ModelConfig = Gate3V1ModelConfig()) -> None:
         super().__init__()
         config.validate()
         self.config = config
         self.input_projection = nn.Linear(GATE3_V1_INPUT_WIDTH, config.input_projection_width)
-        self.update = nn.GRU(
-            config.input_projection_width,
-            config.state_width,
-            batch_first=True,
-        )
+        self.update = nn.GRU(config.input_projection_width, config.state_width, batch_first=True)
         self.output_norm = nn.LayerNorm(config.state_width)
         self.score_head = nn.Linear(config.state_width, 1)
 
@@ -79,10 +66,8 @@ class Gate3V1Scorer(nn.Module):
     ) -> torch.Tensor:
         if repeats <= 0:
             raise ValueError("repeats must be positive")
-        if state.ndim != 2 or phase_input.ndim != 2:
-            raise ValueError("state and input tensors must be rank two")
-        if state.shape[0] != phase_input.shape[0]:
-            raise ValueError("state/input batch sizes must match")
+        if state.ndim != 2 or phase_input.ndim != 2 or state.shape[0] != phase_input.shape[0]:
+            raise ValueError("state/input tensors must be matching rank-two batches")
         projected = torch.nn.functional.silu(self.input_projection(phase_input))
         sequence = projected.unsqueeze(1).expand(-1, repeats, -1).contiguous()
         _, final_state = self.update(sequence, state.unsqueeze(0))
@@ -153,9 +138,8 @@ def encode_gate3_v1_child_input(
     if sink:
         if observed_hint is not None or branch_action is not None:
             raise ValueError("sink input cannot carry world evidence or branch action")
-    else:
-        if observed_hint not in (0, 1) or branch_action not in (0, 1):
-            raise ValueError("productive child input requires binary hint/action")
+    elif observed_hint not in (0, 1) or branch_action not in (0, 1):
+        raise ValueError("productive input requires binary hint/action")
 
     vector = torch.zeros(GATE3_V1_INPUT_WIDTH, dtype=torch.float32, device=device)
     cursor = 0
@@ -163,11 +147,9 @@ def encode_gate3_v1_child_input(
     cursor += GATE3_V1_MAX_DEPTH
     vector[cursor + GATE3_V1_DEPTHS.index(world.depth)] = 1.0
     cursor += GATE3_V1_DEPTH_FEATURE_WIDTH
-    hint_index = 2 if sink else int(observed_hint)
-    vector[cursor + hint_index] = 1.0
+    vector[cursor + (2 if sink else int(observed_hint))] = 1.0
     cursor += GATE3_V1_HINT_FEATURE_WIDTH
-    action_index = 2 if sink else int(branch_action)
-    vector[cursor + action_index] = 1.0
+    vector[cursor + (2 if sink else int(branch_action))] = 1.0
     return vector
 
 
@@ -235,11 +217,9 @@ def _apply_neural_control(
     if mode is Gate3V1ControlMode.STABLE_RESERVE:
         return retained
     if mode is Gate3V1ControlMode.COLLAPSED_DIVERSITY:
-        top = retained[0]
-        return tuple(
-            Gate3V1NeuralCandidate(path=top.path, state=top.state.clone(), score=top.score)
-            for _ in retained
-        )
+        # One logical hypothesis remains schedulable; reserve_capacity is still the nominal
+        # state-bank allocation/resource condition.
+        return (retained[0],)
     if mode is Gate3V1ControlMode.RESHUFFLED_CONTINUITY:
         return _reshuffle_neural_histories(
             retained,
@@ -257,7 +237,7 @@ def run_gate3_v1_public_world(
     mode: Gate3V1ControlMode,
     device: torch.device | str = "cpu",
 ) -> Gate3V1RuntimeResult:
-    """Run answer-blind best-first search on one public world."""
+    """Run answer-blind deterministic best-first search on one public world."""
 
     world.validate()
     target_device = torch.device(device)
@@ -281,8 +261,7 @@ def run_gate3_v1_public_world(
 
     with torch.inference_mode():
         for expansion_index in range(plan.search_rounds):
-            nonterminal = tuple(candidate for candidate in reserve if candidate.depth < world.depth)
-            if not nonterminal:
+            if not reserve:
                 sink_state = model.initial_state(2, device=target_device)
                 sink_input = torch.stack(
                     [
@@ -303,28 +282,19 @@ def run_gate3_v1_public_world(
                     sink_input,
                     repeats=GATE3_V1_RECURRENT_UPDATES_PER_CHILD,
                 )
-                reserve_counts.append(len(reserve))
-                unique_counts.append(len({candidate.path for candidate in reserve}))
+                reserve_counts.append(0)
+                unique_counts.append(0)
                 continue
 
             ranked = _rank_neural_candidates(
-                nonterminal,
+                reserve,
                 world_seed=world.seed,
                 expansion_index=expansion_index,
             )
             parent = ranked[0]
-            removed = False
-            remaining: list[Gate3V1NeuralCandidate] = []
-            for candidate in reserve:
-                if not removed and candidate is parent:
-                    removed = True
-                    continue
-                remaining.append(candidate)
-            if not removed:
-                # Identity can be duplicated by the collapsed control. Fall back to exact field
-                # identity and remove only one slot.
-                remaining = list(reserve)
-                remaining.remove(parent)
+            # Stable/reshuffled reserves contain unique paths. Collapsed mode exposes only one
+            # logical path. Removing by path keeps this invariant explicit.
+            remaining = [candidate for candidate in reserve if candidate.path != parent.path]
 
             next_depth = parent.depth + 1
             hint = world.noisy_hints[next_depth - 1]
@@ -378,21 +348,20 @@ def run_gate3_v1_public_world(
         mode=mode,
         productive_rounds=productive_rounds,
     )
-    telemetry = Gate3V1RuntimeTelemetry(
-        depth=world.depth,
-        reserve_capacity=reserve_capacity,
-        mode=mode,
-        productive_rounds=accounting.productive_rounds,
-        sink_rounds=accounting.sink_rounds,
-        productive_learned_updates=accounting.productive_learned_updates,
-        sink_learned_updates=accounting.sink_learned_updates,
-        total_learned_updates=accounting.total_learned_updates,
-        reserve_population_by_round=tuple(reserve_counts),
-        unique_reserve_population_by_round=tuple(unique_counts),
-        generated_terminal_count=len(generated_terminals),
-        unique_generated_terminal_count=len(set(generated_terminals)),
-    )
     return Gate3V1RuntimeResult(
         generated_terminal_paths=tuple(generated_terminals),
-        telemetry=telemetry,
+        telemetry=Gate3V1RuntimeTelemetry(
+            depth=world.depth,
+            reserve_capacity=reserve_capacity,
+            mode=mode,
+            productive_rounds=accounting.productive_rounds,
+            sink_rounds=accounting.sink_rounds,
+            productive_learned_updates=accounting.productive_learned_updates,
+            sink_learned_updates=accounting.sink_learned_updates,
+            total_learned_updates=accounting.total_learned_updates,
+            reserve_population_by_round=tuple(reserve_counts),
+            unique_reserve_population_by_round=tuple(unique_counts),
+            generated_terminal_count=len(generated_terminals),
+            unique_generated_terminal_count=len(set(generated_terminals)),
+        ),
     )
