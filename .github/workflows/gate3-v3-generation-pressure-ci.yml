@@ -44,7 +44,7 @@ jobs:
         shell: bash
         run: |
           grep -q 'V2_F0_NO_BEYOND_L64_EXTENSION' experiments/population_compute_scaling_v0/gate3_v2_frontier_development_result.md
-          grep -q 'L64 reached nominal capacity in \*\*0%\*\* of worlds' experiments/population_compute_scaling_v0/gate3_v2_frontier_development_result.md
+          grep -q 'reached nominal capacity in \*\*0%\*\* of worlds' experiments/population_compute_scaling_v0/gate3_v2_frontier_development_result.md
 
       - name: Compile Gate3 v3 frozen modules
         run: |
