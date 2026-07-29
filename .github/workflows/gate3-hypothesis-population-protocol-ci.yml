@@ -7,7 +7,9 @@ on:
   pull_request:
     paths:
       - 'ai_hypothesis/population_compute/gate3_hypothesis_population.py'
+      - 'ai_hypothesis/population_compute/gate3_hypothesis_model.py'
       - 'tests/test_gate3_hypothesis_population.py'
+      - 'tests/test_gate3_hypothesis_model.py'
       - 'experiments/population_compute_scaling_v0/gate3_hypothesis_population_protocol_v0.md'
       - '.github/workflows/gate3-hypothesis-population-protocol-ci.yml'
   workflow_dispatch:
@@ -18,7 +20,7 @@ permissions:
 jobs:
   gate3-hypothesis-population-protocol:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     env:
       PYTHONPATH: .
 
@@ -43,18 +45,26 @@ jobs:
           grep -q 'POSITIVE_V0' experiments/population_compute_scaling_v0/gate2_v0_positive_result.md
           grep -q 'Gate 3 is scientifically unlocked' experiments/population_compute_scaling_v0/gate2_v0_positive_result.md
 
-      - name: Compile Gate3 mechanics
+      - name: Compile Gate3 mechanics and scorer
         run: |
-          python -m compileall -q ai_hypothesis/population_compute/gate3_hypothesis_population.py
+          python -m compileall -q \
+            ai_hypothesis/population_compute/gate3_hypothesis_population.py \
+            ai_hypothesis/population_compute/gate3_hypothesis_model.py
 
-      - name: Run Gate3 mechanics regressions
+      - name: Run Gate3 mechanics and scorer regressions
         run: |
-          python -m unittest tests/test_gate3_hypothesis_population.py
+          python -m unittest \
+            tests/test_gate3_hypothesis_population.py \
+            tests/test_gate3_hypothesis_model.py
 
-      - name: Verify frozen protocol constants
+      - name: Verify frozen protocol and model constants
         shell: bash
         run: |
           python - <<'PY'
+          from ai_hypothesis.population_compute.gate3_hypothesis_model import (
+              GATE3_INPUT_WIDTH,
+              Gate3HypothesisScorer,
+          )
           from ai_hypothesis.population_compute.gate3_hypothesis_population import (
               GATE3_CONFIRMATION_WORLD_START,
               GATE3_DEPTHS,
@@ -72,6 +82,8 @@ jobs:
           assert GATE3_HINT_RELIABILITY == 0.70
           assert GATE3_DEVELOPMENT_WORLD_START == 1 << 30
           assert GATE3_CONFIRMATION_WORLD_START == 1 << 31
+          assert GATE3_INPUT_WIDTH == 26
+          assert Gate3HypothesisScorer().trainable_parameter_count() == 19_873
           PY
 
       - name: Verify protocol remains pre-result
