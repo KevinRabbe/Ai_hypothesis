@@ -1,0 +1,116 @@
+name: Gate7 scale-neutral transition training qualification
+
+on:
+  push:
+    branches:
+      - agent/gate7-scale-neutral-transition-training-v0
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  transition-training-qualification:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install CPU Torch
+        run: |
+          python -m pip install --disable-pip-version-check torch --index-url https://download.pytorch.org/whl/cpu
+          python -c "import torch; print('torch', torch.__version__)"
+
+      - name: Compile frozen transition modules
+        run: |
+          python -m compileall -q \
+            ai_hypothesis/population_compute/gate7_scale_neutral_model_prep.py \
+            ai_hypothesis/population_compute/gate7_scale_neutral_transition_training.py \
+            ai_hypothesis/population_compute/run_gate7_scale_neutral_transition_training.py
+
+      - name: Run data-blind transition regressions
+        run: |
+          python -m unittest \
+            tests/test_gate7_scale_neutral_model_prep.py \
+            tests/test_gate7_scale_neutral_transition_training.py
+
+      - name: Verify frozen model and training contract
+        shell: bash
+        run: |
+          python - <<'PY'
+          import inspect
+          from ai_hypothesis.population_compute.gate3_v1_model import Gate3V1Scorer
+          from ai_hypothesis.population_compute import gate7_scale_neutral_model_prep as model
+          from ai_hypothesis.population_compute import gate7_scale_neutral_transition_training as train
+
+          old = Gate3V1Scorer()
+          new = model.Gate7ScaleNeutralScorer()
+          assert model.GATE7_SCALE_NEUTRAL_INPUT_WIDTH == 19
+          assert new.trainable_parameter_count() == 19_649
+          assert {k: tuple(v.shape) for k, v in old.state_dict().items()} == {
+              k: tuple(v.shape) for k, v in new.state_dict().items()
+          }
+          assert train.GATE7_SCALE_NEUTRAL_TRAINING_SEEDS == (0, 1, 2)
+          assert train.GATE7_SCALE_NEUTRAL_TRAINING_DEPTHS == tuple(range(6, 19))
+          assert train.GATE7_SCALE_NEUTRAL_TRAINING_STEPS == 1200
+          assert train.GATE7_SCALE_NEUTRAL_TRAINING_BATCH_SIZE == 256
+          assert train.GATE7_SCALE_NEUTRAL_LEARNING_RATE == 3e-4
+          assert train.GATE7_SCALE_NEUTRAL_WEIGHT_DECAY == 1e-4
+          assert train.GATE7_SCALE_NEUTRAL_GRADIENT_CLIP_NORM == 1.0
+
+          for encoder in (
+              model.encode_gate7_scale_neutral_child_input,
+              model.encode_gate7_scale_neutral_child_inputs_batch,
+              model.gate7_scale_neutral_position_features_batch,
+          ):
+              params = set(inspect.signature(encoder).parameters)
+              for forbidden in ('population', 'reserve_capacity', 'k', 'slot', 'hidden_answer'):
+                  assert forbidden not in params
+          PY
+
+      - name: Verify admitted CLI has no tuning or bridge knobs
+        shell: bash
+        run: |
+          python -m ai_hypothesis.population_compute.run_gate7_scale_neutral_transition_training --help > help.txt
+          grep -q -- '--output-root' help.txt
+          for forbidden in --seed --depth --steps --batch-size --learning-rate --population --k --bridge; do
+            ! grep -q -- "$forbidden" help.txt
+          done
+
+      - name: Verify transition remains unbridged and high-scale science closed
+        shell: bash
+        run: |
+          test ! -f ai_hypothesis/population_compute/run_gate7.py
+          test ! -f scripts/run_gate7.ps1
+          test ! -f ai_hypothesis/population_compute/run_gate7_scale_neutral_transition_bridge.py
+          test ! -f scripts/run_gate7_scale_neutral_transition_bridge.ps1
+          test ! -f experiments/population_compute_scaling_v0/gate7_result.md
+
+  windows-transition-wrapper-smoke:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Put checkout on dedicated transition-training branch name
+        shell: powershell
+        run: git switch -C agent/gate7-scale-neutral-transition-training-v0
+
+      - name: Execute training wrapper under Windows PowerShell 5.1 StrictMode
+        shell: powershell
+        env:
+          GATE7_SCALE_NEUTRAL_TRAINING_WRAPPER_SMOKE: '1'
+        run: |
+          .\scripts\run_gate7_scale_neutral_transition_training.ps1 `
+            -IdleMachineAttested `
+            -OutputRoot "$env:RUNNER_TEMP\gate7-transition-training-smoke"
