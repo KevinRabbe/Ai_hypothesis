@@ -5,6 +5,7 @@ import unittest
 import torch
 
 from ai_hypothesis.population_compute.gate3_v1_model import Gate3V1NeuralCandidate, Gate3V1Scorer
+from ai_hypothesis.population_compute.gate3_v1_sparse_active_reserve import Gate3V1PublicWorld
 from ai_hypothesis.population_compute.gate6_fixed_k_population_scaling import (
     GATE6_BOOTSTRAP_SAMPLES,
     GATE6_CONDITIONS,
@@ -19,11 +20,11 @@ from ai_hypothesis.population_compute.gate6_fixed_k_population_scaling import (
     GATE6_STAGE_B_PARENT_SLOTS,
     GATE6_TOTAL_LEARNED_UPDATES,
     GATE6_WORLD_COUNT,
+    Gate6EvaluationWorld,
     Gate6SchedulerMode,
     _initial_thinning,
     _prune_to_capacity,
     classify_gate6,
-    generate_gate6_development_world,
     run_gate6_world_batch,
 )
 
@@ -38,6 +39,18 @@ def _frontier() -> tuple[Gate3V1NeuralCandidate, ...]:
         path = tuple((value >> shift) & 1 for shift in reversed(range(8)))
         rows.append(_candidate(path, float(value)))
     return tuple(rows)
+
+
+def _synthetic_world(seed: int) -> Gate6EvaluationWorld:
+    hints = tuple((index + seed) % 2 for index in range(10))
+    hidden = tuple((index * 3 + seed) % 2 for index in range(10))
+    world = Gate6EvaluationWorld(
+        world_index=seed % 256,
+        public=Gate3V1PublicWorld(seed=10_000 + seed, depth=10, noisy_hints=hints),
+        hidden_path=hidden,
+    )
+    world.validate()
+    return world
 
 
 def _metric(checkpoint: int, population: int, comparison: str) -> str:
@@ -77,14 +90,11 @@ class Gate6ProtocolTests(unittest.TestCase):
         self.assertEqual(GATE6_NONINFERIORITY_MARGIN, 0.05)
         self.assertEqual(len(GATE6_CONDITIONS), 4)
 
-    def test_world_namespace_is_deterministic(self) -> None:
-        first = generate_gate6_development_world(world_index=0)
-        again = generate_gate6_development_world(world_index=0)
-        other = generate_gate6_development_world(world_index=1)
-        self.assertEqual(first, again)
-        self.assertNotEqual(first.public.seed, other.public.seed)
-        self.assertEqual(first.public.depth, 10)
-        self.assertEqual(len(first.hidden_path), 10)
+    def test_synthetic_world_is_valid_without_touching_development_namespace(self) -> None:
+        world = _synthetic_world(3)
+        self.assertEqual(world.public.depth, 10)
+        self.assertEqual(len(world.hidden_path), 10)
+        self.assertEqual(len(world.public.noisy_hints), 10)
 
     def test_initial_thinning_is_nested_and_score_blind(self) -> None:
         frontier = _frontier()
@@ -132,10 +142,10 @@ class Gate6ProtocolTests(unittest.TestCase):
         self.assertEqual(pruned_changed, 192)
         self.assertEqual({row.path for row in retained}, {row.path for row in retained_changed})
 
-    def test_actual_runtime_enforces_n64_and_k16(self) -> None:
+    def test_actual_runtime_enforces_n64_and_k16_on_synthetic_world(self) -> None:
         torch.manual_seed(0)
         model = Gate3V1Scorer()
-        world = generate_gate6_development_world(world_index=0)
+        world = _synthetic_world(0)
         result = run_gate6_world_batch(
             model,
             (world,),
@@ -162,12 +172,15 @@ class Gate6ProtocolTests(unittest.TestCase):
                 )
             )
         )
-        self.assertEqual(telemetry.stage_b_score_observation_count_by_slot, telemetry.stage_b_visible_candidate_count_by_slot)
+        self.assertEqual(
+            telemetry.stage_b_score_observation_count_by_slot,
+            telemetry.stage_b_visible_candidate_count_by_slot,
+        )
 
-    def test_hash_control_observes_zero_scores(self) -> None:
+    def test_hash_control_observes_zero_scores_on_synthetic_world(self) -> None:
         torch.manual_seed(1)
         model = Gate3V1Scorer()
-        world = generate_gate6_development_world(world_index=1)
+        world = _synthetic_world(1)
         result = run_gate6_world_batch(
             model,
             (world,),
@@ -175,7 +188,9 @@ class Gate6ProtocolTests(unittest.TestCase):
             mode=Gate6SchedulerMode.BOUNDED_HASH_K16,
             device="cpu",
         )[0]
-        self.assertTrue(all(value == 0 for value in result.telemetry.stage_b_score_observation_count_by_slot))
+        self.assertTrue(
+            all(value == 0 for value in result.telemetry.stage_b_score_observation_count_by_slot)
+        )
 
 
 class Gate6ClassifierTests(unittest.TestCase):
