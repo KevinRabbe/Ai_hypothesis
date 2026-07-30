@@ -12,18 +12,22 @@ on:
       - 'ai_hypothesis/population_compute/gate7_compact_tensor_bank_prep.py'
       - 'ai_hypothesis/population_compute/gate7_native_tensor_bank_prep.py'
       - 'ai_hypothesis/population_compute/gate7_scale_neutral_model_prep.py'
+      - 'ai_hypothesis/population_compute/gate7_scale_neutral_transition_training.py'
+      - 'ai_hypothesis/population_compute/run_gate7_scale_neutral_transition_training.py'
       - 'ai_hypothesis/population_compute/profile_gate7_execution_engine.py'
       - 'ai_hypothesis/population_compute/profile_gate7_native_bank_scaling.py'
       - 'ai_hypothesis/population_compute/profile_gate7_native_batch_scaling.py'
       - 'scripts/profile_gate7_execution_engine.ps1'
       - 'scripts/profile_gate7_native_bank_scaling.ps1'
       - 'scripts/profile_gate7_native_batch_scaling.ps1'
+      - 'scripts/run_gate7_scale_neutral_transition_training.ps1'
       - 'tests/test_gate7_scaling_frontier_prep.py'
       - 'tests/test_gate7_tensor_engine_prep.py'
       - 'tests/test_gate7_dynamic_tensor_bank_prep.py'
       - 'tests/test_gate7_compact_tensor_bank_prep.py'
       - 'tests/test_gate7_native_tensor_bank_prep.py'
       - 'tests/test_gate7_scale_neutral_model_prep.py'
+      - 'tests/test_gate7_scale_neutral_transition_training.py'
       - 'experiments/population_compute_scaling_v0/gate7_*'
       - '.github/workflows/gate7-execution-engine-prep-ci.yml'
   workflow_dispatch:
@@ -60,6 +64,8 @@ jobs:
             ai_hypothesis/population_compute/gate7_compact_tensor_bank_prep.py \
             ai_hypothesis/population_compute/gate7_native_tensor_bank_prep.py \
             ai_hypothesis/population_compute/gate7_scale_neutral_model_prep.py \
+            ai_hypothesis/population_compute/gate7_scale_neutral_transition_training.py \
+            ai_hypothesis/population_compute/run_gate7_scale_neutral_transition_training.py \
             ai_hypothesis/population_compute/profile_gate7_execution_engine.py \
             ai_hypothesis/population_compute/profile_gate7_native_bank_scaling.py \
             ai_hypothesis/population_compute/profile_gate7_native_batch_scaling.py
@@ -72,7 +78,8 @@ jobs:
             tests/test_gate7_dynamic_tensor_bank_prep.py \
             tests/test_gate7_compact_tensor_bank_prep.py \
             tests/test_gate7_native_tensor_bank_prep.py \
-            tests/test_gate7_scale_neutral_model_prep.py
+            tests/test_gate7_scale_neutral_model_prep.py \
+            tests/test_gate7_scale_neutral_transition_training.py
 
       - name: Verify Gate7 remains preparation only
         shell: bash
@@ -90,6 +97,8 @@ jobs:
             ai_hypothesis/population_compute/gate7_compact_tensor_bank_prep.py \
             ai_hypothesis/population_compute/gate7_native_tensor_bank_prep.py \
             ai_hypothesis/population_compute/gate7_scale_neutral_model_prep.py \
+            ai_hypothesis/population_compute/gate7_scale_neutral_transition_training.py \
+            ai_hypothesis/population_compute/run_gate7_scale_neutral_transition_training.py \
             ai_hypothesis/population_compute/profile_gate7_execution_engine.py \
             ai_hypothesis/population_compute/profile_gate7_native_bank_scaling.py \
             ai_hypothesis/population_compute/profile_gate7_native_batch_scaling.py \
@@ -98,7 +107,8 @@ jobs:
             tests/test_gate7_dynamic_tensor_bank_prep.py \
             tests/test_gate7_compact_tensor_bank_prep.py \
             tests/test_gate7_native_tensor_bank_prep.py \
-            tests/test_gate7_scale_neutral_model_prep.py
+            tests/test_gate7_scale_neutral_model_prep.py \
+            tests/test_gate7_scale_neutral_transition_training.py
           ! grep -R --line-number 'gate7-.*-hidden' \
             ai_hypothesis/population_compute/gate7_scaling_frontier_prep.py \
             ai_hypothesis/population_compute/gate7_tensor_engine_prep.py \
@@ -106,6 +116,8 @@ jobs:
             ai_hypothesis/population_compute/gate7_compact_tensor_bank_prep.py \
             ai_hypothesis/population_compute/gate7_native_tensor_bank_prep.py \
             ai_hypothesis/population_compute/gate7_scale_neutral_model_prep.py \
+            ai_hypothesis/population_compute/gate7_scale_neutral_transition_training.py \
+            ai_hypothesis/population_compute/run_gate7_scale_neutral_transition_training.py \
             ai_hypothesis/population_compute/profile_gate7_execution_engine.py \
             ai_hypothesis/population_compute/profile_gate7_native_bank_scaling.py \
             ai_hypothesis/population_compute/profile_gate7_native_batch_scaling.py
@@ -128,6 +140,25 @@ jobs:
           encoder_params = set(inspect.signature(neutral.encode_gate7_scale_neutral_child_input).parameters)
           for forbidden in ('population', 'reserve_capacity', 'k', 'slot', 'hidden_answer'):
               assert forbidden not in encoder_params
+          PY
+
+      - name: Verify transition trainer is frozen and bridge-inaccessible
+        shell: bash
+        run: |
+          python -m ai_hypothesis.population_compute.run_gate7_scale_neutral_transition_training --help > gate7-transition-train-help.txt
+          grep -q -- '--output-root' gate7-transition-train-help.txt
+          for forbidden in --seed --depth --steps --batch-size --learning-rate --population --k --bridge; do
+            ! grep -q -- "$forbidden" gate7-transition-train-help.txt
+          done
+          python - <<'PY'
+          from ai_hypothesis.population_compute import gate7_scale_neutral_transition_training as train
+          assert train.GATE7_SCALE_NEUTRAL_TRAINING_SEEDS == (0, 1, 2)
+          assert train.GATE7_SCALE_NEUTRAL_TRAINING_DEPTHS == tuple(range(6, 19))
+          assert train.GATE7_SCALE_NEUTRAL_TRAINING_STEPS == 1200
+          assert train.GATE7_SCALE_NEUTRAL_TRAINING_BATCH_SIZE == 256
+          assert train.GATE7_SCALE_NEUTRAL_LEARNING_RATE == 3e-4
+          assert train.GATE7_SCALE_NEUTRAL_WEIGHT_DECAY == 1e-4
+          assert train.GATE7_SCALE_NEUTRAL_GRADIENT_CLIP_NORM == 1.0
           PY
 
       - name: Verify hot tensor functions contain no CUDA-to-Python scalar extraction
@@ -249,12 +280,13 @@ jobs:
         shell: powershell
         run: git switch -C agent/gate7-high-scale-frontier-prep-v0
 
-      - name: Execute engineering profile wrappers under Windows PowerShell 5.1 StrictMode
+      - name: Execute engineering and transition wrappers under Windows PowerShell 5.1 StrictMode
         shell: powershell
         env:
           GATE7_PROFILE_WRAPPER_SMOKE: '1'
           GATE7_NATIVE_PROFILE_WRAPPER_SMOKE: '1'
           GATE7_NATIVE_BATCH_PROFILE_WRAPPER_SMOKE: '1'
+          GATE7_SCALE_NEUTRAL_TRAINING_WRAPPER_SMOKE: '1'
         run: |
           .\scripts\profile_gate7_execution_engine.ps1 `
             -IdleMachineAttested `
@@ -265,3 +297,6 @@ jobs:
           .\scripts\profile_gate7_native_batch_scaling.ps1 `
             -IdleMachineAttested `
             -OutputRoot "$env:RUNNER_TEMP\gate7-batch-profile-smoke"
+          .\scripts\run_gate7_scale_neutral_transition_training.ps1 `
+            -IdleMachineAttested `
+            -OutputRoot "$env:RUNNER_TEMP\gate7-transition-training-smoke"
