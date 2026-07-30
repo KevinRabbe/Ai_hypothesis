@@ -40,6 +40,18 @@ def _synchronize() -> None:
     torch.cuda.synchronize()
 
 
+def _memory_stats_device_index(device: torch.device) -> int:
+    """Return the explicit CUDA index used by allocator-memory-stat APIs.
+
+    The execution tensors still use a torch.device. Keeping allocator-stat calls on an integer index
+    avoids backend-specific handling differences for torch.device objects while measuring cuda:0.
+    """
+
+    if device.type != "cuda" or device.index is None:
+        raise ValueError("Gate-7 native-bank profile requires an explicitly indexed CUDA device")
+    return int(device.index)
+
+
 def _allocate_bank(*, batch_size: int, population: int, device: torch.device) -> Gate7NativeTensorBank:
     width = population + 1
     states = torch.empty((batch_size, width, GATE7_NATIVE_STATE_WIDTH), dtype=torch.float32, device=device)
@@ -100,7 +112,9 @@ def _run_cycle(
     k: int | None,
     device: torch.device,
 ) -> dict[str, float | int | str]:
-    torch.cuda.reset_peak_memory_stats(device)
+    memory_device_index = _memory_stats_device_index(device)
+    torch.cuda.reset_peak_memory_stats(memory_device_index)
+
     bank = _allocate_bank(batch_size=batch_size, population=population, device=device)
     public_seeds = gate7_native_public_seed_tensor(
         tuple(100_003 + index * 7_919 for index in range(batch_size)), device=device
@@ -112,6 +126,7 @@ def _run_cycle(
     _synchronize()
     start = time.perf_counter()
     metadata_examined_per_world = 0
+
     for slot_index in range(slots):
         if mode == "bounded_score":
             if k is None:
@@ -160,6 +175,7 @@ def _run_cycle(
     _synchronize()
     elapsed_s = time.perf_counter() - start
     world_decisions = batch_size * slots
+
     return {
         "mode": mode,
         "k": -1 if k is None else k,
@@ -172,7 +188,7 @@ def _run_cycle(
             if mode == "global_score"
             else (0 if mode == "bounded_hash" else int(k) * slots)
         ),
-        "peak_allocated_bytes": int(torch.cuda.max_memory_allocated(device)),
+        "peak_allocated_bytes": int(torch.cuda.max_memory_allocated(memory_device_index)),
     }
 
 
@@ -260,8 +276,12 @@ def _print_compact(payload: dict[str, object], *, output: Path) -> None:
         if isinstance(row, dict)
     }
     print("Gate-7 native-bank scaling profile — ENGINEERING ONLY")
-    print(f"GPU: {payload['cuda_device_name']} | batch={payload['batch_size']} | slots={payload['slots']} | repeats={payload['repeats']}")
+    print(
+        f"GPU: {payload['cuda_device_name']} | batch={payload['batch_size']} | "
+        f"slots={payload['slots']} | repeats={payload['repeats']}"
+    )
     print("latency = mean microseconds / world routing decision")
+
     for population in GATE7_NATIVE_POPULATION_LADDER:
         global_us = float(lookup[(population, "global_score", None)]["mean_microseconds_per_world_decision"])
         fields = [f"N={population:6d}", f"global={global_us:8.3f}us"]
@@ -276,7 +296,13 @@ def _print_compact(payload: dict[str, object], *, output: Path) -> None:
     print("\nLargest-N / smallest-N latency ratios:")
     ratios = payload["scaling_ratios"]
     assert isinstance(ratios, dict)
-    for key in ("global_score", "bounded_score_k16", "bounded_score_k64", "bounded_score_k256", "bounded_score_k512"):
+    for key in (
+        "global_score",
+        "bounded_score_k16",
+        "bounded_score_k64",
+        "bounded_score_k256",
+        "bounded_score_k512",
+    ):
         if key not in ratios:
             continue
         row = ratios[key]
@@ -310,6 +336,7 @@ def main() -> int:
 
     device = torch.device("cuda:0")
     rows: list[dict[str, object]] = []
+
     for population in GATE7_NATIVE_POPULATION_LADDER:
         rows.append(
             _measure_condition(
@@ -345,6 +372,7 @@ def main() -> int:
         "torch_version": torch.__version__,
         "cuda_runtime": torch.version.cuda,
         "cuda_device_name": torch.cuda.get_device_name(0),
+        "cuda_device_index": _memory_stats_device_index(device),
         "compiler_enabled": False,
         "cuda_graphs_enabled": False,
         "mixed_precision_enabled": False,
