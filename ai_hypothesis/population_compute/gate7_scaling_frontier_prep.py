@@ -1,7 +1,7 @@
-"""Preparation-only planner for the high-scale Gate-7 frontier campaign.
+"""Preparation-only planner for the Gate-7 routing-bandwidth scaling campaign.
 
 No scientific worlds, model execution, checkpoint loading, training, or outcome assignment live here.
-The module only freezes/checks the geometric population ladder and structural work/visibility scaling.
+The module only freezes/checks geometric population/K ladders and structural work/visibility scaling.
 """
 
 from __future__ import annotations
@@ -11,8 +11,9 @@ from dataclasses import dataclass
 GATE7_PREPARATION_ONLY = True
 GATE7_EXISTING_CHECKPOINT_MAX_POPULATION = 512
 GATE7_HIGH_SCALE_LADDER = (1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072)
-GATE7_PRIMARY_K = 16
-GATE7_DESCRIPTIVE_K = 8
+GATE7_K_LADDER = (16, 32, 64, 128, 256, 512)
+GATE7_GATE6_LAST_ROBUST_K16_POPULATION = 128
+GATE7_GATE6_FIRST_CHECKPOINT_SENSITIVE_K16_POPULATION = 256
 GATE7_STAGE_B_PARENT_SLOTS = 128
 GATE7_RECURRENT_UPDATES_PER_CHILD = 8
 GATE7_ACTIVE_CHILD_LANES = 2
@@ -30,7 +31,8 @@ class Gate7ScalePlan:
     stage_a_learned_updates: int
     stage_b_parent_slots: int
     stage_b_learned_updates: int
-    k16_score_observations_upper_bound: int
+    valid_k_values: tuple[int, ...]
+    bounded_score_observation_upper_bounds: tuple[tuple[int, int], ...]
     global_score_observations_nominal: int
 
     def validate(self) -> None:
@@ -50,8 +52,15 @@ class Gate7ScalePlan:
             raise ValueError("Stage-B slot budget changed")
         if self.stage_b_learned_updates != GATE7_STAGE_B_PARENT_SLOTS * GATE7_UPDATES_PER_PARENT_SLOT:
             raise ValueError("Stage-B learned-work accounting mismatch")
-        if self.k16_score_observations_upper_bound != GATE7_PRIMARY_K * GATE7_STAGE_B_PARENT_SLOTS:
-            raise ValueError("K16 score-observation bound changed")
+
+        expected_k = tuple(k for k in GATE7_K_LADDER if k < self.population)
+        if self.valid_k_values != expected_k:
+            raise ValueError("valid K ladder differs from prepared bounded-visibility ladder")
+        expected_bounds = tuple((k, k * GATE7_STAGE_B_PARENT_SLOTS) for k in expected_k)
+        if self.bounded_score_observation_upper_bounds != expected_bounds:
+            raise ValueError("bounded score-observation accounting mismatch")
+        if self.global_score_observations_nominal != self.population * GATE7_STAGE_B_PARENT_SLOTS:
+            raise ValueError("global score-observation accounting mismatch")
 
 
 def _log2_power_of_two(value: int) -> int:
@@ -63,6 +72,7 @@ def _log2_power_of_two(value: int) -> int:
 def build_gate7_scale_plan(population: int) -> Gate7ScalePlan:
     depth = _log2_power_of_two(population)
     stage_a_slots = population - 1
+    valid_k = tuple(k for k in GATE7_K_LADDER if k < population)
     plan = Gate7ScalePlan(
         population=population,
         frontier_depth=depth,
@@ -71,7 +81,10 @@ def build_gate7_scale_plan(population: int) -> Gate7ScalePlan:
         stage_a_learned_updates=stage_a_slots * GATE7_UPDATES_PER_PARENT_SLOT,
         stage_b_parent_slots=GATE7_STAGE_B_PARENT_SLOTS,
         stage_b_learned_updates=GATE7_STAGE_B_PARENT_SLOTS * GATE7_UPDATES_PER_PARENT_SLOT,
-        k16_score_observations_upper_bound=GATE7_PRIMARY_K * GATE7_STAGE_B_PARENT_SLOTS,
+        valid_k_values=valid_k,
+        bounded_score_observation_upper_bounds=tuple(
+            (k, k * GATE7_STAGE_B_PARENT_SLOTS) for k in valid_k
+        ),
         global_score_observations_nominal=population * GATE7_STAGE_B_PARENT_SLOTS,
     )
     plan.validate()
