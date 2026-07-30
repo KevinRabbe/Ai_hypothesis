@@ -1,23 +1,38 @@
 from __future__ import annotations
 
+import importlib.util
 import json
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from ai_hypothesis.population_compute.analyze_gate7_information_ceiling_decomposition import (
-    BAYES,
-    HASH,
-    LEARNED,
-    RANKERS,
-    Gate7InformationCeilingAudit,
+
+RECOVERY_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "scripts"
+    / "recover_gate7_information_ceiling_decomposition_audit.py"
 )
-from ai_hypothesis.population_compute.recover_gate7_information_ceiling_decomposition_audit import (
-    RECOVERY_REASON,
-    canonicalize_ranker_object_order,
-    recover_gate7_information_ceiling_audit,
+_SPEC = importlib.util.spec_from_file_location(
+    "gate7_information_ceiling_audit_recovery_test_target",
+    RECOVERY_PATH,
 )
+if _SPEC is None or _SPEC.loader is None:
+    raise RuntimeError("could not load standalone audit recovery script")
+RECOVERY = importlib.util.module_from_spec(_SPEC)
+sys.modules[_SPEC.name] = RECOVERY
+_SPEC.loader.exec_module(RECOVERY)
+
+AUDITOR = RECOVERY._AUDITOR
+BAYES = AUDITOR.BAYES
+HASH = AUDITOR.HASH
+LEARNED = AUDITOR.LEARNED
+RANKERS = tuple(AUDITOR.RANKERS)
+Gate7InformationCeilingAudit = AUDITOR.Gate7InformationCeilingAudit
+RECOVERY_REASON = RECOVERY.RECOVERY_REASON
+canonicalize_ranker_object_order = RECOVERY.canonicalize_ranker_object_order
+recover_gate7_information_ceiling_audit = RECOVERY.recover_gate7_information_ceiling_audit
 
 
 def _sorted_ranker_mapping() -> dict[str, list[int]]:
@@ -85,8 +100,9 @@ class Gate7InformationCeilingAuditRecoveryTests(unittest.TestCase):
                     errors=(),
                 )
 
-            with patch(
-                "ai_hypothesis.population_compute.recover_gate7_information_ceiling_decomposition_audit.audit_gate7_information_ceiling_decomposition",
+            with patch.object(
+                RECOVERY,
+                "audit_gate7_information_ceiling_decomposition",
                 side_effect=fake_audit,
             ):
                 status = recover_gate7_information_ceiling_audit(
