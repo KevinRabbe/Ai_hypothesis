@@ -1,0 +1,91 @@
+name: Gate8 distributed-transformation capability protocol qualification
+
+on:
+  push:
+    branches:
+      - agent/gate8-distributed-transformation-capability-protocol-v0
+  pull_request:
+    paths:
+      - 'ai_hypothesis/population_compute/gate8_distributed_transformation_capability_protocol.py'
+      - 'tests/test_gate8_distributed_transformation_capability_protocol.py'
+      - 'experiments/population_compute_scaling_v0/gate8_distributed_transformation_capability_protocol_v0.md'
+      - '.github/workflows/gate8-distributed-transformation-capability-protocol-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  protocol-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Compile frozen Gate8 protocol
+        run: |
+          python -m compileall -q \
+            ai_hypothesis/population_compute/gate8_distributed_transformation_capability_protocol.py
+
+      - name: Run Gate8 protocol regressions
+        run: |
+          python -m unittest tests/test_gate8_distributed_transformation_capability_protocol.py
+
+      - name: Verify exact evidence and benchmark bindings
+        run: |
+          python - <<'PY'
+          import importlib.util
+          import pathlib
+          import sys
+
+          path = pathlib.Path('ai_hypothesis/population_compute/gate8_distributed_transformation_capability_protocol.py')
+          name = 'gate8_ci_protocol'
+          spec = importlib.util.spec_from_file_location(name, path)
+          assert spec is not None and spec.loader is not None
+          module = importlib.util.module_from_spec(spec)
+          sys.modules[name] = module
+          spec.loader.exec_module(module)
+
+          assert module.GATE8_BASE_RESULT_HEAD == '7cd29aa02d8ad0d4819978cd04f4a39b94a9bb0c'
+          assert module.GATE8_GATE7_OUTCOME == 'G7_PRECISION_INFORMATION_CEILING_DOMINANT'
+          assert module.GATE8_GATE7_RESULT_SHA256 == '89f0a69d530355031f02666e403977f4ad3b622bc6468627c4cbfa9a7d1ea489'
+          assert module.GATE8_GATE7_AUDIT_SHA256 == '857256f4ae71f0fbf6744a531ece0120fb9bb3088e36e30471e3614ffd602a79'
+          assert module.GATE8_GATE7_MANIFEST_SHA256 == '2e212ab56dd251ab527f8aeb95e40f0e06bcacad9b7e1900f49a1b8d96efffa3'
+          assert module.GATE8_LEARNED_PARAMETER_COUNT == 19_649
+          assert module.GATE8_POPULATIONS == (32, 64, 128, 256, 512, 1024)
+          assert module.GATE8_DEPTHS == (4, 8, 16, 32, 64, 128)
+          assert len(module.GATE8_VALID_CONDITIONS) == 21
+          assert module.GATE8_REFERENCE_MODEL_ID == 'google/gemma-3-1b-it'
+          assert module.GATE8_REFERENCE_PARAMETER_CLASS == '1.0B'
+          assert module.GATE8_REFERENCE_CONTEXT_TOKENS == 32_768
+          assert module.GATE8_REFERENCE_MAX_INPUT_TOKENS == 24_576
+          PY
+
+      - name: Verify protocol-only boundary
+        run: |
+          protocol=ai_hypothesis/population_compute/gate8_distributed_transformation_capability_protocol.py
+          ! grep --line-number '^import torch' "$protocol"
+          ! grep --line-number '^from torch' "$protocol"
+          ! grep --line-number 'from_pretrained' "$protocol"
+          ! grep --line-number -E 'open\(|read_text\(|json\.load' "$protocol"
+          ! grep --line-number 'execution_admitted": True' "$protocol"
+          ! grep --line-number 'training_admitted": True' "$protocol"
+          ! grep --line-number 'baseline_execution_admitted": True' "$protocol"
+
+      - name: Prove exact four-file protocol slice
+        run: |
+          changed="$(git diff --name-only 7cd29aa02d8ad0d4819978cd04f4a39b94a9bb0c...HEAD | sort)"
+          expected="$(printf '%s\n' \
+            '.github/workflows/gate8-distributed-transformation-capability-protocol-ci.yml' \
+            'ai_hypothesis/population_compute/gate8_distributed_transformation_capability_protocol.py' \
+            'experiments/population_compute_scaling_v0/gate8_distributed_transformation_capability_protocol_v0.md' \
+            'tests/test_gate8_distributed_transformation_capability_protocol.py' | sort)"
+          test "$changed" = "$expected"
