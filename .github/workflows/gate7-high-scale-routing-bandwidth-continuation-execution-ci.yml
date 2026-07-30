@@ -83,9 +83,9 @@ jobs:
           test_file=tests/test_gate7_high_scale_routing_bandwidth_continuation_execution.py
           ! grep --line-number -E '^\s*(generate_gate7_continuation_world|continuation_world_batch|run_gate7_high_scale_routing_bandwidth_continuation)\(' "$test_file"
           workflow=.github/workflows/gate7-high-scale-routing-bandwidth-continuation-execution-ci.yml
-          ! grep --line-number -- '--output-root' "$workflow"
-          ! grep --line-number 'transition-checkpoint0' "$workflow"
-          ! grep --line-number 'cuda.is_available' "$workflow"
+          ! grep --line-number -E '^[[:space:]]*python -m ai_hypothesis\.population_compute\.run_gate7_high_scale_routing_bandwidth_continuation([[:space:]]|$)' "$workflow"
+          ! grep --line-number -E '^[[:space:]]*--transition-checkpoint0([[:space:]]|$)' "$workflow"
+          ! grep --line-number -E '^[[:space:]]*if .*cuda\.is_available' "$workflow"
 
       - name: Verify independent auditor dependency boundary
         shell: bash
