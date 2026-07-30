@@ -41,11 +41,15 @@ try {
         throw "Gate-7 transition bridge requires a clean Git working tree."
     }
 
-    $branch = (git branch --show-current).Trim()
+    $branchOutput = git branch --show-current
+    if ($LASTEXITCODE -ne 0) {
+        throw "Could not resolve the current Gate-7 transition bridge branch."
+    }
+    $branch = if ($null -eq $branchOutput) { "" } else { "$branchOutput".Trim() }
     if ($branch.Length -eq 0 -and $wrapperSmoke -and $env:GITHUB_HEAD_REF) {
         $branch = $env:GITHUB_HEAD_REF
     }
-    if ($LASTEXITCODE -ne 0 -or $branch -ne "agent/gate7-scale-neutral-transition-bridge-prep-v0") {
+    if ($branch -ne "agent/gate7-scale-neutral-transition-bridge-prep-v0") {
         throw "Gate-7 transition bridge must run from agent/gate7-scale-neutral-transition-bridge-prep-v0."
     }
 
