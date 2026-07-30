@@ -1,11 +1,24 @@
 from __future__ import annotations
 
+import importlib.util
 import inspect
+import sys
 import unittest
+from pathlib import Path
 
-from ai_hypothesis.population_compute import (
-    gate7_high_scale_routing_bandwidth_confirmation_protocol as protocol,
+
+_PROTOCOL_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "ai_hypothesis"
+    / "population_compute"
+    / "gate7_high_scale_routing_bandwidth_confirmation_protocol.py"
 )
+_SPEC = importlib.util.spec_from_file_location("gate7_confirmation_protocol_under_test", _PROTOCOL_PATH)
+if _SPEC is None or _SPEC.loader is None:
+    raise RuntimeError("could not load the frozen Gate-7 confirmation protocol")
+protocol = importlib.util.module_from_spec(_SPEC)
+sys.modules[_SPEC.name] = protocol
+_SPEC.loader.exec_module(protocol)
 
 
 class Gate7HighScaleRoutingBandwidthConfirmationProtocolTests(unittest.TestCase):
