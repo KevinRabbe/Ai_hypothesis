@@ -1,0 +1,94 @@
+name: Gate7 high-scale engineering profile qualification
+
+on:
+  push:
+    branches:
+      - agent/gate7-high-scale-engineering-profile-v0
+  pull_request:
+    paths:
+      - 'ai_hypothesis/population_compute/profile_gate7_high_scale_execution.py'
+      - 'scripts/profile_gate7_high_scale_execution.ps1'
+      - 'tests/test_profile_gate7_high_scale_execution.py'
+      - '.github/workflows/gate7-high-scale-engineering-profile-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  profile-qualification:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install CPU Torch
+        run: |
+          python -m pip install --disable-pip-version-check torch --index-url https://download.pytorch.org/whl/cpu
+          python -c "import torch; print('torch', torch.__version__)"
+
+      - name: Compile engineering profiler
+        run: |
+          python -m compileall -q ai_hypothesis/population_compute/profile_gate7_high_scale_execution.py
+
+      - name: Run engineering-profile regressions
+        run: |
+          python -m unittest tests/test_profile_gate7_high_scale_execution.py
+
+      - name: Verify profile constants and scientific closure
+        run: |
+          python - <<'PY'
+          from ai_hypothesis.population_compute import profile_gate7_high_scale_execution as p
+          assert p.GATE7_HIGH_SCALE_ENGINEERING_PROFILE_ONLY is True
+          assert p.GATE7_HIGH_SCALE_ENGINEERING_MODEL_SEED == 71007
+          assert p.GATE7_HIGH_SCALE_ENGINEERING_CONDITIONS == (
+              ('global_score', None),
+              ('global_hash', None),
+              ('bounded_score', 16),
+              ('bounded_hash', 16),
+              ('bounded_score', 512),
+              ('bounded_hash', 512),
+          )
+          PY
+
+      - name: Verify no checkpoint or scientific runner is reachable
+        shell: bash
+        run: |
+          ! grep --line-number 'torch.load' ai_hypothesis/population_compute/profile_gate7_high_scale_execution.py
+          ! grep --line-number 'load_verified' ai_hypothesis/population_compute/profile_gate7_high_scale_execution.py
+          test ! -f ai_hypothesis/population_compute/gate7_high_scale_routing_bandwidth.py
+          test ! -f ai_hypothesis/population_compute/run_gate7_high_scale_routing_bandwidth.py
+          test ! -f scripts/run_gate7_high_scale_routing_bandwidth.ps1
+          test ! -f experiments/population_compute_scaling_v0/gate7_high_scale_routing_bandwidth_result.md
+
+  windows-wrapper-smoke:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Smoke PowerShell wrapper before CUDA or profiling
+        shell: pwsh
+        env:
+          GATE7_HIGH_SCALE_PROFILE_WRAPPER_SMOKE: '1'
+        run: |
+          $output = Join-Path $env:RUNNER_TEMP "gate7-high-scale-profile-smoke-${{ github.run_id }}"
+          .\scripts\profile_gate7_high_scale_execution.ps1 `
+            -IdleMachineAttested `
+            -OutputRoot $output
+          if (-not (Test-Path -LiteralPath (Join-Path $output "run-config.json") -PathType Leaf)) {
+              throw "Gate-7 high-scale profile smoke did not write run-config.json"
+          }
+          if (Test-Path -LiteralPath (Join-Path $output "profile")) {
+              throw "Gate-7 high-scale profile smoke reached CUDA profiling"
+          }
