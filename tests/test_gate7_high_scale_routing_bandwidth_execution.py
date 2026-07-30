@@ -133,6 +133,13 @@ class Gate7HighScaleRoutingBandwidthExecutionTests(unittest.TestCase):
         self.assertEqual(pooled_first, pooled_second)
         self.assertGreater(pooled_first.bootstrap_ci_low, 0.0)
 
+    def test_condition_names_bind_k_identity(self) -> None:
+        for k in execution.GATE7_HIGH_SCALE_K_LADDER:
+            self.assertEqual(execution._condition_mode(f"bounded_score_k{k}"), ("bounded_score", k))
+            self.assertEqual(execution._condition_mode(f"bounded_hash_k{k}"), ("bounded_hash", k))
+        self.assertEqual(execution._condition_mode("global_score"), ("global_score", None))
+        self.assertEqual(execution._condition_mode("global_hash"), ("global_hash", None))
+
     def test_runner_source_enforces_global_gate_then_ascending_first_pass(self) -> None:
         source = inspect.getsource(runner.run_gate7_high_scale_routing_bandwidth)
         global_position = source.index("opening global reference pair")
@@ -143,6 +150,8 @@ class Gate7HighScaleRoutingBandwidthExecutionTests(unittest.TestCase):
         self.assertLess(viability_position, k_loop_position)
         self.assertLess(k_loop_position, break_position)
         self.assertIn("GATE7_HIGH_SCALE_RESOURCE_FRONTIER_REACHED", source)
+        self.assertIn("for k_position, k in enumerate(GATE7_HIGH_SCALE_K_LADDER", source)
+        self.assertIn("classify_completed_tier", source)
         self.assertNotIn("train_gate7", source)
         self.assertNotIn("confirmation_opened\": True", source)
 
