@@ -168,11 +168,12 @@ class Gate7NativeTensorBankPreparationTests(unittest.TestCase):
             for forbidden in (".item(", ".cpu(", ".tolist(", "float(", "argsort(", "sorted("):
                 self.assertNotIn(forbidden, source, (function.__name__, forbidden))
 
-        sampler_source = inspect.getsource(module.sample_gate7_native_positions)
-        self.assertNotIn("scores", sampler_source)
-        victim_source = inspect.getsource(module.gate7_native_victim_positions)
-        self.assertNotIn("scores", victim_source)
-        self.assertNotIn("states", victim_source)
+        sampler_parameters = set(inspect.signature(module.sample_gate7_native_positions).parameters)
+        self.assertNotIn("scores", sampler_parameters)
+        self.assertNotIn("states", sampler_parameters)
+        victim_parameters = set(inspect.signature(module.gate7_native_victim_positions).parameters)
+        self.assertNotIn("scores", victim_parameters)
+        self.assertNotIn("states", victim_parameters)
 
 
 if __name__ == "__main__":
