@@ -1,0 +1,78 @@
+name: Gate7 high-scale routing-bandwidth protocol qualification
+
+on:
+  push:
+    branches:
+      - agent/gate7-high-scale-routing-bandwidth-protocol-v0
+  pull_request:
+    paths:
+      - 'ai_hypothesis/population_compute/gate7_high_scale_routing_bandwidth_protocol.py'
+      - 'experiments/population_compute_scaling_v0/gate7_high_scale_routing_bandwidth_protocol.md'
+      - 'tests/test_gate7_high_scale_routing_bandwidth_protocol.py'
+      - '.github/workflows/gate7-high-scale-routing-bandwidth-protocol-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  protocol:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Compile frozen protocol
+        run: |
+          python -m compileall -q ai_hypothesis/population_compute/gate7_high_scale_routing_bandwidth_protocol.py
+
+      - name: Run protocol-only regressions
+        run: |
+          python -m unittest tests/test_gate7_high_scale_routing_bandwidth_protocol.py
+
+      - name: Verify exact prerequisite and ladders
+        run: |
+          python - <<'PY'
+          from ai_hypothesis.population_compute import gate7_high_scale_routing_bandwidth_protocol as p
+          assert p.GATE7_HIGH_SCALE_PROTOCOL_FROZEN is True
+          assert p.GATE7_HIGH_SCALE_EXECUTION_OPENED is False
+          assert p.GATE7_HIGH_SCALE_BRIDGE_EVIDENCE_HEAD == '0d1bd683bae322a11a76b4d885f2efeb3c4a5099'
+          assert p.GATE7_HIGH_SCALE_BRIDGE_OUTCOME == 'GATE7_SCALE_NEUTRAL_TRANSITION_QUALIFIED'
+          assert p.GATE7_HIGH_SCALE_POPULATIONS == (1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072)
+          assert p.GATE7_HIGH_SCALE_K_LADDER == (16, 32, 64, 128, 256, 512)
+          assert p.GATE7_HIGH_SCALE_WORLD_COUNT == 64
+          assert p.GATE7_HIGH_SCALE_EVALUATION_BATCH_SIZE == 64
+          assert p.GATE7_HIGH_SCALE_BOOTSTRAP_SAMPLES == 2000
+          assert p.GATE7_HIGH_SCALE_NONINFERIORITY_MARGIN == 0.05
+          PY
+
+      - name: Verify every K has a matched hash pair
+        run: |
+          python - <<'PY'
+          from ai_hypothesis.population_compute import gate7_high_scale_routing_bandwidth_protocol as p
+          for tier in p.prepared_gate7_high_scale_tiers():
+              assert tier.full_condition_ladder[:2] == ('global_score', 'global_hash')
+              for k in tier.k_ladder:
+                  score = p.bounded_score_condition(k)
+                  control = p.bounded_hash_condition(k)
+                  assert tier.full_condition_ladder.index(control) == tier.full_condition_ladder.index(score) + 1
+          PY
+
+      - name: Verify protocol branch cannot execute high-scale science
+        shell: bash
+        run: |
+          test ! -f ai_hypothesis/population_compute/run_gate7_high_scale_routing_bandwidth.py
+          test ! -f scripts/run_gate7_high_scale_routing_bandwidth.ps1
+          test ! -f ai_hypothesis/population_compute/gate7_high_scale_routing_bandwidth.py
+          test ! -f experiments/population_compute_scaling_v0/gate7_high_scale_routing_bandwidth_result.md
+          ! grep --line-number 'generate_gate7_high_scale_world(' \
+            tests/test_gate7_high_scale_routing_bandwidth_protocol.py \
+            .github/workflows/gate7-high-scale-routing-bandwidth-protocol-ci.yml
