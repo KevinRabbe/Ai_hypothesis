@@ -1,0 +1,101 @@
+name: Gate7 information-ceiling decomposition result qualification
+
+on:
+  push:
+    branches:
+      - agent/gate7-information-ceiling-decomposition-result-v0
+  pull_request:
+    paths:
+      - 'experiments/population_compute_scaling_v0/gate7_information_ceiling_decomposition_result_v0.md'
+      - '.github/workflows/gate7-information-ceiling-decomposition-result-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  result-record:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Verify immutable evidence identities
+        shell: bash
+        run: |
+          file=experiments/population_compute_scaling_v0/gate7_information_ceiling_decomposition_result_v0.md
+          grep -F '3640699f1727886c9ad2e954269fad660dc34370' "$file"
+          grep -F '161142c1e5552cb9464216c774397def6a4100be' "$file"
+          grep -F 'b06959ce9d6c7d83bac953ce17a3c3008ad0f306' "$file"
+          grep -F '71a383ced44419f84022738448c460d79a3fb21746f436649e5f14399704f731' "$file"
+          grep -F '0d9ef5a838810a681afbe23c46b0a98be1a395b31fda83cccc1fdb52376c733e' "$file"
+          grep -F '86a7dbb774119cca9bcd697978081e0872b41e4e61a3f8b08538e0cc89c8397d' "$file"
+          grep -F 'ccd4bbd353aba09b8a2d38d155bb9f883b862123bf196693889b515d5452324b' "$file"
+          grep -F '026f75a76888efe020c57da9d719140169eedd5e024555db20da9590cfea2b45' "$file"
+
+      - name: Verify exact primary matrix and interpretation
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('experiments/population_compute_scaling_v0/gate7_information_ceiling_decomposition_result_v0.md')
+          text = path.read_text(encoding='utf-8')
+          expected = (
+              ('16,384', 'T0', '0.173828125', '0.177734375', '0.007812500', '[-0.0156,+0.0078]'),
+              ('16,384', 'T1', '0.160156250', '0.177734375', '0.007812500', '[-0.0332,-0.0020]'),
+              ('16,384', 'T2', '0.169921875', '0.177734375', '0.007812500', '[-0.0234,+0.0078]'),
+              ('32,768', 'T0', '0.132812500', '0.132812500', '0.007812500', '[-0.0059,+0.0059]'),
+              ('32,768', 'T1', '0.117187500', '0.132812500', '0.007812500', '[-0.0312,-0.0020]'),
+              ('32,768', 'T2', '0.125000000', '0.132812500', '0.007812500', '[-0.0234,+0.0078]'),
+              ('65,536', 'T0', '0.080078125', '0.085937500', '0.000000000', '[-0.0156,+0.0039]'),
+              ('65,536', 'T1', '0.078125000', '0.085937500', '0.000000000', '[-0.0234,+0.0078]'),
+              ('65,536', 'T2', '0.082031250', '0.085937500', '0.000000000', '[-0.0156,+0.0078]'),
+              ('131,072', 'T0', '0.066406250', '0.070312500', '0.000000000', '[-0.0156,+0.0059]'),
+              ('131,072', 'T1', '0.056640625', '0.070312500', '0.000000000', '[-0.0293,+0.0020]'),
+              ('131,072', 'T2', '0.058593750', '0.070312500', '0.000000000', '[-0.0273,+0.0020]'),
+          )
+          rows = [line for line in text.splitlines() if line.startswith('| ') and any(f'| {population} | {checkpoint} |' in line for population, checkpoint, *_ in expected)]
+          if len(rows) != 12:
+              raise SystemExit(f'expected 12 primary rows, found {len(rows)}')
+          for population, checkpoint, learned, bayes, hash_score, interval in expected:
+              matches = [row for row in rows if f'| {population} | {checkpoint} |' in row]
+              if len(matches) != 1:
+                  raise SystemExit(f'missing or duplicate N{population} {checkpoint}')
+              row = matches[0]
+              for token in (learned, bayes, hash_score, interval):
+                  if token not in row:
+                      raise SystemExit(f'N{population} {checkpoint} missing {token}')
+          required = (
+              'artifact_valid = true',
+              'errors = []',
+              'campaign_outcome = G7_INFORMATION_CEILING_INCONCLUSIVE',
+              'information ceiling dominant = not established',
+              'scorer representation gap = not established',
+              'mixed ceiling/scorer gap = not established',
+              'The minimum next question is **precision confirmation**, not coordination intervention.',
+          )
+          for token in required:
+              if token not in text:
+                  raise SystemExit(f'missing frozen result statement: {token}')
+          if text.count('G7_INFORMATION_CEILING_INCONCLUSIVE') < 3:
+              raise SystemExit('inconclusive outcome is not bound throughout the record')
+          PY
+
+      - name: Prove result-only boundary
+        shell: bash
+        run: |
+          base=b06959ce9d6c7d83bac953ce17a3c3008ad0f306
+          changed="$(git diff --name-only "$base"...HEAD | sort)"
+          expected=$'.github/workflows/gate7-information-ceiling-decomposition-result-ci.yml\nexperiments/population_compute_scaling_v0/gate7_information_ceiling_decomposition_result_v0.md'
+          test "$changed" = "$expected"
+          git diff --exit-code "$base"...HEAD -- \
+            ai_hypothesis/population_compute \
+            scripts/run_gate7_information_ceiling_decomposition.ps1 \
+            scripts/recover_gate7_information_ceiling_decomposition_audit.py \
+            scripts/recover_gate7_information_ceiling_decomposition_audit.ps1
