@@ -4,6 +4,16 @@ on:
   push:
     branches:
       - agent/gate7-scale-neutral-transition-training-v0
+  pull_request:
+    paths:
+      - 'ai_hypothesis/population_compute/gate7_scale_neutral_model_prep.py'
+      - 'ai_hypothesis/population_compute/gate7_scale_neutral_transition_training.py'
+      - 'ai_hypothesis/population_compute/run_gate7_scale_neutral_transition_training.py'
+      - 'scripts/run_gate7_scale_neutral_transition_training.ps1'
+      - 'tests/test_gate7_scale_neutral_model_prep.py'
+      - 'tests/test_gate7_scale_neutral_transition_training.py'
+      - 'experiments/population_compute_scaling_v0/gate7_scale_neutral_scorer_transition_protocol.md'
+      - '.github/workflows/gate7-scale-neutral-transition-training-ci.yml'
   workflow_dispatch:
 
 permissions:
