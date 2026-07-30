@@ -1,0 +1,99 @@
+name: Gate7 scale-neutral transition bridge result qualification
+
+on:
+  push:
+    branches:
+      - agent/gate7-scale-neutral-transition-bridge-result-v0
+  pull_request:
+    paths:
+      - 'experiments/population_compute_scaling_v0/gate7_scale_neutral_transition_bridge_result.md'
+      - '.github/workflows/gate7-scale-neutral-transition-bridge-result-ci.yml'
+      - 'ai_hypothesis/population_compute/gate7_scale_neutral_transition_bridge_prep.py'
+      - 'ai_hypothesis/population_compute/gate7_scale_neutral_transition_bridge.py'
+      - 'ai_hypothesis/population_compute/analyze_gate7_scale_neutral_transition_bridge.py'
+      - 'tests/test_gate7_scale_neutral_transition_bridge_prep.py'
+      - 'tests/test_gate7_scale_neutral_transition_bridge.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  result-record:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install CPU Torch
+        run: |
+          python -m pip install --disable-pip-version-check torch --index-url https://download.pytorch.org/whl/cpu
+          python -c "import torch; print('torch', torch.__version__)"
+
+      - name: Re-run data-blind transition guards
+        run: |
+          python -m unittest \
+            tests/test_gate7_scale_neutral_transition_bridge_prep.py \
+            tests/test_gate7_scale_neutral_transition_bridge.py
+
+      - name: Verify permanent result identity and outcome
+        shell: bash
+        run: |
+          record=experiments/population_compute_scaling_v0/gate7_scale_neutral_transition_bridge_result.md
+          grep -F 'GATE7_SCALE_NEUTRAL_TRANSITION_QUALIFIED' "$record"
+          grep -F 'd149055978cab01346798b4442bea0bc47b46805' "$record"
+          grep -F '705a9d85ce6059f36de7d7bfaf47db0fab342f85662fd06be61514383ca08884' "$record"
+          grep -F 'c6772d454964f92bd30f806b04af9056fbfe34d691807678c3a4b8dde6d80590' "$record"
+          grep -F '518af71206972925b3ed13c4791011f19a9a49899f737f0ff750ae0294069bdb' "$record"
+          grep -F 'artifact_valid = true' "$record"
+          grep -F 'errors = []' "$record"
+
+      - name: Verify all exact transition checkpoints remain recorded
+        shell: bash
+        run: |
+          record=experiments/population_compute_scaling_v0/gate7_scale_neutral_transition_bridge_result.md
+          grep -F 'be1b18e22a1f713b48de8934aca1c0302f1255342684158c6ae31a7c3618a719' "$record"
+          grep -F 'a9b712736f440168ccd86ee070b8d301be0eb834b9d17418d40c0175207cadfb' "$record"
+          grep -F 'cd7869511d07679cb1ad430743cad031299a575413e8a853ef9116d545c7480a' "$record"
+
+      - name: Verify twelve primary decisions remain present
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          text = Path('experiments/population_compute_scaling_v0/gate7_scale_neutral_transition_bridge_result.md').read_text(encoding='utf-8')
+          required = (
+              'T0 +0.22265625 CI [0.1640625, 0.28125]',
+              'T1 +0.21875    CI [0.16015625, 0.2734375]',
+              'T2 +0.23046875 CI [0.171875,   0.2890625]',
+              'T0 +0.484375   CI [0.41015625, 0.55859375]',
+              'T1 +0.51171875 CI [0.44140625, 0.58203125]',
+              'T2 +0.4921875  CI [0.421875,   0.55859375]',
+              'T0 -0.015625   CI [-0.03515625, 0.00390625] PASS',
+              'T1 -0.015625   CI [-0.03515625, 0.0]        PASS',
+              'T2 -0.00390625 CI [-0.0234375,  0.01171875] PASS',
+              'T0 +0.00390625 CI [-0.01171875, 0.0234375] PASS',
+              'T1 +0.00390625 CI [-0.01171875, 0.0234375] PASS',
+              'T2 +0.015625   CI [-0.0078125,  0.0390625] PASS',
+          )
+          missing = [row for row in required if row not in text]
+          assert not missing, missing
+          PY
+
+      - name: Verify result qualification cannot execute scientific worlds
+        shell: bash
+        run: |
+          ! grep --line-number 'generate_gate7_transition_bridge_world(' \
+            .github/workflows/gate7-scale-neutral-transition-bridge-result-ci.yml
+          ! grep --line-number 'run_gate7_scale_neutral_transition_bridge(' \
+            .github/workflows/gate7-scale-neutral-transition-bridge-result-ci.yml
+          test ! -f ai_hypothesis/population_compute/run_gate7.py
+          test ! -f scripts/run_gate7.ps1
