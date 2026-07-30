@@ -1,0 +1,110 @@
+name: Gate7 information-ceiling decomposition protocol qualification
+
+on:
+  push:
+    branches:
+      - agent/gate7-information-ceiling-decomposition-protocol-v0
+  pull_request:
+    paths:
+      - 'ai_hypothesis/population_compute/gate7_information_ceiling_decomposition_protocol.py'
+      - 'experiments/population_compute_scaling_v0/gate7_information_ceiling_decomposition_protocol_v0.md'
+      - 'tests/test_gate7_information_ceiling_decomposition_protocol.py'
+      - '.github/workflows/gate7-information-ceiling-decomposition-protocol-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  information-ceiling-protocol:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Compile frozen information-ceiling protocol
+        run: |
+          python -m compileall -q ai_hypothesis/population_compute/gate7_information_ceiling_decomposition_protocol.py
+
+      - name: Run information-ceiling protocol regressions
+        run: |
+          python -m unittest tests/test_gate7_information_ceiling_decomposition_protocol.py
+
+      - name: Verify exact provenance and matrix
+        run: |
+          python - <<'PY'
+          import importlib.util
+          import pathlib
+          import sys
+
+          path = pathlib.Path('ai_hypothesis/population_compute/gate7_information_ceiling_decomposition_protocol.py')
+          spec = importlib.util.spec_from_file_location('gate7_information_ceiling_protocol_ci', path)
+          assert spec is not None and spec.loader is not None
+          p = importlib.util.module_from_spec(spec)
+          sys.modules[spec.name] = p
+          spec.loader.exec_module(p)
+
+          assert p.GATE7_INFORMATION_CEILING_PROTOCOL_FROZEN is True
+          assert p.GATE7_INFORMATION_CEILING_EXECUTION_OPENED is False
+          assert p.GATE7_INFORMATION_CEILING_RESULT_OPENED is False
+          assert p.GATE7_INFORMATION_CEILING_BASE_RESULT_HEAD == '4591dae55cada819e848ae7f929d5e8f2b8805d6'
+          assert p.GATE7_INFORMATION_CEILING_RESULT_SHA256 == '4921ea99b44156f08271d6fb2b2e0bcba98ef6a646ed0aaf040762d47aa03b36'
+          assert p.GATE7_INFORMATION_CEILING_POPULATIONS == (16384, 32768, 65536, 131072)
+          assert p.GATE7_INFORMATION_CEILING_ATTEMPT_LADDER == (1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024)
+          assert p.GATE7_INFORMATION_CEILING_RANKERS == (
+              'learned_score_rank',
+              'bayes_hint_likelihood_rank',
+              'public_hash_rank',
+          )
+          assert p.GATE7_INFORMATION_CEILING_WORLD_COUNT == 512
+          assert p.GATE7_INFORMATION_CEILING_EVALUATION_BATCH_SIZE == 64
+          assert p.GATE7_INFORMATION_CEILING_BOOTSTRAP_SAMPLES == 10_000
+          assert p.GATE7_INFORMATION_CEILING_NEAR_CEILING_MARGIN == 0.02
+          assert len(p.prepared_information_ceiling_tiers()) == 4
+          PY
+
+      - name: Verify exact analytic Bayes ceilings
+        run: |
+          python - <<'PY'
+          import importlib.util
+          import pathlib
+          import sys
+
+          path = pathlib.Path('ai_hypothesis/population_compute/gate7_information_ceiling_decomposition_protocol.py')
+          spec = importlib.util.spec_from_file_location('gate7_information_ceiling_bayes_ci', path)
+          assert spec is not None and spec.loader is not None
+          p = importlib.util.module_from_spec(spec)
+          sys.modules[spec.name] = p
+          spec.loader.exec_module(p)
+
+          expected = p.expected_primary_ceiling_by_population()
+          assert abs(expected[16384] - 0.1725810781290399) < 1e-15
+          assert abs(expected[32768] - 0.12944371790375186) < 1e-15
+          assert abs(expected[65536] - 0.09386607328230152) < 1e-15
+          assert abs(expected[131072] - 0.06627595867880422) < 1e-15
+          assert tuple(expected) == (16384, 32768, 65536, 131072)
+          assert all(a > b for a, b in zip(expected.values(), tuple(expected.values())[1:]))
+          PY
+
+      - name: Verify protocol-only boundary
+        shell: bash
+        run: |
+          module=ai_hypothesis/population_compute/gate7_information_ceiling_decomposition_protocol.py
+          test_file=tests/test_gate7_information_ceiling_decomposition_protocol.py
+          document=experiments/population_compute_scaling_v0/gate7_information_ceiling_decomposition_protocol_v0.md
+          ! grep --line-number '^import torch' "$module"
+          ! grep --line-number '^from torch' "$module"
+          ! grep --line-number 'torch.load' "$module"
+          ! grep --line-number -E '^[[:space:]]*(generate_gate7|run_gate7|load_verified_gate7)' "$module"
+          ! grep --line-number -E '^[[:space:]]*(generate_gate7|run_gate7|load_verified_gate7)' "$test_file"
+          ! grep --line-number -E 'communication_mode|RelayPopulationModel|optimizer|backward\(' "$module"
+          grep -F 'DATA-FROZEN DIAGNOSTIC PROTOCOL — EXECUTION CLOSED.' "$document"
+          grep -F 'The completed routing-continuation worlds may not be reused as fresh evidence.' "$document"
+          grep -F '`0.02`.' "$document"
+          test ! -f ai_hypothesis/population_compute/gate7_information_ceiling_decomposition.py
+          test ! -f scripts/run_gate7_information_ceiling_decomposition.ps1
+          test ! -f experiments/population_compute_scaling_v0/gate7_information_ceiling_decomposition_result_v0.md
