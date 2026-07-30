@@ -1,0 +1,49 @@
+name: Gate7 high-scale routing-bandwidth result qualification
+
+on:
+  push:
+    branches:
+      - agent/gate7-high-scale-routing-bandwidth-result-v0
+  pull_request:
+    paths:
+      - 'experiments/population_compute_scaling_v0/gate7_high_scale_routing_bandwidth_result.md'
+      - '.github/workflows/gate7-high-scale-routing-bandwidth-result-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  result-record:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify immutable scientific result record
+        shell: bash
+        run: |
+          record=experiments/population_compute_scaling_v0/gate7_high_scale_routing_bandwidth_result.md
+          test -f "$record"
+          grep -F '39ed74ffb93ac4ee3824666351fecc1f83a85f97' "$record"
+          grep -F 'G7_ROUTING_BANDWIDTH_FRONTIER_REACHED' "$record"
+          grep -F '| 1,024 | +0.2969 | [+0.2083, +0.3854]' "$record"
+          grep -F '| 2,048 | +0.3177 | [+0.2448, +0.3906]' "$record"
+          grep -F '| 4,096 | +0.3281 | [+0.2656, +0.3906]' "$record"
+          grep -F '| 8,192 | +0.2448 | [+0.1823, +0.3073]' "$record"
+          grep -F 'G7_K_REQUIRED_256' "$record"
+          grep -F 'G7_K_REQUIRED_128' "$record"
+          grep -F 'G7_K_REQUIRED_512' "$record"
+          grep -F 'T0 missed the strict `>-0.05` non-inferiority boundary by 0.0125' "$record"
+          grep -F 'd76c8b0753a518b4c61b3ff42c1f3e85902e2e492342f23fa6706459ee13a9b5' "$record"
+          grep -F '7352621ef5c5199cba98070e2f2511674bd2f4aba8b20b48c0ec87436c5204d5' "$record"
+          grep -F 'b384cf1ba4ed6f338365320dc7134b9c3d4cc80ff01fc2bd70b18300faf87c3c' "$record"
+          grep -F 'Confirmation remains closed.' "$record"
+
+      - name: Verify result branch adds no confirmation execution
+        shell: bash
+        run: |
+          test ! -f ai_hypothesis/population_compute/gate7_high_scale_routing_bandwidth_confirmation.py
+          test ! -f ai_hypothesis/population_compute/run_gate7_high_scale_routing_bandwidth_confirmation.py
+          test ! -f scripts/run_gate7_high_scale_routing_bandwidth_confirmation.ps1
+          test ! -f experiments/population_compute_scaling_v0/gate7_high_scale_routing_bandwidth_confirmation_result.md
