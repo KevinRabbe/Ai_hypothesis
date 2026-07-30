@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import inspect
 import tempfile
 import unittest
@@ -162,9 +163,17 @@ class Gate7HighScaleRoutingBandwidthExecutionTests(unittest.TestCase):
         self.assertNotIn("import torch", source)
 
     def test_tests_do_not_generate_or_execute_high_scale_worlds(self) -> None:
-        source = inspect.getsource(type(self))
-        self.assertNotIn("generate_gate7_high_scale_world(", source)
-        self.assertNotIn("run_gate7_high_scale_routing_bandwidth(", source)
+        tree = ast.parse(inspect.getsource(type(self)))
+        forbidden = {"generate_gate7_high_scale_world", "run_gate7_high_scale_routing_bandwidth"}
+        called = set()
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            if isinstance(node.func, ast.Name):
+                called.add(node.func.id)
+            elif isinstance(node.func, ast.Attribute):
+                called.add(node.func.attr)
+        self.assertTrue(forbidden.isdisjoint(called))
 
 
 if __name__ == "__main__":
