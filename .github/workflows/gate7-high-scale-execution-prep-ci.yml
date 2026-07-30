@@ -1,0 +1,88 @@
+name: Gate7 high-scale execution preparation qualification
+
+on:
+  push:
+    branches:
+      - agent/gate7-high-scale-execution-prep-v0
+  pull_request:
+    paths:
+      - 'ai_hypothesis/population_compute/gate7_scale_neutral_memory_bounded_prep.py'
+      - 'ai_hypothesis/population_compute/gate7_high_scale_index_bank_prep.py'
+      - 'ai_hypothesis/population_compute/gate7_high_scale_frontier_prep.py'
+      - 'ai_hypothesis/population_compute/gate7_high_scale_terminal_stage_b_prep.py'
+      - 'tests/test_gate7_scale_neutral_memory_bounded_prep.py'
+      - 'tests/test_gate7_high_scale_index_bank_prep.py'
+      - 'tests/test_gate7_high_scale_frontier_prep.py'
+      - 'tests/test_gate7_high_scale_terminal_stage_b_prep.py'
+      - 'tests/test_gate7_high_scale_execution_isolation_prep.py'
+      - '.github/workflows/gate7-high-scale-execution-prep-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  execution-prep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install CPU Torch
+        run: |
+          python -m pip install --disable-pip-version-check torch --index-url https://download.pytorch.org/whl/cpu
+          python -c "import torch; print('torch', torch.__version__)"
+
+      - name: Compile high-scale preparation modules
+        run: |
+          python -m compileall -q \
+            ai_hypothesis/population_compute/gate7_scale_neutral_memory_bounded_prep.py \
+            ai_hypothesis/population_compute/gate7_high_scale_index_bank_prep.py \
+            ai_hypothesis/population_compute/gate7_high_scale_frontier_prep.py \
+            ai_hypothesis/population_compute/gate7_high_scale_terminal_stage_b_prep.py
+
+      - name: Run data-blind execution-preparation regressions
+        run: |
+          python -m unittest \
+            tests/test_gate7_scale_neutral_memory_bounded_prep.py \
+            tests/test_gate7_high_scale_index_bank_prep.py \
+            tests/test_gate7_high_scale_frontier_prep.py \
+            tests/test_gate7_high_scale_terminal_stage_b_prep.py \
+            tests/test_gate7_high_scale_execution_isolation_prep.py
+
+      - name: Verify immutable-frontier memory boundary
+        run: |
+          python - <<'PY'
+          from ai_hypothesis.population_compute.gate7_high_scale_index_bank_prep import (
+              gate7_high_scale_index_bank_storage_bytes,
+              initialize_gate7_high_scale_live_index_bank,
+          )
+          bank = initialize_gate7_high_scale_live_index_bank(
+              batch_size=64,
+              population=131072,
+              device='cpu',
+          )
+          assert gate7_high_scale_index_bank_storage_bytes(bank) == 67_109_376
+          PY
+
+      - name: Verify high-scale scientific execution remains closed
+        shell: bash
+        run: |
+          test ! -f ai_hypothesis/population_compute/gate7_high_scale_routing_bandwidth.py
+          test ! -f ai_hypothesis/population_compute/run_gate7_high_scale_routing_bandwidth.py
+          test ! -f scripts/run_gate7_high_scale_routing_bandwidth.ps1
+          test ! -f experiments/population_compute_scaling_v0/gate7_high_scale_routing_bandwidth_result.md
+          ! grep --line-number 'generate_gate7_high_scale_world(' \
+            tests/test_gate7_scale_neutral_memory_bounded_prep.py \
+            tests/test_gate7_high_scale_index_bank_prep.py \
+            tests/test_gate7_high_scale_frontier_prep.py \
+            tests/test_gate7_high_scale_terminal_stage_b_prep.py \
+            tests/test_gate7_high_scale_execution_isolation_prep.py
