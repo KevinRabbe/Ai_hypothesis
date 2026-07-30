@@ -40,18 +40,6 @@ def _synchronize() -> None:
     torch.cuda.synchronize()
 
 
-def _memory_stats_device_index(device: torch.device) -> int:
-    """Return the explicit CUDA index used by allocator-memory-stat APIs.
-
-    The execution tensors still use a torch.device. Keeping allocator-stat calls on an integer index
-    avoids backend-specific handling differences for torch.device objects while measuring cuda:0.
-    """
-
-    if device.type != "cuda" or device.index is None:
-        raise ValueError("Gate-7 native-bank profile requires an explicitly indexed CUDA device")
-    return int(device.index)
-
-
 def _allocate_bank(*, batch_size: int, population: int, device: torch.device) -> Gate7NativeTensorBank:
     width = population + 1
     states = torch.empty((batch_size, width, GATE7_NATIVE_STATE_WIDTH), dtype=torch.float32, device=device)
@@ -112,8 +100,10 @@ def _run_cycle(
     k: int | None,
     device: torch.device,
 ) -> dict[str, float | int | str]:
-    memory_device_index = _memory_stats_device_index(device)
-    torch.cuda.reset_peak_memory_stats(memory_device_index)
+    # The local Windows/PyTorch CUDA build rejects explicit device arguments for allocator-stat APIs,
+    # even though cuda:0 tensor execution is valid. The profile owns cuda:0 as the current device, so
+    # use the documented current-device path for both reset and readback.
+    torch.cuda.reset_peak_memory_stats()
 
     bank = _allocate_bank(batch_size=batch_size, population=population, device=device)
     public_seeds = gate7_native_public_seed_tensor(
@@ -188,7 +178,7 @@ def _run_cycle(
             if mode == "global_score"
             else (0 if mode == "bounded_hash" else int(k) * slots)
         ),
-        "peak_allocated_bytes": int(torch.cuda.max_memory_allocated(memory_device_index)),
+        "peak_allocated_bytes": int(torch.cuda.max_memory_allocated()),
     }
 
 
@@ -334,6 +324,8 @@ def main() -> int:
     if args.repeats <= 0:
         raise SystemExit("--repeats must be positive")
 
+    # Own the current-device context explicitly. Allocator stats below intentionally use device=None.
+    torch.cuda.set_device(0)
     device = torch.device("cuda:0")
     rows: list[dict[str, object]] = []
 
@@ -372,7 +364,7 @@ def main() -> int:
         "torch_version": torch.__version__,
         "cuda_runtime": torch.version.cuda,
         "cuda_device_name": torch.cuda.get_device_name(0),
-        "cuda_device_index": _memory_stats_device_index(device),
+        "cuda_device_index": 0,
         "compiler_enabled": False,
         "cuda_graphs_enabled": False,
         "mixed_precision_enabled": False,
