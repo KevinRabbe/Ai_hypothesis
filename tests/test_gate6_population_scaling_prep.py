@@ -1,24 +1,39 @@
 from __future__ import annotations
 
+import importlib.util
+import sys
 import unittest
+from pathlib import Path
 
-from ai_hypothesis.population_compute.gate6_population_scaling_prep import (
-    GATE6_DESCRIPTIVE_K,
-    GATE6_FULL_FRONTIER,
-    GATE6_NONINFERIORITY_MARGIN,
-    GATE6_POPULATION_LADDER,
-    GATE6_PREPARATION_ONLY,
-    GATE6_PRIMARY_K,
-    GATE6_STAGE_A_LEARNED_UPDATES,
-    GATE6_STAGE_A_PARENT_SLOTS,
-    GATE6_STAGE_B_LEARNED_UPDATES,
-    GATE6_STAGE_B_PARENT_SLOTS,
-    GATE6_TOTAL_LEARNED_UPDATES,
-    build_gate6_preparation_plan,
-    complete_depth8_frontier_paths,
-    nested_answer_blind_thinning,
-    validate_nested_thinning,
+
+MODULE_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "ai_hypothesis"
+    / "population_compute"
+    / "gate6_population_scaling_prep.py"
 )
+SPEC = importlib.util.spec_from_file_location("gate6_population_scaling_prep_standalone", MODULE_PATH)
+if SPEC is None or SPEC.loader is None:
+    raise RuntimeError("could not load Gate-6 preparation module")
+MODULE = importlib.util.module_from_spec(SPEC)
+sys.modules[SPEC.name] = MODULE
+SPEC.loader.exec_module(MODULE)
+
+GATE6_DESCRIPTIVE_K = MODULE.GATE6_DESCRIPTIVE_K
+GATE6_FULL_FRONTIER = MODULE.GATE6_FULL_FRONTIER
+GATE6_NONINFERIORITY_MARGIN = MODULE.GATE6_NONINFERIORITY_MARGIN
+GATE6_POPULATION_LADDER = MODULE.GATE6_POPULATION_LADDER
+GATE6_PREPARATION_ONLY = MODULE.GATE6_PREPARATION_ONLY
+GATE6_PRIMARY_K = MODULE.GATE6_PRIMARY_K
+GATE6_STAGE_A_LEARNED_UPDATES = MODULE.GATE6_STAGE_A_LEARNED_UPDATES
+GATE6_STAGE_A_PARENT_SLOTS = MODULE.GATE6_STAGE_A_PARENT_SLOTS
+GATE6_STAGE_B_LEARNED_UPDATES = MODULE.GATE6_STAGE_B_LEARNED_UPDATES
+GATE6_STAGE_B_PARENT_SLOTS = MODULE.GATE6_STAGE_B_PARENT_SLOTS
+GATE6_TOTAL_LEARNED_UPDATES = MODULE.GATE6_TOTAL_LEARNED_UPDATES
+build_gate6_preparation_plan = MODULE.build_gate6_preparation_plan
+complete_depth8_frontier_paths = MODULE.complete_depth8_frontier_paths
+nested_answer_blind_thinning = MODULE.nested_answer_blind_thinning
+validate_nested_thinning = MODULE.validate_nested_thinning
 
 
 class Gate6PreparationTests(unittest.TestCase):
