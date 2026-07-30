@@ -8,6 +8,8 @@ on:
     paths:
       - 'ai_hypothesis/population_compute/gate7_scaling_frontier_prep.py'
       - 'ai_hypothesis/population_compute/gate7_tensor_engine_prep.py'
+      - 'ai_hypothesis/population_compute/profile_gate7_execution_engine.py'
+      - 'scripts/profile_gate7_execution_engine.ps1'
       - 'tests/test_gate7_scaling_frontier_prep.py'
       - 'tests/test_gate7_tensor_engine_prep.py'
       - 'experiments/population_compute_scaling_v0/gate7_*'
@@ -41,7 +43,8 @@ jobs:
         run: |
           python -m compileall -q \
             ai_hypothesis/population_compute/gate7_scaling_frontier_prep.py \
-            ai_hypothesis/population_compute/gate7_tensor_engine_prep.py
+            ai_hypothesis/population_compute/gate7_tensor_engine_prep.py \
+            ai_hypothesis/population_compute/profile_gate7_execution_engine.py
 
       - name: Run data-blind Gate7 preparation regressions
         run: |
@@ -57,11 +60,13 @@ jobs:
           ! grep -R --line-number 'generate_gate7.*world' \
             ai_hypothesis/population_compute/gate7_scaling_frontier_prep.py \
             ai_hypothesis/population_compute/gate7_tensor_engine_prep.py \
+            ai_hypothesis/population_compute/profile_gate7_execution_engine.py \
             tests/test_gate7_scaling_frontier_prep.py \
             tests/test_gate7_tensor_engine_prep.py
           ! grep -R --line-number 'gate7-.*-hidden' \
             ai_hypothesis/population_compute/gate7_scaling_frontier_prep.py \
-            ai_hypothesis/population_compute/gate7_tensor_engine_prep.py
+            ai_hypothesis/population_compute/gate7_tensor_engine_prep.py \
+            ai_hypothesis/population_compute/profile_gate7_execution_engine.py
 
       - name: Verify hot tensor functions contain no CUDA-to-Python scalar extraction
         shell: bash
@@ -80,9 +85,44 @@ jobs:
           assert 'sorted(' not in inspect.getsource(m.select_bounded_score_indices)
           PY
 
+      - name: Verify engineering profiler exposes only execution knobs
+        shell: bash
+        run: |
+          python -m ai_hypothesis.population_compute.profile_gate7_execution_engine --help > gate7-profile-help.txt
+          grep -q -- '--output-root' gate7-profile-help.txt
+          grep -q -- '--checkpoint' gate7-profile-help.txt
+          grep -q -- '--world-count' gate7-profile-help.txt
+          grep -q -- '--frontier-depth' gate7-profile-help.txt
+          grep -q -- '--repeats' gate7-profile-help.txt
+          ! grep -q -- '--hidden' gate7-profile-help.txt
+          ! grep -q -- '--reliability' gate7-profile-help.txt
+          ! grep -q -- '--k' gate7-profile-help.txt
+          ! grep -q -- '--training' gate7-profile-help.txt
+
       - name: Verify no scientific Gate7 runner exists
         shell: bash
         run: |
           test ! -f ai_hypothesis/population_compute/run_gate7.py
           test ! -f scripts/run_gate7.ps1
           test ! -f experiments/population_compute_scaling_v0/gate7_result.md
+
+  windows-profile-wrapper-smoke:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Put checkout on Gate7 preparation branch name
+        shell: powershell
+        run: git switch -C agent/gate7-high-scale-frontier-prep-v0
+
+      - name: Execute engineering profile wrapper under Windows PowerShell 5.1 StrictMode
+        shell: powershell
+        env:
+          GATE7_PROFILE_WRAPPER_SMOKE: '1'
+        run: |
+          .\scripts\profile_gate7_execution_engine.ps1 `
+            -IdleMachineAttested `
+            -OutputRoot "$env:RUNNER_TEMP\gate7-profile-smoke"
