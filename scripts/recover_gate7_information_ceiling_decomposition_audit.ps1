@@ -88,7 +88,7 @@ try {
     Write-Host "Scientific execution:       NOT REPEATED"
     Write-Host ""
 
-    python -m ai_hypothesis.population_compute.recover_gate7_information_ceiling_decomposition_audit `
+    python scripts/recover_gate7_information_ceiling_decomposition_audit.py `
         $resultPath `
         --output $recoveredAuditPath `
         --metadata-output $recoveryMetadataPath
