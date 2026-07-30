@@ -14,10 +14,9 @@ from typing import Sequence
 
 import torch
 
-from .gate3_v1_model import GATE3_V1_INPUT_WIDTH, Gate3V1Scorer
+from .gate3_v1_model import GATE3_V1_INPUT_WIDTH, GATE3_V1_MAX_DEPTH, Gate3V1Scorer
 from .gate3_v1_sparse_active_reserve import (
     GATE3_V1_DEPTHS,
-    GATE3_V1_MAX_DEPTH,
     GATE3_V1_RECURRENT_UPDATES_PER_CHILD,
     GATE3_V1_SCORE_QUANTIZATION,
     Gate3V1PublicWorld,
@@ -120,16 +119,9 @@ def build_productive_child_inputs(
         dtype=torch.int64,
         device=target,
     )
-    per_world[
-        torch.arange(batch, device=target),
-        torch.zeros(batch, dtype=torch.int64, device=target),
-        hint_feature_offset + hint_indices,
-    ] = 1.0
-    per_world[
-        torch.arange(batch, device=target),
-        torch.ones(batch, dtype=torch.int64, device=target),
-        hint_feature_offset + hint_indices,
-    ] = 1.0
+    rows = torch.arange(batch, device=target)
+    per_world[rows, 0, hint_feature_offset + hint_indices] = 1.0
+    per_world[rows, 1, hint_feature_offset + hint_indices] = 1.0
 
     action_feature_offset = hint_feature_offset + 3
     per_world[:, 0, action_feature_offset] = 1.0
@@ -236,8 +228,8 @@ def select_bounded_score_indices(
 ) -> torch.Tensor:
     """Select one parent/world using only K gathered neural scores.
 
-    `path_bits_by_world` must already be in lexicographic path order.  Candidate metadata remains on
-    the host, while the only causal neural values read are the K gathered scores.  The return value
+    `path_bits_by_world` must already be in lexicographic path order. Candidate metadata remains on
+    the host, while the only causal neural values read are the K gathered scores. The return value
     stays on the same device as `scores` so downstream gather can remain device-side.
     """
 
