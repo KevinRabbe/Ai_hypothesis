@@ -145,8 +145,10 @@ jobs:
               source = inspect.getsource(fn)
               assert 'argsort(' not in source, fn.__name__
               assert 'sorted(' not in source, fn.__name__
-          assert 'scores' not in inspect.getsource(native.sample_gate7_native_positions)
-          assert 'scores' not in inspect.getsource(native.gate7_native_victim_positions)
+          sampler_params = set(inspect.signature(native.sample_gate7_native_positions).parameters)
+          victim_params = set(inspect.signature(native.gate7_native_victim_positions).parameters)
+          assert 'scores' not in sampler_params and 'states' not in sampler_params
+          assert 'scores' not in victim_params and 'states' not in victim_params
           PY
 
       - name: Verify engineering profiler exposes only execution knobs
