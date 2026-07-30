@@ -25,13 +25,13 @@ try {
     }
 
     $branch = (git branch --show-current).Trim()
-    if ($LASTEXITCODE -ne 0 -or $branch -ne "agent/gate7-high-scale-frontier-prep-v0") {
-        throw "Gate-7 transition training must run from agent/gate7-high-scale-frontier-prep-v0."
+    if ($LASTEXITCODE -ne 0 -or $branch -ne "agent/gate7-scale-neutral-transition-training-v0") {
+        throw "Gate-7 transition training must run from agent/gate7-scale-neutral-transition-training-v0."
     }
 
     $head = (git rev-parse HEAD).Trim()
     if ($LASTEXITCODE -ne 0 -or $head.Length -ne 40) {
-        throw "Could not resolve exact Gate-7 preparation Git head."
+        throw "Could not resolve exact Gate-7 transition-training Git head."
     }
 
     $resolvedOutputRoot = [System.IO.Path]::GetFullPath($OutputRoot)
@@ -90,6 +90,9 @@ if not torch.cuda.is_available():
     if (-not (Test-Path -LiteralPath $summaryPath -PathType Leaf)) {
         throw "Gate-7 transition training did not produce training-summary.json."
     }
+
+    $head | Set-Content -Encoding ASCII (Join-Path $resolvedOutputRoot "git-head.txt")
+    (git status --porcelain) | Set-Content -Encoding UTF8 (Join-Path $resolvedOutputRoot "git-status.txt")
 
     Write-Host ""
     Write-Host "Transition training complete: $resolvedOutputRoot"
