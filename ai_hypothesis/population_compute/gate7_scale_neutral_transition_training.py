@@ -22,7 +22,7 @@ from .gate7_scale_neutral_model_prep import (
     GATE7_SCALE_NEUTRAL_PARAMETER_COUNT,
     Gate7ScaleNeutralModelConfig,
     Gate7ScaleNeutralScorer,
-    gate7_scale_neutral_position_features,
+    encode_gate7_scale_neutral_child_inputs_batch,
 )
 
 GATE7_SCALE_NEUTRAL_TRANSITION_VERSION = "gate7-scale-neutral-scorer-transition-v0"
@@ -111,31 +111,33 @@ def build_gate7_scale_neutral_training_inputs(
     actions: torch.Tensor,
     device: torch.device | str,
 ) -> torch.Tensor:
-    """Vectorized productive training input with the frozen 13+3+3 feature layout."""
+    """Build one productive training phase without synchronizing CUDA token values to Python.
 
+    The only caller feeds tokens produced by `gate7_scale_neutral_training_batch`, which is the
+    CPU trust boundary that guarantees binary hints/actions. This function validates tensor metadata
+    and public depth integers, then keeps the complete encoding path on the target device.
+    """
+
+    if world_depth not in GATE7_SCALE_NEUTRAL_TRAINING_DEPTHS:
+        raise ValueError("world depth is outside the frozen transition training schedule")
+    if not 1 <= child_depth <= world_depth:
+        raise ValueError("child depth must lie within the training world")
     if hints.ndim != 1 or actions.shape != hints.shape:
         raise ValueError("hints/actions must be matching rank-one tensors")
     if hints.dtype != torch.int64 or actions.dtype != torch.int64:
         raise ValueError("hints/actions must use int64 tokens")
-    if not bool(((hints == 0) | (hints == 1)).all()):
-        raise ValueError("hints must be binary")
-    if not bool(((actions == 0) | (actions == 1)).all()):
-        raise ValueError("actions must be binary")
 
     target = torch.device(device)
     count = hints.shape[0]
-    inputs = torch.zeros((count, 19), dtype=torch.float32, device=target)
-    inputs[:, :13] = gate7_scale_neutral_position_features(
-        child_depth=child_depth,
-        world_depth=world_depth,
-        device=target,
-    )[None, :]
     hint_tokens = hints.to(target)
     action_tokens = actions.to(target)
-    rows = torch.arange(count, device=target)
-    inputs[rows, 13 + hint_tokens] = 1.0
-    inputs[rows, 16 + action_tokens] = 1.0
-    return inputs
+    return encode_gate7_scale_neutral_child_inputs_batch(
+        world_depths=torch.full((count,), world_depth, dtype=torch.int64, device=target),
+        child_depths=torch.full((count,), child_depth, dtype=torch.int64, device=target),
+        observed_hints=hint_tokens,
+        branch_actions=action_tokens,
+        sink=torch.zeros(count, dtype=torch.bool, device=target),
+    )
 
 
 def train_gate7_scale_neutral_checkpoint(
@@ -211,14 +213,14 @@ def train_gate7_scale_neutral_checkpoint(
             phase_losses.append(loss_fn(predictions, target_values))
 
         loss = torch.stack(phase_losses).mean()
-        if not bool(torch.isfinite(loss)):
+        scalar_loss = float(loss.detach().item())
+        if not math.isfinite(scalar_loss):
             raise RuntimeError("scale-neutral transition training produced non-finite loss")
         optimizer.zero_grad(set_to_none=True)
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), GATE7_SCALE_NEUTRAL_GRADIENT_CLIP_NORM)
         optimizer.step()
 
-        scalar_loss = float(loss.detach().item())
         losses.append(scalar_loss)
         if progress is not None:
             progress(step + 1, GATE7_SCALE_NEUTRAL_TRAINING_STEPS, depth, scalar_loss)
