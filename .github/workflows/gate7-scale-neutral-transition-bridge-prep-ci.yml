@@ -14,6 +14,7 @@ on:
       - 'tests/test_gate7_scale_neutral_transition_bridge_prep.py'
       - 'tests/test_gate7_scale_neutral_transition_bridge.py'
       - 'experiments/population_compute_scaling_v0/gate7_scale_neutral_scorer_transition_protocol.md'
+      - 'experiments/population_compute_scaling_v0/gate7_scale_neutral_transition_training_result.md'
       - '.github/workflows/gate7-scale-neutral-transition-bridge-prep-ci.yml'
   workflow_dispatch:
 
