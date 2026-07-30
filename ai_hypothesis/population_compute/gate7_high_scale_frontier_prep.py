@@ -25,6 +25,7 @@ from .gate7_scale_neutral_model_prep import (
 )
 
 GATE7_HIGH_SCALE_FRONTIER_PREPARATION_ONLY = True
+GATE7_HIGH_SCALE_FRONTIER_MAX_RECURRENT_ROWS = 1_048_576
 
 
 def validate_gate7_high_scale_public_hints(
@@ -43,25 +44,44 @@ def validate_gate7_high_scale_public_hints(
     return plan.world_depth
 
 
-def _productive_inputs_for_action(
+def gate7_high_scale_frontier_chunk_ranges(total_rows: int) -> tuple[tuple[int, int], ...]:
+    """Return the fixed contiguous recurrent-row partition used by every complete layer."""
+
+    if total_rows <= 0:
+        raise ValueError("complete-frontier recurrent row count must be positive")
+    if GATE7_HIGH_SCALE_FRONTIER_MAX_RECURRENT_ROWS <= 0:
+        raise RuntimeError("Gate-7 frontier recurrent-row chunk must remain positive")
+    return tuple(
+        (
+            start,
+            min(start + GATE7_HIGH_SCALE_FRONTIER_MAX_RECURRENT_ROWS, total_rows),
+        )
+        for start in range(0, total_rows, GATE7_HIGH_SCALE_FRONTIER_MAX_RECURRENT_ROWS)
+    )
+
+
+def _productive_inputs_for_action_chunk(
     *,
-    noisy_hints_by_world: tuple[tuple[int, ...], ...],
+    hint_by_world: torch.Tensor,
     world_depth: int,
     child_depth: int,
     parent_count: int,
     branch_action: int,
-    device: torch.device,
+    row_start: int,
+    row_end: int,
 ) -> torch.Tensor:
     if branch_action not in (0, 1):
         raise ValueError("complete-frontier action must remain binary")
-    batch = len(noisy_hints_by_world)
-    count = batch * parent_count
-    hint_by_world = torch.tensor(
-        [row[child_depth - 1] for row in noisy_hints_by_world],
-        dtype=torch.int64,
-        device=device,
-    )
-    observed_hints = hint_by_world[:, None].expand(batch, parent_count).reshape(count)
+    if hint_by_world.ndim != 1 or hint_by_world.dtype != torch.int64:
+        raise ValueError("public layer hints must use int64 [batch]")
+    if not 0 <= row_start < row_end <= hint_by_world.shape[0] * parent_count:
+        raise ValueError("recurrent-row chunk is outside the complete layer")
+
+    device = hint_by_world.device
+    row_ids = torch.arange(row_start, row_end, dtype=torch.int64, device=device)
+    world_indices = torch.div(row_ids, parent_count, rounding_mode="floor")
+    observed_hints = hint_by_world[world_indices]
+    count = row_end - row_start
     return encode_gate7_scale_neutral_child_inputs_batch(
         world_depths=torch.full((count,), world_depth, dtype=torch.int64, device=device),
         child_depths=torch.full((count,), child_depth, dtype=torch.int64, device=device),
@@ -85,9 +105,10 @@ def build_gate7_high_scale_immutable_frontier(
     Output order is world-major and lexicographic by binary action path. The function performs only
     productive Stage-A transitions; the final public hint at world_depth is reserved for Stage B.
 
-    Action lanes are executed separately and recurrent updates are applied one step at a time. This
-    preserves the exact eight-update model semantics without materializing duplicated parent states or
-    an eightfold repeated projected-input sequence at the largest frontier.
+    Action lanes are executed separately, recurrent updates are applied one step at a time, and each
+    action lane is partitioned into fixed contiguous recurrent-row chunks. The same B64 output frontier
+    is preallocated in full; chunking changes only transient execution and does not change world count,
+    logical work, output order, learned parameters, or model arithmetic.
     """
 
     plan = build_gate7_high_scale_tier_plan(population)
@@ -108,7 +129,13 @@ def build_gate7_high_scale_immutable_frontier(
     with torch.inference_mode():
         for child_depth in range(1, plan.frontier_depth + 1):
             parent_count = states.shape[1]
-            parent_states = states.reshape(batch * parent_count, 64)
+            total_parent_rows = batch * parent_count
+            parent_states = states.reshape(total_parent_rows, 64)
+            hint_by_world = torch.tensor(
+                [row[child_depth - 1] for row in noisy_hints_by_world],
+                dtype=torch.int64,
+                device=target,
+            )
             next_states = torch.empty(
                 (batch, parent_count * 2, 64),
                 dtype=torch.float32,
@@ -119,31 +146,37 @@ def build_gate7_high_scale_immutable_frontier(
                 dtype=torch.float32,
                 device=target,
             )
+            next_states_flat = next_states.reshape(total_parent_rows * 2, 64)
+            next_scores_flat = next_scores.reshape(total_parent_rows * 2)
+            chunk_ranges = gate7_high_scale_frontier_chunk_ranges(total_parent_rows)
 
             for branch_action in (0, 1):
-                child_inputs = _productive_inputs_for_action(
-                    noisy_hints_by_world=noisy_hints_by_world,
-                    world_depth=world_depth,
-                    child_depth=child_depth,
-                    parent_count=parent_count,
-                    branch_action=branch_action,
-                    device=target,
-                )
-                child_states = advance_gate7_scale_neutral_memory_bounded(
-                    model,
-                    parent_states,
-                    child_inputs,
-                    repeats=GATE3_V1_RECURRENT_UPDATES_PER_CHILD,
-                )
-                child_scores = model.score(child_states)
-                next_states[:, branch_action::2, :] = child_states.reshape(
-                    batch, parent_count, 64
-                )
-                next_scores[:, branch_action::2] = child_scores.reshape(
-                    batch, parent_count
-                )
-                del child_inputs, child_states, child_scores
+                for row_start, row_end in chunk_ranges:
+                    child_inputs = _productive_inputs_for_action_chunk(
+                        hint_by_world=hint_by_world,
+                        world_depth=world_depth,
+                        child_depth=child_depth,
+                        parent_count=parent_count,
+                        branch_action=branch_action,
+                        row_start=row_start,
+                        row_end=row_end,
+                    )
+                    child_states = advance_gate7_scale_neutral_memory_bounded(
+                        model,
+                        parent_states[row_start:row_end],
+                        child_inputs,
+                        repeats=GATE3_V1_RECURRENT_UPDATES_PER_CHILD,
+                    )
+                    child_scores = model.score(child_states)
+                    output_positions = (
+                        torch.arange(row_start, row_end, dtype=torch.int64, device=target) * 2
+                        + branch_action
+                    )
+                    next_states_flat.index_copy_(0, output_positions, child_states)
+                    next_scores_flat.index_copy_(0, output_positions, child_scores)
+                    del child_inputs, child_states, child_scores, output_positions
 
+            del parent_states, hint_by_world, next_states_flat, next_scores_flat
             states = next_states
             scores = next_scores
 

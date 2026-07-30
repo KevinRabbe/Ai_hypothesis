@@ -1,0 +1,65 @@
+name: Gate7 high-scale frontier row-chunking qualification
+
+on:
+  push:
+    branches:
+      - agent/gate7-high-scale-frontier-row-chunking-prep-v0
+  pull_request:
+    paths:
+      - 'ai_hypothesis/population_compute/gate7_high_scale_frontier_prep.py'
+      - 'tests/test_gate7_high_scale_frontier_prep.py'
+      - '.github/workflows/gate7-high-scale-frontier-row-chunking-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  row-chunking:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install CPU Torch
+        run: |
+          python -m pip install --disable-pip-version-check torch --index-url https://download.pytorch.org/whl/cpu
+          python -c "import torch; print('torch', torch.__version__)"
+
+      - name: Compile row-chunked frontier builder
+        run: |
+          python -m compileall -q ai_hypothesis/population_compute/gate7_high_scale_frontier_prep.py
+
+      - name: Run complete-frontier regressions
+        run: |
+          python -m unittest tests/test_gate7_high_scale_frontier_prep.py
+
+      - name: Verify fixed B64-preserving chunk contract
+        run: |
+          python - <<'PY'
+          from ai_hypothesis.population_compute import gate7_high_scale_frontier_prep as p
+          assert p.GATE7_HIGH_SCALE_FRONTIER_PREPARATION_ONLY is True
+          assert p.GATE7_HIGH_SCALE_FRONTIER_MAX_RECURRENT_ROWS == 1_048_576
+          assert p.gate7_high_scale_frontier_chunk_ranges(4_194_304) == (
+              (0, 1_048_576),
+              (1_048_576, 2_097_152),
+              (2_097_152, 3_145_728),
+              (3_145_728, 4_194_304),
+          )
+          PY
+
+      - name: Verify high-scale science remains closed
+        shell: bash
+        run: |
+          test ! -f ai_hypothesis/population_compute/gate7_high_scale_routing_bandwidth.py
+          test ! -f ai_hypothesis/population_compute/run_gate7_high_scale_routing_bandwidth.py
+          test ! -f scripts/run_gate7_high_scale_routing_bandwidth.ps1
+          test ! -f experiments/population_compute_scaling_v0/gate7_high_scale_routing_bandwidth_result.md
+          ! grep --line-number 'torch.load\|hidden_path\|generate_gate7_high_scale_world' \
+            ai_hypothesis/population_compute/gate7_high_scale_frontier_prep.py
