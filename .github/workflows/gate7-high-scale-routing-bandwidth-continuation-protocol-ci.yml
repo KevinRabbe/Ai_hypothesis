@@ -1,0 +1,84 @@
+name: Gate7 routing-bandwidth continuation protocol qualification
+
+on:
+  push:
+    branches:
+      - agent/gate7-high-scale-routing-bandwidth-continuation-protocol-v0
+  pull_request:
+    paths:
+      - 'ai_hypothesis/population_compute/gate7_high_scale_routing_bandwidth_continuation_protocol.py'
+      - 'experiments/population_compute_scaling_v0/gate7_high_scale_routing_bandwidth_continuation_protocol_v0.md'
+      - 'tests/test_gate7_high_scale_routing_bandwidth_continuation_protocol.py'
+      - '.github/workflows/gate7-high-scale-routing-bandwidth-continuation-protocol-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  protocol:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Compile frozen continuation protocol
+        run: |
+          python -m compileall -q ai_hypothesis/population_compute/gate7_high_scale_routing_bandwidth_continuation_protocol.py
+
+      - name: Run continuation-protocol regressions
+        run: |
+          python -m unittest tests/test_gate7_high_scale_routing_bandwidth_continuation_protocol.py
+
+      - name: Verify exact fixed matrix and evidence bindings without package import
+        run: |
+          python - <<'PY'
+          import importlib.util
+          import pathlib
+          import sys
+
+          path = pathlib.Path('ai_hypothesis/population_compute/gate7_high_scale_routing_bandwidth_continuation_protocol.py')
+          spec = importlib.util.spec_from_file_location('gate7_continuation_protocol_ci', path)
+          assert spec is not None and spec.loader is not None
+          p = importlib.util.module_from_spec(spec)
+          sys.modules[spec.name] = p
+          spec.loader.exec_module(p)
+
+          assert p.GATE7_CONTINUATION_PROTOCOL_FROZEN is True
+          assert p.GATE7_CONTINUATION_EXECUTION_OPENED is False
+          assert p.GATE7_CONTINUATION_CONFIRMATION_RESULT_HEAD == 'ae8bd8544a03e48f4f397d2ca5ae933d9247e430'
+          assert p.GATE7_CONTINUATION_CONFIRMATION_RESULT_SHA256 == '725e3749ba5fed7cdcbb6d61df81bcc77a7b69bacfdc82d553efb06f5ff888da'
+          assert p.GATE7_CONTINUATION_CONFIRMATION_AUDIT_SHA256 == '27a46ba0feccf6b3322885334819e0e7a07bb02be930122eb1f063c65d69fb99'
+          assert p.GATE7_CONTINUATION_CONFIRMATION_OUTCOME == 'G7_ROUTING_BANDWIDTH_FRONTIER_NOT_CONFIRMED'
+          assert p.GATE7_CONTINUATION_CONFIRMED_N8192_PASSING_K == (256, 512)
+          assert p.GATE7_CONTINUATION_CONFIRMED_N8192_K_REQUIRED == 256
+          assert p.GATE7_CONTINUATION_POPULATIONS == (16384, 32768, 65536, 131072)
+          assert p.GATE7_CONTINUATION_K_LADDER == (16, 32, 64, 128, 256, 512)
+          assert p.GATE7_CONTINUATION_WORLD_COUNT == 512
+          assert p.GATE7_CONTINUATION_EVALUATION_BATCH_SIZE == 64
+          assert p.GATE7_CONTINUATION_BOOTSTRAP_SAMPLES == 10_000
+          assert len(p.complete_condition_matrix()) == 14
+          assert all(tier.conditions == p.complete_condition_matrix() for tier in p.prepared_continuation_tiers())
+          PY
+
+      - name: Verify complete remaining ladder and no scientific early-stop surface
+        shell: bash
+        run: |
+          module=ai_hypothesis/population_compute/gate7_high_scale_routing_bandwidth_continuation_protocol.py
+          grep -F 'GATE7_CONTINUATION_POPULATIONS = (16_384, 32_768, 65_536, 131_072)' "$module"
+          grep -F 'GATE7_CONTINUATION_K_LADDER = (16, 32, 64, 128, 256, 512)' "$module"
+          grep -F 'G7_CONTINUE_TO_NEXT_POST_CONFIRMATION_POPULATION' "$module"
+          grep -F 'G7_POST_CONFIRMATION_LADDER_COMPLETE' "$module"
+          ! grep --line-number '^import torch' "$module"
+          ! grep --line-number '^from torch' "$module"
+          ! grep --line-number 'torch.load' "$module"
+          ! grep --line-number 'generate_gate7' "$module"
+          ! grep --line-number 'run_gate7' "$module"
+          test ! -f ai_hypothesis/population_compute/gate7_high_scale_routing_bandwidth_continuation.py
+          test ! -f ai_hypothesis/population_compute/run_gate7_high_scale_routing_bandwidth_continuation.py
+          test ! -f scripts/run_gate7_high_scale_routing_bandwidth_continuation.ps1
+          test ! -f experiments/population_compute_scaling_v0/gate7_high_scale_routing_bandwidth_continuation_result_v0.md
