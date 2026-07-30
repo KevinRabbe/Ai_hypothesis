@@ -1,0 +1,86 @@
+name: Gate7 information-ceiling precision confirmation result qualification
+
+on:
+  push:
+    branches:
+      - agent/gate7-information-ceiling-precision-confirmation-result-v0
+  pull_request:
+    paths:
+      - 'experiments/population_compute_scaling_v0/gate7_information_ceiling_precision_confirmation_result_v0.md'
+      - '.github/workflows/gate7-information-ceiling-precision-confirmation-result-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  result-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify exact result identities and classifier
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('experiments/population_compute_scaling_v0/gate7_information_ceiling_precision_confirmation_result_v0.md')
+          text = path.read_text(encoding='utf-8')
+          required = (
+              'bdc5f2c03cbc77a79a419a16460387ac0d226a27',
+              '8d7865ab01b4b04b875ed2ca627b68a6c33c81f7',
+              'G7_PRECISION_INFORMATION_CEILING_DOMINANT',
+              'artifact_valid = true',
+              'errors = []',
+              '89f0a69d530355031f02666e403977f4ad3b622bc6468627c4cbfa9a7d1ea489',
+              '857256f4ae71f0fbf6744a531ece0120fb9bb3088e36e30471e3614ffd602a79',
+              '2e212ab56dd251ab527f8aeb95e40f0e06bcacad9b7e1900f49a1b8d96efffa3',
+              'learned_minus_Bayes = -0.007568359375',
+              'approximately 93.5% of Bayes M128 coverage',
+          )
+          for token in required:
+              assert token in text, token
+          PY
+
+      - name: Verify complete primary matrix
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          text = Path('experiments/population_compute_scaling_v0/gate7_information_ceiling_precision_confirmation_result_v0.md').read_text(encoding='utf-8')
+          expected = {
+              (16384, 'T0'): ('0.175293', '0.179199', '0.013184', '[-0.0107,+0.0024]'),
+              (16384, 'T1'): ('0.165039', '0.179199', '0.013184', '[-0.0234,-0.0049]'),
+              (16384, 'T2'): ('0.171875', '0.179199', '0.013184', '[-0.0151,+0.0005]'),
+              (32768, 'T0'): ('0.131836', '0.134277', '0.001953', '[-0.0063,+0.0010]'),
+              (32768, 'T1'): ('0.121094', '0.134277', '0.001953', '[-0.0210,-0.0054]'),
+              (32768, 'T2'): ('0.128418', '0.134277', '0.001953', '[-0.0122,+0.0005]'),
+              (65536, 'T0'): ('0.084473', '0.089355', '0.002930', '[-0.0098,+0.0000]'),
+              (65536, 'T1'): ('0.076660', '0.089355', '0.002930', '[-0.0200,-0.0059]'),
+              (65536, 'T2'): ('0.080078', '0.089355', '0.002930', '[-0.0156,-0.0029]'),
+              (131072, 'T0'): ('0.060547', '0.062988', '0.000488', '[-0.0083,+0.0029]'),
+              (131072, 'T1'): ('0.053223', '0.062988', '0.000488', '[-0.0176,-0.0020]'),
+              (131072, 'T2'): ('0.058105', '0.062988', '0.000488', '[-0.0122,+0.0024]'),
+          }
+          for (population, checkpoint), values in expected.items():
+              formatted_population = f'{population:,}'
+              candidates = [line for line in text.splitlines() if f'| {formatted_population} | {checkpoint} |' in line]
+              assert len(candidates) == 1, (population, checkpoint, candidates)
+              for value in values:
+                  assert value in candidates[0], (population, checkpoint, value)
+          PY
+
+      - name: Prove exact two-file result slice
+        run: |
+          changed="$(git diff --name-only bdc5f2c03cbc77a79a419a16460387ac0d226a27...HEAD | sort)"
+          expected="$(printf '%s\n' \
+            '.github/workflows/gate7-information-ceiling-precision-confirmation-result-ci.yml' \
+            'experiments/population_compute_scaling_v0/gate7_information_ceiling_precision_confirmation_result_v0.md' | sort)"
+          test "$changed" = "$expected"
+
+      - name: Verify no scientific implementation changed
+        run: |
+          ! git diff --name-only bdc5f2c03cbc77a79a419a16460387ac0d226a27...HEAD | grep -E '^(ai_hypothesis|scripts|tests)/'
