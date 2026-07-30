@@ -1,0 +1,70 @@
+name: Gate8 distributed-transformation protocol correction qualification
+
+on:
+  push:
+    branches:
+      - agent/gate8-distributed-transformation-capability-protocol-correction-v0
+  pull_request:
+    paths:
+      - 'ai_hypothesis/population_compute/gate8_distributed_transformation_capability_protocol_correction.py'
+      - 'experiments/population_compute_scaling_v0/gate8_distributed_transformation_capability_protocol_correction_v0.md'
+      - 'tests/test_gate8_distributed_transformation_capability_protocol_correction.py'
+      - '.github/workflows/gate8-distributed-transformation-capability-protocol-correction-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  correction-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Compile correction contract
+        run: |
+          python -m compileall -q \
+            ai_hypothesis/population_compute/gate8_distributed_transformation_capability_protocol_correction.py
+
+      - name: Run correction regressions
+        run: |
+          python -m unittest tests/test_gate8_distributed_transformation_capability_protocol_correction.py
+
+      - name: Verify exact corrected condition semantics
+        run: |
+          python - <<'PY'
+          from ai_hypothesis.population_compute.gate8_distributed_transformation_capability_protocol_correction import (
+              gate8_relevant_edge_contracts,
+          )
+
+          rows = gate8_relevant_edge_contracts()
+          assert len(rows) == 21
+          assert all(row.relevant_path_edges == row.depth for row in rows)
+          assert all(row.relevant_fraction <= 1 / 8 for row in rows)
+          assert sum(row.bound_is_tight for row in rows) == 6
+          PY
+
+      - name: Prove exact four-file correction slice
+        run: |
+          changed="$(git diff --name-only e73541115e8ddd122f336463dc1a9ffdbf82df46...HEAD | sort)"
+          expected="$(printf '%s\n' \
+            '.github/workflows/gate8-distributed-transformation-capability-protocol-correction-ci.yml' \
+            'ai_hypothesis/population_compute/gate8_distributed_transformation_capability_protocol_correction.py' \
+            'experiments/population_compute_scaling_v0/gate8_distributed_transformation_capability_protocol_correction_v0.md' \
+            'tests/test_gate8_distributed_transformation_capability_protocol_correction.py' | sort)"
+          test "$changed" = "$expected"
+
+      - name: Verify correction remains pre-exposure
+        run: |
+          module=ai_hypothesis/population_compute/gate8_distributed_transformation_capability_protocol_correction.py
+          ! grep --line-number -E '^import torch|^from torch|^import numpy|^from numpy' "$module"
+          ! grep --line-number -E 'AutoModel|AutoTokenizer|generate_world|torch\.load|execution_admitted.*True' "$module"
