@@ -1,6 +1,6 @@
 """Scale-oriented native live-bank mechanics for Gate-7 preparation.
 
-This module is deliberately data-blind and NOT scientifically admitted.  Unlike the exact Gate-6
+This module is deliberately data-blind and NOT scientifically admitted. Unlike the exact Gate-6
 compatibility engine, it prepares new Gate-7-native mechanics whose bounded routing cost is a function
 of K rather than population N: dense live positions, swap-delete, append, deterministic answer-blind
 victim selection, and an affine metadata sampler over power-of-two capacity.
@@ -92,9 +92,9 @@ def sample_gate7_native_positions(
 ) -> Gate7NativeSample:
     """Return exactly K unique live positions with work bounded by K+128 metadata candidates.
 
-    Capacity N is a power of two.  An odd stride therefore permutes all N positions.  At most 128
-    positions can become dead during the prepared Stage-B horizon, so examining K+128 positions from
-    that permutation guarantees at least K live-prefix positions without scanning N.
+    Capacity N is a power of two. An odd stride therefore permutes all N positions. The admitted
+    caller will maintain the frozen N-128..N live-count envelope; examining K+128 positions from the
+    permutation then guarantees at least K live-prefix positions without scanning N.
     """
 
     _validate_native_scale(population_capacity=population_capacity, k=k)
@@ -104,12 +104,6 @@ def sample_gate7_native_positions(
         raise ValueError("slot_index is outside the prepared Stage-B horizon")
     if sampling_group_code < 0:
         raise ValueError("sampling_group_code must be non-negative")
-
-    minimum_live = population_capacity - GATE7_NATIVE_MAX_STAGE_B_SLOTS
-    if torch.any(live_counts < minimum_live) or torch.any(live_counts > population_capacity):
-        raise ValueError("live_counts exceed the prepared N-128..N envelope")
-    if torch.any(live_counts < k):
-        raise ValueError("prepared bounded sampling requires at least K live candidates")
 
     capacity_mask = population_capacity - 1
     start = (
@@ -129,7 +123,7 @@ def sample_gate7_native_positions(
     permutation_prefix = (start[:, None] + offsets * stride[:, None]) & capacity_mask
     valid = permutation_prefix < live_counts[:, None]
 
-    # Pack the first K valid metadata positions.  This ordering operation is over at most K+128
+    # Pack the first K valid metadata positions. This ordering operation is over at most K+128
     # metadata candidates, never over the full population and never over neural scores.
     candidate_order = torch.arange(examined, dtype=torch.int64, device=live_counts.device)[None, :]
     pack_key = torch.where(valid, candidate_order, candidate_order + examined)
@@ -301,22 +295,22 @@ def append_gate7_native_children(
     states = bank.states.clone()
     scores = bank.scores.clone()
     heap_ids = bank.heap_ids.clone()
-    nonterminal = ~terminal
-    active_rows = rows[nonterminal]
-    first_pos = first[nonterminal]
-    second_pos = second[nonterminal]
-    states[active_rows, first_pos] = child_states[nonterminal, 0]
-    states[active_rows, second_pos] = child_states[nonterminal, 1]
-    scores[active_rows, first_pos] = child_scores[nonterminal, 0]
-    scores[active_rows, second_pos] = child_scores[nonterminal, 1]
-    heap_ids[active_rows, first_pos] = child_heap_ids[nonterminal, 0]
-    heap_ids[active_rows, second_pos] = child_heap_ids[nonterminal, 1]
 
+    # Fixed-shape writes for every row. Terminal rows keep these positions outside their live prefix,
+    # so their contents are irrelevant and no dynamically sized boolean-index result is required.
+    states[rows, first] = child_states[:, 0]
+    states[rows, second] = child_states[:, 1]
+    scores[rows, first] = child_scores[:, 0]
+    scores[rows, second] = child_scores[:, 1]
+    heap_ids[rows, first] = child_heap_ids[:, 0]
+    heap_ids[rows, second] = child_heap_ids[:, 1]
+
+    nonterminal = (~terminal).to(torch.int64)
     result = Gate7NativeTensorBank(
         states=states,
         scores=scores,
         heap_ids=heap_ids,
-        live_counts=bank.live_counts + nonterminal.to(torch.int64) * 2,
+        live_counts=bank.live_counts + nonterminal * 2,
         population_capacity=bank.population_capacity,
     )
     result.validate()
@@ -345,15 +339,24 @@ def prune_gate7_native_overflow(
     states = bank.states.clone()
     scores = bank.scores.clone()
     heap_ids = bank.heap_ids.clone()
-    active_rows = rows[overflow]
-    victim_pos = victim[overflow]
-    last_pos = last[overflow]
-    states[active_rows, victim_pos] = states[active_rows, last_pos]
-    scores[active_rows, victim_pos] = scores[active_rows, last_pos]
-    heap_ids[active_rows, victim_pos] = heap_ids[active_rows, last_pos]
-    states[active_rows, last_pos] = 0
-    scores[active_rows, last_pos] = 0
-    heap_ids[active_rows, last_pos] = 0
+
+    victim_states = states[rows, victim]
+    victim_scores = scores[rows, victim]
+    victim_heap = heap_ids[rows, victim]
+    last_states = states[rows, last]
+    last_scores = scores[rows, last]
+    last_heap = heap_ids[rows, last]
+
+    states[rows, victim] = torch.where(overflow[:, None], last_states, victim_states)
+    scores[rows, victim] = torch.where(overflow, last_scores, victim_scores)
+    heap_ids[rows, victim] = torch.where(overflow, last_heap, victim_heap)
+
+    kept_last_states = torch.where(overflow[:, None], torch.zeros_like(last_states), states[rows, last])
+    kept_last_scores = torch.where(overflow, torch.zeros_like(last_scores), scores[rows, last])
+    kept_last_heap = torch.where(overflow, torch.zeros_like(last_heap), heap_ids[rows, last])
+    states[rows, last] = kept_last_states
+    scores[rows, last] = kept_last_scores
+    heap_ids[rows, last] = kept_last_heap
 
     result = Gate7NativeTensorBank(
         states=states,
