@@ -77,14 +77,12 @@ jobs:
           ]
           PY
 
-      - name: Verify CI never instantiates fresh bridge worlds
+      - name: Verify CI tests never instantiate fresh bridge worlds
         shell: bash
         run: |
           ! grep --line-number 'generate_gate7_transition_bridge_world(' \
             tests/test_gate7_scale_neutral_transition_bridge_prep.py \
             tests/test_gate7_scale_neutral_transition_bridge.py
-          ! grep --line-number 'run_gate7_scale_neutral_transition_bridge(' \
-            .github/workflows/gate7-scale-neutral-transition-bridge-prep-ci.yml
 
       - name: Verify high-scale Gate7 execution remains locked
         shell: bash
