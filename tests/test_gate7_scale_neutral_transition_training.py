@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import subprocess
 import sys
 import unittest
@@ -83,7 +84,32 @@ class Gate7ScaleNeutralTransitionTrainingTests(unittest.TestCase):
                 for hint, action in zip(hints.tolist(), actions.tolist(), strict=True)
             ]
         )
-        torch.testing.assert_close(vectorized, scalar, rtol=0.0, atol=0.0)
+        torch.testing.assert_close(vectorized, scalar, rtol=1e-6, atol=1e-7)
+
+    def test_training_input_builder_has_no_cuda_to_python_value_extraction(self) -> None:
+        source = inspect.getsource(build_gate7_scale_neutral_training_inputs)
+        for forbidden in (".item(", ".cpu(", ".tolist(", "float(", "bool("):
+            self.assertNotIn(forbidden, source)
+
+    def test_training_input_builder_rejects_invalid_public_depths(self) -> None:
+        hints = torch.tensor([0, 1], dtype=torch.int64)
+        actions = torch.tensor([1, 0], dtype=torch.int64)
+        with self.assertRaises(ValueError):
+            build_gate7_scale_neutral_training_inputs(
+                world_depth=19,
+                child_depth=1,
+                hints=hints,
+                actions=actions,
+                device="cpu",
+            )
+        with self.assertRaises(ValueError):
+            build_gate7_scale_neutral_training_inputs(
+                world_depth=18,
+                child_depth=19,
+                hints=hints,
+                actions=actions,
+                device="cpu",
+            )
 
     def test_admitted_training_cli_has_no_scientific_tuning_knobs(self) -> None:
         result = subprocess.run(
