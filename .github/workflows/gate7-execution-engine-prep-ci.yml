@@ -1,0 +1,302 @@
+name: Gate7 execution-engine preparation qualification
+
+on:
+  push:
+    branches:
+      - agent/gate7-high-scale-frontier-prep-v0
+  pull_request:
+    paths:
+      - 'ai_hypothesis/population_compute/gate7_scaling_frontier_prep.py'
+      - 'ai_hypothesis/population_compute/gate7_tensor_engine_prep.py'
+      - 'ai_hypothesis/population_compute/gate7_dynamic_tensor_bank_prep.py'
+      - 'ai_hypothesis/population_compute/gate7_compact_tensor_bank_prep.py'
+      - 'ai_hypothesis/population_compute/gate7_native_tensor_bank_prep.py'
+      - 'ai_hypothesis/population_compute/gate7_scale_neutral_model_prep.py'
+      - 'ai_hypothesis/population_compute/gate7_scale_neutral_transition_training.py'
+      - 'ai_hypothesis/population_compute/run_gate7_scale_neutral_transition_training.py'
+      - 'ai_hypothesis/population_compute/profile_gate7_execution_engine.py'
+      - 'ai_hypothesis/population_compute/profile_gate7_native_bank_scaling.py'
+      - 'ai_hypothesis/population_compute/profile_gate7_native_batch_scaling.py'
+      - 'scripts/profile_gate7_execution_engine.ps1'
+      - 'scripts/profile_gate7_native_bank_scaling.ps1'
+      - 'scripts/profile_gate7_native_batch_scaling.ps1'
+      - 'scripts/run_gate7_scale_neutral_transition_training.ps1'
+      - 'tests/test_gate7_scaling_frontier_prep.py'
+      - 'tests/test_gate7_tensor_engine_prep.py'
+      - 'tests/test_gate7_dynamic_tensor_bank_prep.py'
+      - 'tests/test_gate7_compact_tensor_bank_prep.py'
+      - 'tests/test_gate7_native_tensor_bank_prep.py'
+      - 'tests/test_gate7_scale_neutral_model_prep.py'
+      - 'tests/test_gate7_scale_neutral_transition_training.py'
+      - 'experiments/population_compute_scaling_v0/gate7_*'
+      - '.github/workflows/gate7-execution-engine-prep-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gate7-prep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install CPU Torch
+        run: |
+          python -m pip install --disable-pip-version-check torch --index-url https://download.pytorch.org/whl/cpu
+          python -c "import torch; print('torch', torch.__version__)"
+
+      - name: Compile Gate7 preparation modules
+        run: |
+          python -m compileall -q \
+            ai_hypothesis/population_compute/gate7_scaling_frontier_prep.py \
+            ai_hypothesis/population_compute/gate7_tensor_engine_prep.py \
+            ai_hypothesis/population_compute/gate7_dynamic_tensor_bank_prep.py \
+            ai_hypothesis/population_compute/gate7_compact_tensor_bank_prep.py \
+            ai_hypothesis/population_compute/gate7_native_tensor_bank_prep.py \
+            ai_hypothesis/population_compute/gate7_scale_neutral_model_prep.py \
+            ai_hypothesis/population_compute/gate7_scale_neutral_transition_training.py \
+            ai_hypothesis/population_compute/run_gate7_scale_neutral_transition_training.py \
+            ai_hypothesis/population_compute/profile_gate7_execution_engine.py \
+            ai_hypothesis/population_compute/profile_gate7_native_bank_scaling.py \
+            ai_hypothesis/population_compute/profile_gate7_native_batch_scaling.py
+
+      - name: Run data-blind Gate7 preparation regressions
+        run: |
+          python -m unittest \
+            tests/test_gate7_scaling_frontier_prep.py \
+            tests/test_gate7_tensor_engine_prep.py \
+            tests/test_gate7_dynamic_tensor_bank_prep.py \
+            tests/test_gate7_compact_tensor_bank_prep.py \
+            tests/test_gate7_native_tensor_bank_prep.py \
+            tests/test_gate7_scale_neutral_model_prep.py \
+            tests/test_gate7_scale_neutral_transition_training.py
+
+      - name: Verify Gate7 remains preparation only
+        shell: bash
+        run: |
+          grep -q 'GATE7_PREPARATION_ONLY = True' ai_hypothesis/population_compute/gate7_scaling_frontier_prep.py
+          grep -q 'GATE7_TENSOR_ENGINE_PREPARATION_ONLY = True' ai_hypothesis/population_compute/gate7_tensor_engine_prep.py
+          grep -q 'GATE7_DYNAMIC_TENSOR_BANK_PREPARATION_ONLY = True' ai_hypothesis/population_compute/gate7_dynamic_tensor_bank_prep.py
+          grep -q 'GATE7_COMPACT_TENSOR_BANK_PREPARATION_ONLY = True' ai_hypothesis/population_compute/gate7_compact_tensor_bank_prep.py
+          grep -q 'GATE7_NATIVE_TENSOR_BANK_PREPARATION_ONLY = True' ai_hypothesis/population_compute/gate7_native_tensor_bank_prep.py
+          grep -q 'GATE7_SCALE_NEUTRAL_MODEL_PREPARATION_ONLY = True' ai_hypothesis/population_compute/gate7_scale_neutral_model_prep.py
+          ! grep -R --line-number 'generate_gate7.*world' \
+            ai_hypothesis/population_compute/gate7_scaling_frontier_prep.py \
+            ai_hypothesis/population_compute/gate7_tensor_engine_prep.py \
+            ai_hypothesis/population_compute/gate7_dynamic_tensor_bank_prep.py \
+            ai_hypothesis/population_compute/gate7_compact_tensor_bank_prep.py \
+            ai_hypothesis/population_compute/gate7_native_tensor_bank_prep.py \
+            ai_hypothesis/population_compute/gate7_scale_neutral_model_prep.py \
+            ai_hypothesis/population_compute/gate7_scale_neutral_transition_training.py \
+            ai_hypothesis/population_compute/run_gate7_scale_neutral_transition_training.py \
+            ai_hypothesis/population_compute/profile_gate7_execution_engine.py \
+            ai_hypothesis/population_compute/profile_gate7_native_bank_scaling.py \
+            ai_hypothesis/population_compute/profile_gate7_native_batch_scaling.py \
+            tests/test_gate7_scaling_frontier_prep.py \
+            tests/test_gate7_tensor_engine_prep.py \
+            tests/test_gate7_dynamic_tensor_bank_prep.py \
+            tests/test_gate7_compact_tensor_bank_prep.py \
+            tests/test_gate7_native_tensor_bank_prep.py \
+            tests/test_gate7_scale_neutral_model_prep.py \
+            tests/test_gate7_scale_neutral_transition_training.py
+          ! grep -R --line-number 'gate7-.*-hidden' \
+            ai_hypothesis/population_compute/gate7_scaling_frontier_prep.py \
+            ai_hypothesis/population_compute/gate7_tensor_engine_prep.py \
+            ai_hypothesis/population_compute/gate7_dynamic_tensor_bank_prep.py \
+            ai_hypothesis/population_compute/gate7_compact_tensor_bank_prep.py \
+            ai_hypothesis/population_compute/gate7_native_tensor_bank_prep.py \
+            ai_hypothesis/population_compute/gate7_scale_neutral_model_prep.py \
+            ai_hypothesis/population_compute/gate7_scale_neutral_transition_training.py \
+            ai_hypothesis/population_compute/run_gate7_scale_neutral_transition_training.py \
+            ai_hypothesis/population_compute/profile_gate7_execution_engine.py \
+            ai_hypothesis/population_compute/profile_gate7_native_bank_scaling.py \
+            ai_hypothesis/population_compute/profile_gate7_native_batch_scaling.py
+
+      - name: Verify scale-neutral scorer preserves model size and excludes routing inputs
+        shell: bash
+        run: |
+          python - <<'PY'
+          import inspect
+          from ai_hypothesis.population_compute.gate3_v1_model import Gate3V1Scorer
+          from ai_hypothesis.population_compute import gate7_scale_neutral_model_prep as neutral
+
+          old = Gate3V1Scorer()
+          new = neutral.Gate7ScaleNeutralScorer()
+          assert neutral.GATE7_SCALE_NEUTRAL_INPUT_WIDTH == 19
+          assert new.trainable_parameter_count() == 19_649
+          assert {k: tuple(v.shape) for k, v in old.state_dict().items()} == {
+              k: tuple(v.shape) for k, v in new.state_dict().items()
+          }
+          encoder_params = set(inspect.signature(neutral.encode_gate7_scale_neutral_child_input).parameters)
+          for forbidden in ('population', 'reserve_capacity', 'k', 'slot', 'hidden_answer'):
+              assert forbidden not in encoder_params
+          PY
+
+      - name: Verify transition trainer is frozen and bridge-inaccessible
+        shell: bash
+        run: |
+          python -m ai_hypothesis.population_compute.run_gate7_scale_neutral_transition_training --help > gate7-transition-train-help.txt
+          grep -q -- '--output-root' gate7-transition-train-help.txt
+          for forbidden in --seed --depth --steps --batch-size --learning-rate --population --k --bridge; do
+            ! grep -q -- "$forbidden" gate7-transition-train-help.txt
+          done
+          python - <<'PY'
+          from ai_hypothesis.population_compute import gate7_scale_neutral_transition_training as train
+          assert train.GATE7_SCALE_NEUTRAL_TRAINING_SEEDS == (0, 1, 2)
+          assert train.GATE7_SCALE_NEUTRAL_TRAINING_DEPTHS == tuple(range(6, 19))
+          assert train.GATE7_SCALE_NEUTRAL_TRAINING_STEPS == 1200
+          assert train.GATE7_SCALE_NEUTRAL_TRAINING_BATCH_SIZE == 256
+          assert train.GATE7_SCALE_NEUTRAL_LEARNING_RATE == 3e-4
+          assert train.GATE7_SCALE_NEUTRAL_WEIGHT_DECAY == 1e-4
+          assert train.GATE7_SCALE_NEUTRAL_GRADIENT_CLIP_NORM == 1.0
+          PY
+
+      - name: Verify hot tensor functions contain no CUDA-to-Python scalar extraction
+        shell: bash
+        run: |
+          python - <<'PY'
+          import inspect
+          from ai_hypothesis.population_compute import gate7_tensor_engine_prep as stage_a
+          from ai_hypothesis.population_compute import gate7_dynamic_tensor_bank_prep as stage_b_ref
+          from ai_hypothesis.population_compute import gate7_compact_tensor_bank_prep as stage_b
+          from ai_hypothesis.population_compute import gate7_native_tensor_bank_prep as native
+          for fn in (
+              stage_a.build_productive_child_inputs,
+              stage_a.build_complete_tensor_frontier,
+              stage_a.select_bounded_score_indices,
+              stage_b_ref._select_global,
+              stage_b_ref._bounded_sample_positions,
+              stage_b_ref._select_bounded_score,
+              stage_b_ref._select_bounded_hash,
+              stage_b_ref._build_selected_child_inputs,
+              stage_b_ref.run_gate6_compatible_dynamic_stage_b_tensor,
+              stage_b._select_global_compact,
+              stage_b._compact_sample_positions,
+              stage_b._select_bounded_score_compact,
+              stage_b._select_bounded_hash_compact,
+              stage_b._ordered_expand,
+              stage_b._drop_single_overflow,
+              stage_b.run_gate6_compatible_compact_stage_b_tensor,
+              native.sample_gate7_native_positions,
+              native.gate7_native_priority,
+              native.select_gate7_native_bounded_score,
+              native.select_gate7_native_bounded_hash,
+              native.gate7_native_victim_positions,
+              native.swap_delete_gate7_native_parent,
+              native.append_gate7_native_children,
+              native.prune_gate7_native_overflow,
+          ):
+              source = inspect.getsource(fn)
+              for forbidden in ('.item(', '.cpu(', '.tolist(', 'float('):
+                  assert forbidden not in source, (fn.__name__, forbidden)
+          assert 'sorted(' not in inspect.getsource(stage_a.select_bounded_score_indices)
+          for fn in (stage_b._ordered_expand, stage_b._drop_single_overflow):
+              source = inspect.getsource(fn)
+              assert 'argsort(' not in source, fn.__name__
+              assert 'topk(' not in source, fn.__name__
+          for fn in (
+              native.sample_gate7_native_positions,
+              native.gate7_native_victim_positions,
+              native.swap_delete_gate7_native_parent,
+              native.append_gate7_native_children,
+              native.prune_gate7_native_overflow,
+          ):
+              source = inspect.getsource(fn)
+              assert 'argsort(' not in source, fn.__name__
+              assert 'sorted(' not in source, fn.__name__
+          for fn in (
+              native.swap_delete_gate7_native_parent,
+              native.append_gate7_native_children,
+              native.prune_gate7_native_overflow,
+          ):
+              assert '.clone(' not in inspect.getsource(fn), fn.__name__
+          sampler_params = set(inspect.signature(native.sample_gate7_native_positions).parameters)
+          victim_params = set(inspect.signature(native.gate7_native_victim_positions).parameters)
+          assert 'scores' not in sampler_params and 'states' not in sampler_params
+          assert 'scores' not in victim_params and 'states' not in victim_params
+          PY
+
+      - name: Verify engineering profilers expose only execution knobs
+        shell: bash
+        run: |
+          python -m ai_hypothesis.population_compute.profile_gate7_execution_engine --help > gate7-profile-help.txt
+          grep -q -- '--output-root' gate7-profile-help.txt
+          grep -q -- '--checkpoint' gate7-profile-help.txt
+          grep -q -- '--world-count' gate7-profile-help.txt
+          grep -q -- '--frontier-depth' gate7-profile-help.txt
+          grep -q -- '--repeats' gate7-profile-help.txt
+          ! grep -q -- '--hidden' gate7-profile-help.txt
+          ! grep -q -- '--reliability' gate7-profile-help.txt
+          ! grep -q -- '--k' gate7-profile-help.txt
+          ! grep -q -- '--training' gate7-profile-help.txt
+
+          python -m ai_hypothesis.population_compute.profile_gate7_native_bank_scaling --help > gate7-native-profile-help.txt
+          grep -q -- '--output' gate7-native-profile-help.txt
+          grep -q -- '--batch-size' gate7-native-profile-help.txt
+          grep -q -- '--slots' gate7-native-profile-help.txt
+          grep -q -- '--repeats' gate7-native-profile-help.txt
+          ! grep -q -- '--hidden' gate7-native-profile-help.txt
+          ! grep -q -- '--checkpoint' gate7-native-profile-help.txt
+          ! grep -q -- '--training' gate7-native-profile-help.txt
+          ! grep -q -- '--reliability' gate7-native-profile-help.txt
+          ! grep -q -- '--population' gate7-native-profile-help.txt
+          ! grep -q -- '--k' gate7-native-profile-help.txt
+
+          python -m ai_hypothesis.population_compute.profile_gate7_native_batch_scaling --help > gate7-batch-profile-help.txt
+          grep -q -- '--output' gate7-batch-profile-help.txt
+          ! grep -q -- '--hidden' gate7-batch-profile-help.txt
+          ! grep -q -- '--checkpoint' gate7-batch-profile-help.txt
+          ! grep -q -- '--training' gate7-batch-profile-help.txt
+          ! grep -q -- '--reliability' gate7-batch-profile-help.txt
+          ! grep -q -- '--population' gate7-batch-profile-help.txt
+          ! grep -q -- '--k' gate7-batch-profile-help.txt
+
+      - name: Verify no scientific Gate7 runner exists
+        shell: bash
+        run: |
+          test ! -f ai_hypothesis/population_compute/run_gate7.py
+          test ! -f scripts/run_gate7.ps1
+          test ! -f experiments/population_compute_scaling_v0/gate7_result.md
+
+  windows-profile-wrapper-smoke:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Put checkout on Gate7 preparation branch name
+        shell: powershell
+        run: git switch -C agent/gate7-high-scale-frontier-prep-v0
+
+      - name: Execute engineering and transition wrappers under Windows PowerShell 5.1 StrictMode
+        shell: powershell
+        env:
+          GATE7_PROFILE_WRAPPER_SMOKE: '1'
+          GATE7_NATIVE_PROFILE_WRAPPER_SMOKE: '1'
+          GATE7_NATIVE_BATCH_PROFILE_WRAPPER_SMOKE: '1'
+          GATE7_SCALE_NEUTRAL_TRAINING_WRAPPER_SMOKE: '1'
+        run: |
+          .\scripts\profile_gate7_execution_engine.ps1 `
+            -IdleMachineAttested `
+            -OutputRoot "$env:RUNNER_TEMP\gate7-profile-smoke"
+          .\scripts\profile_gate7_native_bank_scaling.ps1 `
+            -IdleMachineAttested `
+            -OutputRoot "$env:RUNNER_TEMP\gate7-native-profile-smoke"
+          .\scripts\profile_gate7_native_batch_scaling.ps1 `
+            -IdleMachineAttested `
+            -OutputRoot "$env:RUNNER_TEMP\gate7-batch-profile-smoke"
+          .\scripts\run_gate7_scale_neutral_transition_training.ps1 `
+            -IdleMachineAttested `
+            -OutputRoot "$env:RUNNER_TEMP\gate7-transition-training-smoke"
