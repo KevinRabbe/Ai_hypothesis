@@ -1,8 +1,8 @@
 """Data-blind complete scale-neutral Stage-A frontier construction for Gate-7 preparation.
 
 The builder consumes public noisy hints only and produces one immutable lexicographically ordered
-recurrent-state/score frontier.  Frontier index i is the binary depth-d path value i, so no candidate
-objects or additional path tensor are required.  No hidden answer, checkpoint loading, scientific world
+recurrent-state/score frontier. Frontier index i is the binary depth-d path value i, so no candidate
+objects or additional path tensor are required. No hidden answer, checkpoint loading, scientific world
 namespace, result classification, or admitted runner lives here.
 """
 
@@ -15,6 +15,9 @@ from .gate7_high_scale_index_bank_prep import Gate7HighScaleImmutableFrontier
 from .gate7_high_scale_routing_bandwidth_protocol import (
     GATE7_HIGH_SCALE_LEARNED_PARAMETER_COUNT,
     build_gate7_high_scale_tier_plan,
+)
+from .gate7_scale_neutral_memory_bounded_prep import (
+    advance_gate7_scale_neutral_memory_bounded,
 )
 from .gate7_scale_neutral_model_prep import (
     Gate7ScaleNeutralScorer,
@@ -40,37 +43,32 @@ def validate_gate7_high_scale_public_hints(
     return plan.world_depth
 
 
-def _productive_inputs_for_complete_layer(
+def _productive_inputs_for_action(
     *,
     noisy_hints_by_world: tuple[tuple[int, ...], ...],
     world_depth: int,
     child_depth: int,
     parent_count: int,
+    branch_action: int,
     device: torch.device,
 ) -> torch.Tensor:
+    if branch_action not in (0, 1):
+        raise ValueError("complete-frontier action must remain binary")
     batch = len(noisy_hints_by_world)
-    count = batch * parent_count * 2
+    count = batch * parent_count
     hint_by_world = torch.tensor(
         [row[child_depth - 1] for row in noisy_hints_by_world],
         dtype=torch.int64,
         device=device,
     )
-    actions = torch.tensor((0, 1), dtype=torch.int64, device=device)
-    observed_hints = (
-        hint_by_world[:, None, None]
-        .expand(batch, parent_count, 2)
-        .reshape(count)
-    )
-    branch_actions = (
-        actions[None, None, :]
-        .expand(batch, parent_count, 2)
-        .reshape(count)
-    )
+    observed_hints = hint_by_world[:, None].expand(batch, parent_count).reshape(count)
     return encode_gate7_scale_neutral_child_inputs_batch(
         world_depths=torch.full((count,), world_depth, dtype=torch.int64, device=device),
         child_depths=torch.full((count,), child_depth, dtype=torch.int64, device=device),
         observed_hints=observed_hints,
-        branch_actions=branch_actions,
+        branch_actions=torch.full(
+            (count,), branch_action, dtype=torch.int64, device=device
+        ),
         sink=torch.zeros(count, dtype=torch.bool, device=device),
     )
 
@@ -84,8 +82,12 @@ def build_gate7_high_scale_immutable_frontier(
 ) -> Gate7HighScaleImmutableFrontier:
     """Build the exact complete Stage-A frontier under the frozen scale-neutral scorer.
 
-    Output order is world-major and lexicographic by binary action path.  The function performs only
+    Output order is world-major and lexicographic by binary action path. The function performs only
     productive Stage-A transitions; the final public hint at world_depth is reserved for Stage B.
+
+    Action lanes are executed separately and recurrent updates are applied one step at a time. This
+    preserves the exact eight-update model semantics without materializing duplicated parent states or
+    an eightfold repeated projected-input sequence at the largest frontier.
     """
 
     plan = build_gate7_high_scale_tier_plan(population)
@@ -106,26 +108,44 @@ def build_gate7_high_scale_immutable_frontier(
     with torch.inference_mode():
         for child_depth in range(1, plan.frontier_depth + 1):
             parent_count = states.shape[1]
-            expanded_parent_states = (
-                states[:, :, None, :]
-                .expand(batch, parent_count, 2, 64)
-                .reshape(batch * parent_count * 2, 64)
-            )
-            child_inputs = _productive_inputs_for_complete_layer(
-                noisy_hints_by_world=noisy_hints_by_world,
-                world_depth=world_depth,
-                child_depth=child_depth,
-                parent_count=parent_count,
+            parent_states = states.reshape(batch * parent_count, 64)
+            next_states = torch.empty(
+                (batch, parent_count * 2, 64),
+                dtype=torch.float32,
                 device=target,
             )
-            child_states = model.advance(
-                expanded_parent_states,
-                child_inputs,
-                repeats=GATE3_V1_RECURRENT_UPDATES_PER_CHILD,
+            next_scores = torch.empty(
+                (batch, parent_count * 2),
+                dtype=torch.float32,
+                device=target,
             )
-            child_scores = model.score(child_states)
-            states = child_states.reshape(batch, parent_count * 2, 64)
-            scores = child_scores.reshape(batch, parent_count * 2)
+
+            for branch_action in (0, 1):
+                child_inputs = _productive_inputs_for_action(
+                    noisy_hints_by_world=noisy_hints_by_world,
+                    world_depth=world_depth,
+                    child_depth=child_depth,
+                    parent_count=parent_count,
+                    branch_action=branch_action,
+                    device=target,
+                )
+                child_states = advance_gate7_scale_neutral_memory_bounded(
+                    model,
+                    parent_states,
+                    child_inputs,
+                    repeats=GATE3_V1_RECURRENT_UPDATES_PER_CHILD,
+                )
+                child_scores = model.score(child_states)
+                next_states[:, branch_action::2, :] = child_states.reshape(
+                    batch, parent_count, 64
+                )
+                next_scores[:, branch_action::2] = child_scores.reshape(
+                    batch, parent_count
+                )
+                del child_inputs, child_states, child_scores
+
+            states = next_states
+            scores = next_scores
 
     frontier = Gate7HighScaleImmutableFrontier(
         states=states,
