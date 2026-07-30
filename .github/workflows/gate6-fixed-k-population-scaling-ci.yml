@@ -13,6 +13,7 @@ on:
       - 'tests/test_gate6_fixed_k_population_scaling.py'
       - 'tests/test_gate6_fixed_k_population_scaling_audit.py'
       - 'experiments/population_compute_scaling_v0/gate6_fixed_k_population_scaling_protocol.md'
+      - 'experiments/population_compute_scaling_v0/gate6_fixed_k_population_scaling_development_result.md'
       - 'experiments/population_compute_scaling_v0/gate5_confirmation_result.md'
       - '.github/workflows/gate6-fixed-k-population-scaling-ci.yml'
   workflow_dispatch:
@@ -45,7 +46,6 @@ jobs:
         run: |
           RESULT=experiments/population_compute_scaling_v0/gate5_confirmation_result.md
           grep -q 'GATE5_CONFIRMED_BOUNDED_SCORE_ACTIVATION' "$RESULT"
-          grep -q '0705afc8f31d49a70158b4011631a31dc075c681' "$RESULT" || true
           grep -q 'e49ad074080673b93bf8c22347a9ea34b16ccca4a7e6d12d934df844cfe7ef96' "$RESULT"
           grep -q 'Gate-5 v0 is closed' "$RESULT"
 
@@ -158,15 +158,22 @@ jobs:
           ! grep -q -- '--bootstrap' gate6-help.txt
           ! grep -q -- '--training' gate6-help.txt
 
-      - name: Verify Gate6 remains frozen pre-result
+      - name: Verify Gate6 final development evidence
         shell: bash
         run: |
           PROTOCOL=experiments/population_compute_scaling_v0/gate6_fixed_k_population_scaling_protocol.md
+          RESULT=experiments/population_compute_scaling_v0/gate6_fixed_k_population_scaling_development_result.md
           grep -q 'FROZEN BEFORE ANY GATE-6 DEVELOPMENT WORLD IS GENERATED OR INSPECTED' "$PROTOCOL"
-          grep -q 'G6_S2_ROBUST_FIXED_K_POPULATION_SCALING' "$PROTOCOL"
-          grep -q 'delta_NI = 0.05' "$PROTOCOL"
-          grep -q '6,128' "$PROTOCOL"
-          test ! -f experiments/population_compute_scaling_v0/gate6_fixed_k_population_scaling_development_result.md
+          grep -q 'G6_S3_CHECKPOINT_SENSITIVE_SCALING' "$RESULT"
+          grep -q '02671dcd070201690aa71f7326b1f0779bc660c4' "$RESULT"
+          grep -q 'c1fef3338c19704a0153e1b6dc789aff1f03eed7648953f33ed72a0020a7d961' "$RESULT"
+          grep -q '37e886d18c48a57219135db50f859342d8d0168c40ff6d10e7607ddc712e24ca' "$RESULT"
+          grep -q 'f2d5dba76fd26eaadf7011fa341cf27a89b59a7a26eab2d6942f8708fe519344' "$RESULT"
+          grep -q 'N128 | PASS | PASS | PASS' "$RESULT"
+          grep -q 'N256 | PASS | \*\*FAIL NI\*\* | \*\*FAIL NI\*\*' "$RESULT"
+          grep -q 'Gate-6 v0 confirmation remains closed' "$RESULT"
+          test ! -f experiments/population_compute_scaling_v0/gate6_confirmation_protocol.md
+          test ! -f experiments/population_compute_scaling_v0/gate6_confirmation_result.md
 
   windows-powershell-smoke:
     runs-on: windows-latest
