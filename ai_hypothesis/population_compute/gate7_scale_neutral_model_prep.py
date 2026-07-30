@@ -138,6 +138,50 @@ def gate7_scale_neutral_position_features(
     return result
 
 
+def gate7_scale_neutral_position_features_batch(
+    *,
+    child_depths: torch.Tensor,
+    world_depths: torch.Tensor,
+) -> torch.Tensor:
+    """Vectorized frozen positional encoding for an already-validated public depth batch.
+
+    Value validation belongs at the public-world trust boundary before these tensors enter the CUDA
+    execution path. This hot function performs only tensor metadata checks so it never synchronizes
+    CUDA values back to Python.
+    """
+
+    if child_depths.ndim != 1 or world_depths.shape != child_depths.shape:
+        raise ValueError("child/world depths must be matching rank-one tensors")
+    if child_depths.dtype != torch.int64 or world_depths.dtype != torch.int64:
+        raise ValueError("child/world depths must use int64")
+    if child_depths.device != world_depths.device:
+        raise ValueError("child/world depths must share one device")
+
+    child = child_depths.to(dtype=torch.float32)
+    total = world_depths.to(dtype=torch.float32)
+    remaining = total - child
+    fraction = child / total
+
+    return torch.stack(
+        (
+            fraction,
+            remaining / total,
+            total.reciprocal(),
+            child.reciprocal(),
+            (remaining + 1.0).reciprocal(),
+            child / (child + 1.0),
+            total / (total + 1.0),
+            remaining / (remaining + 1.0),
+            torch.sin(math.pi * fraction),
+            torch.cos(math.pi * fraction),
+            torch.sin(2.0 * math.pi * fraction),
+            torch.cos(2.0 * math.pi * fraction),
+            2.0 * fraction - 1.0,
+        ),
+        dim=1,
+    )
+
+
 def encode_gate7_scale_neutral_child_input(
     *,
     world_depth: int,
@@ -171,3 +215,46 @@ def encode_gate7_scale_neutral_child_input(
     vector[hint_offset + hint_index] = 1.0
     vector[action_offset + action_index] = 1.0
     return vector
+
+
+def encode_gate7_scale_neutral_child_inputs_batch(
+    *,
+    world_depths: torch.Tensor,
+    child_depths: torch.Tensor,
+    observed_hints: torch.Tensor,
+    branch_actions: torch.Tensor,
+    sink: torch.Tensor,
+) -> torch.Tensor:
+    """Vectorized public child-input encoder with no CUDA-to-Python scalar extraction."""
+
+    if world_depths.ndim != 1:
+        raise ValueError("batched encoder inputs must be rank-one")
+    expected_shape = world_depths.shape
+    for tensor in (child_depths, observed_hints, branch_actions, sink):
+        if tensor.shape != expected_shape:
+            raise ValueError("batched encoder tensors must have matching shapes")
+        if tensor.device != world_depths.device:
+            raise ValueError("batched encoder tensors must share one device")
+    if world_depths.dtype != torch.int64 or child_depths.dtype != torch.int64:
+        raise ValueError("world/child depths must use int64")
+    if observed_hints.dtype != torch.int64 or branch_actions.dtype != torch.int64:
+        raise ValueError("hint/action tensors must use int64")
+    if sink.dtype != torch.bool:
+        raise ValueError("sink tensor must use bool")
+
+    positions = gate7_scale_neutral_position_features_batch(
+        child_depths=child_depths,
+        world_depths=world_depths,
+    )
+    sink_index = torch.full_like(observed_hints, 2)
+    hint_indices = torch.where(sink, sink_index, observed_hints)
+    action_indices = torch.where(sink, sink_index, branch_actions)
+    hints = torch.nn.functional.one_hot(
+        hint_indices,
+        num_classes=GATE7_SCALE_NEUTRAL_HINT_WIDTH,
+    ).to(dtype=torch.float32)
+    actions = torch.nn.functional.one_hot(
+        action_indices,
+        num_classes=GATE7_SCALE_NEUTRAL_ACTION_WIDTH,
+    ).to(dtype=torch.float32)
+    return torch.cat((positions, hints, actions), dim=1)
