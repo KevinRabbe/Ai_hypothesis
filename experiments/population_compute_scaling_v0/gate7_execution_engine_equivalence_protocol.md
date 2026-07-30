@@ -1,67 +1,102 @@
-# Gate-7 preparation — execution-engine equivalence boundary
+# Gate-7 preparation — execution-engine equivalence protocol
 
-**STATUS: PREPARATION ONLY.**
+**STATUS: PREPARATION ONLY — NO GATE-7 SCIENTIFIC DATA.**
 
-The high-scale campaign needs a tensorized runtime, but performance engineering must not silently change scheduler semantics. Gate-6 remains untouched. This document freezes how a future Gate-7 tensor-bank engine is qualified against the current eager object-based reference before any high-scale scientific exposure.
+Gate-7 high-scale execution will require a tensorized engine. Before that engine may produce any scientific Gate-7 result, it must demonstrate semantic equivalence to the qualified eager reference on small synthetic/bridge cases.
 
-## Reference semantics
+Gate-6 has now shown that the next scientific variable is routing bandwidth K as population N grows. This equivalence protocol therefore protects both population and K treatments from implementation drift.
 
-Use the already-qualified eager Gate-6/Gate-5 primitives as the semantic reference for operations that remain shared:
+## Reference implementation
 
-- score quantization;
-- deterministic score tie ordering;
-- K16/K8 deterministic sample membership;
-- K16 score-vs-hash shared sampler condition;
-- answer-blind population thinning;
-- answer-blind capacity pruning;
-- child input semantics;
-- exactly two child branches;
-- exactly eight recurrent updates/generated child;
-- persistent candidate-specific recurrent state;
-- terminal generation semantics.
+The reference semantics are the qualified eager Gates 5–6 behavior for:
 
-Gate-6 scientific code itself is not modified.
+- deterministic answer-blind candidate sampling;
+- bounded score visibility;
+- matched hash-control selection;
+- score quantization/tie ordering;
+- answer-blind capacity thinning/pruning;
+- recurrent child refinement;
+- work accounting;
+- exact terminal-path generation.
 
-## Qualification requirement for a tensorized engine
+The reference is not a performance target.
 
-Before the tensor engine can be admitted for Gate-7 scientific use, run both engines on synthetic/public test worlds and small populations where the reference engine is practical.
+## Required transcript equivalence
 
-For every compared world/checkpoint surrogate/scheduler/slot require exact equality of:
+For deterministic synthetic/bridge worlds, checkpoint/model state and scheduler configuration, compare reference and tensor engines slot-by-slot.
 
-1. initial frontier path identities;
-2. post-thinning live candidate path set;
-3. deterministic bounded visible candidate path set;
-4. selected parent path;
-5. child path identities;
-6. answer-blind overflow-retained path set;
-7. generated terminal path multiset/transcript;
-8. productive/sink learned-work accounting;
-9. visible score-observation count.
+The tensor engine must reproduce exactly:
 
-For recurrent tensors/scores, use the frozen numerical tolerance appropriate to the execution mode. Eager FP32 tensorized admission must not loosen numerical precision merely for speed.
+1. incoming live candidate path/ID set;
+2. bounded visible candidate IDs for every tested K;
+3. selected parent ID;
+4. branch child IDs/paths;
+5. answer-blind overflow retention/prune identities;
+6. terminal path transcript;
+7. productive/sink slot counts;
+8. learned recurrent-update accounting;
+9. score-observation accounting;
+10. final exact-search coverage.
 
-## Hot-path synchronization prohibition
+For global mode, selected parent identity must match the reference quantized-score + deterministic-tie ordering.
 
-The admitted tensor engine must have no per-candidate CUDA-to-Python scalar extraction in Stage A or Stage B.
+For bounded-score mode, parent selection must be identical using only the sampled K scores.
 
-Source/regression guards must reject hot-path use of:
+For matched hash mode, selection must remain score-blind and use the same visible candidate IDs as its paired score-K condition whenever incoming live banks are identical.
 
-```text
-.item()
-.cpu()
-.tolist()
-Python float(cuda_tensor)
-CUDA-dependent Python branching
-```
+## State/score numerical equivalence
 
-except at explicit post-batch telemetry/provenance synchronization boundaries.
+Preferred: exact FP32 equality when operation order is preserved.
+
+If vectorization changes floating operation ordering enough to preclude bitwise equality, freeze one tight numerical tolerance **before any Gate-7 scientific exposure**, and prove that all discrete routing/pruning/terminal transcripts remain exactly identical under that tolerance.
+
+No tolerance may be widened after seeing a scientific result.
+
+## K ladder coverage
+
+Equivalence testing must include at least:
+
+- K16;
+- K32;
+- K64;
+- global reference;
+- matched answer-blind controls for tested K values used in the admitted Gate-7 primary bandwidth analysis.
+
+Larger K values used by the admitted campaign must receive the same deterministic sampler/selection regression coverage before scientific execution.
+
+## Population bridge coverage
+
+Before high-scale admission, equivalence must be demonstrated at multiple small/medium populations that exercise:
+
+- no capacity overflow;
+- active overflow pruning;
+- sparse live masks/holes after parent removal;
+- terminal generation;
+- divergent score/hash treatment histories.
+
+N64/N128/N256 synthetic cases are preferred because they overlap the already-understood Gate-6 regime without reusing Gate-6 scientific worlds.
+
+## Hot-path synchronization boundary
+
+The tensor engine is specifically intended to eliminate accidental host/device synchronization.
+
+Scientific hot path must not call CUDA-dependent:
+
+- `.item()`;
+- `.cpu()`;
+- `.numpy()`;
+- `.tolist()`;
+- Python `float()`/`int()` on CUDA values;
+- Python branch conditions driven by unsynchronized CUDA scalars.
+
+Aggregate telemetry may cross to CPU at explicit, auditable synchronization points after the relevant routing decisions are complete.
 
 ## Bounded-computation requirement
 
-For `bounded_score_k16` before parent selection:
+For any bounded `score_K` condition before parent selection:
 
 - sampler work may depend on N only through deterministic integer index generation / live-mask access;
-- exactly `min(16, live_count)` neural scores may be gathered/read for the causal selection;
+- exactly `min(K, live_count)` neural scores may be gathered/read for the causal selection;
 - no full score sort/rank/reduction may execute before the parent is selected;
 - evaluation-only diagnostics must be structurally separated from the selection function.
 
@@ -83,6 +118,32 @@ and must not depend on:
 
 The tensorized retention set must match the frozen reference retention set for equivalence fixtures unless a separately versioned Gate-7 scientific protocol deliberately freezes a new answer-blind retention primitive before exposure.
 
+## Physical batching equivalence
+
+The tensor engine may gather ready neural updates from multiple independent worlds into larger physical CUDA batches.
+
+This is admitted only if the transcript proves that each world's logical scheduler observes exactly the same sequence it would observe under separate execution.
+
+Physical batch size may not alter:
+
+- per-world selected parent;
+- candidate state ownership;
+- recurrent update count;
+- sampling namespace;
+- score visibility;
+- pruning decisions.
+
+## Stage-A reuse equivalence
+
+A common Stage-A frontier may be constructed once and copied into multiple scheduler conditions for evaluation efficiency only after a regression proves:
+
+- copied states/scores/IDs are identical at treatment start;
+- no storage aliasing permits one scheduler to mutate another;
+- every condition retains the same logical learned-work accounting;
+- capability results match separately recomputed Stage-A execution.
+
+Cached Stage-A execution cannot be used for a historical wall-clock speedup claim without explicit schedule disclosure.
+
 ## Profiling isolation
 
 Performance profiling uses synthetic worlds or explicit engineering namespaces only. Profiles are not capability evidence.
@@ -99,17 +160,17 @@ The compiler remains an independent variable and cannot be baked into the semant
 ## Admission sequence
 
 ```text
-current eager reference
+qualified eager reference
         ↓
 implement tensor-bank engine
         ↓
-exact small-scale semantic equivalence
+exact small-scale semantic equivalence across K ladder
         ↓
 profile eager-vs-eager
         ↓
-freeze Gate-7 scientific runner
+freeze Gate-7 bandwidth-scaling scientific runner
         ↓
-ONLY THEN expose high-scale worlds
+ONLY THEN expose Gate-7 worlds
 ```
 
-A performance optimization that fails equivalence is rejected or becomes a separately versioned scientific treatment; it cannot be silently substituted into the baseline.
+Any transcript mismatch blocks scientific admission until resolved. A performance optimization that changes semantics is rejected or becomes a separately versioned scientific treatment; it cannot be silently substituted into the baseline.
