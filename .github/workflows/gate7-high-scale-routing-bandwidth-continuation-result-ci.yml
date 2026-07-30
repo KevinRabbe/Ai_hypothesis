@@ -1,0 +1,77 @@
+name: Gate7 routing-bandwidth continuation result qualification
+
+on:
+  push:
+    branches:
+      - agent/gate7-high-scale-routing-bandwidth-continuation-result-v0
+  pull_request:
+    paths:
+      - 'experiments/population_compute_scaling_v0/gate7_high_scale_routing_bandwidth_continuation_result_v0.md'
+      - '.github/workflows/gate7-high-scale-routing-bandwidth-continuation-result-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  result-record:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify exact provenance and audit outcome
+        shell: bash
+        run: |
+          result=experiments/population_compute_scaling_v0/gate7_high_scale_routing_bandwidth_continuation_result_v0.md
+          grep -F '`19ee6b4e228c56b32a11b11b1c61b35bf640e2c8`' "$result"
+          grep -F '`05eb27e66c7a46dd4646d0ac99ee2f4028d0d131`' "$result"
+          grep -F 'artifact_valid = true' "$result"
+          grep -F 'errors = []' "$result"
+          grep -F 'campaign_outcome = G7_POST_CONFIRMATION_LADDER_COMPLETE' "$result"
+          grep -F 'resource_frontier_population = null' "$result"
+          grep -F '4921ea99b44156f08271d6fb2b2e0bcba98ef6a646ed0aaf040762d47aa03b36' "$result"
+          grep -F '92f52a9e7fad3cb5d8962a9127a0cd7140656a0a8f03cfba08fe7cd5376a03fd' "$result"
+          grep -F 'ee9dcefbaf5efe9a75b20d407cb1a4f47ff0b04bbdce4613f2539b76af2c8cca' "$result"
+
+      - name: Verify complete fixed population and K results
+        shell: bash
+        run: |
+          result=experiments/population_compute_scaling_v0/gate7_high_scale_routing_bandwidth_continuation_result_v0.md
+          grep -F '| 16,384 | yes | [256, 512] | 256 | 1.5625%' "$result"
+          grep -F '| 32,768 | yes | [512] | 512 | 1.5625%' "$result"
+          grep -F '| 65,536 | yes | [512] | 512 | 0.78125%' "$result"
+          grep -F '| 131,072 | yes | [512] | 512 | 0.390625%' "$result"
+          grep -F '`K_required(16384) = 256`' "$result"
+          grep -F '`K_required(32768) = 512`' "$result"
+          grep -F '`K_required(65536) = 512`' "$result"
+          grep -F '`K_required(131072) = 512`' "$result"
+          test "$(grep -c '^| 16 |' "$result")" -eq 4
+          test "$(grep -c '^| 32 |' "$result")" -eq 4
+          test "$(grep -c '^| 64 |' "$result")" -eq 4
+          test "$(grep -c '^| 128 |' "$result")" -eq 4
+          test "$(grep -c '^| 256 |' "$result")" -eq 4
+          test "$(grep -c '^| 512 |' "$result")" -eq 4
+
+      - name: Verify all global references and interpretation boundary
+        shell: bash
+        run: |
+          result=experiments/population_compute_scaling_v0/gate7_high_scale_routing_bandwidth_continuation_result_v0.md
+          grep -F 'Stratified pooled delta: `+0.1628`, 95% CI `[+0.1439,+0.1829]`; reference viable.' "$result"
+          grep -F 'Stratified pooled delta: `+0.1198`, 95% CI `[+0.1035,+0.1374]`; reference viable.' "$result"
+          grep -F 'Stratified pooled delta: `+0.0775`, 95% CI `[+0.0645,+0.0911]`; reference viable.' "$result"
+          grep -F 'Stratified pooled delta: `+0.0638`, 95% CI `[+0.0514,+0.0762]`; reference viable.' "$result"
+          grep -F 'does **not** show that larger populations increased task capability' "$result"
+          grep -F 'routing scalability relative to the current global reference, not capability scaling' "$result"
+          grep -F '`G7_NEXT_QUESTION_COORDINATION_EFFICIENCY`' "$result"
+          grep -F 'No asymptotic exponent, monotonic law or interpolation to unobserved populations is claimed.' "$result"
+
+      - name: Prove result-only boundary
+        shell: bash
+        run: |
+          changed="$(git diff --name-only HEAD^ HEAD)"
+          echo "$changed"
+          test "$(printf '%s\n' "$changed" | grep -c '^experiments/population_compute_scaling_v0/gate7_high_scale_routing_bandwidth_continuation_result_v0.md$')" -eq 0 || true
+          result=experiments/population_compute_scaling_v0/gate7_high_scale_routing_bandwidth_continuation_result_v0.md
+          ! grep --line-number -E '(^|[[:space:]])(import torch|from torch|torch\.load|generate_gate7|run_gate7)' "$result"
+          ! test -f experiments/population_compute_scaling_v0/gate7_high_scale_routing_bandwidth_continuation_result_v1.md
