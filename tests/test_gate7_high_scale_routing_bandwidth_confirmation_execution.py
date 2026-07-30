@@ -164,7 +164,8 @@ class Gate7HighScaleRoutingBandwidthConfirmationExecutionTests(unittest.TestCase
         self.assertIn("classify_confirmation", source)
         self.assertNotIn("break", source)
         self.assertNotIn("first passing", source)
-        self.assertNotIn("confirmation_opened\": False", source)
+        self.assertIn('"confirmation_opened": True', source)
+        self.assertIn('"second_confirmation_opened": False', source)
         self.assertNotIn("train_gate7", source)
 
     def test_independent_auditor_duplicates_bindings_without_execution_imports(self) -> None:
