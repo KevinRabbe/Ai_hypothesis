@@ -32,14 +32,24 @@ jobs:
         run: |
           python -m compileall -q ai_hypothesis/population_compute/gate7_high_scale_routing_bandwidth_confirmation_protocol.py
 
-      - name: Run confirmation-protocol regressions
+      - name: Run confirmation-protocol regressions without package imports
         run: |
           python -m unittest tests/test_gate7_high_scale_routing_bandwidth_confirmation_protocol.py
 
-      - name: Verify exact frozen matrix and evidence bindings
+      - name: Verify exact frozen matrix and evidence bindings without Torch
         run: |
           python - <<'PY'
-          from ai_hypothesis.population_compute import gate7_high_scale_routing_bandwidth_confirmation_protocol as p
+          import importlib.util
+          import sys
+          from pathlib import Path
+
+          path = Path('ai_hypothesis/population_compute/gate7_high_scale_routing_bandwidth_confirmation_protocol.py')
+          spec = importlib.util.spec_from_file_location('gate7_confirmation_protocol_ci', path)
+          assert spec is not None and spec.loader is not None
+          p = importlib.util.module_from_spec(spec)
+          sys.modules[spec.name] = p
+          spec.loader.exec_module(p)
+
           assert p.GATE7_CONFIRMATION_PROTOCOL_FROZEN is True
           assert p.GATE7_CONFIRMATION_EXECUTION_OPENED is False
           assert p.GATE7_CONFIRMATION_SCREENING_RESULT_HEAD == '07b6397f2a9d4f71ed789d6c7011e12b4cbf90e0'
