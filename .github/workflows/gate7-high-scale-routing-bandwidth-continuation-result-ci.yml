@@ -69,9 +69,6 @@ jobs:
       - name: Prove result-only boundary
         shell: bash
         run: |
-          changed="$(git diff --name-only HEAD^ HEAD)"
-          echo "$changed"
-          test "$(printf '%s\n' "$changed" | grep -c '^experiments/population_compute_scaling_v0/gate7_high_scale_routing_bandwidth_continuation_result_v0.md$')" -eq 0 || true
           result=experiments/population_compute_scaling_v0/gate7_high_scale_routing_bandwidth_continuation_result_v0.md
           ! grep --line-number -E '(^|[[:space:]])(import torch|from torch|torch\.load|generate_gate7|run_gate7)' "$result"
           ! test -f experiments/population_compute_scaling_v0/gate7_high_scale_routing_bandwidth_continuation_result_v1.md
