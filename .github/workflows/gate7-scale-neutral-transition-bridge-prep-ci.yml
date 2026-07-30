@@ -112,5 +112,9 @@ jobs:
           .\scripts\run_gate7_scale_neutral_transition_bridge.ps1 `
             -IdleMachineAttested `
             -OutputRoot $output
-          Test-Path -LiteralPath (Join-Path $output "run-config.json") | Should -BeTrue
-          Test-Path -LiteralPath (Join-Path $output "science") | Should -BeFalse
+          if (-not (Test-Path -LiteralPath (Join-Path $output "run-config.json") -PathType Leaf)) {
+              throw "Gate-7 transition bridge wrapper smoke did not write run-config.json"
+          }
+          if (Test-Path -LiteralPath (Join-Path $output "science")) {
+              throw "Gate-7 transition bridge wrapper smoke reached scientific execution"
+          }
