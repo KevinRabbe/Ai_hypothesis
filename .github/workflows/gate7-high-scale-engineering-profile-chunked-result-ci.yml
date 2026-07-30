@@ -1,0 +1,46 @@
+name: Gate7 high-scale chunked engineering profile result qualification
+
+on:
+  push:
+    branches:
+      - agent/gate7-high-scale-engineering-profile-chunked-result-v1
+  pull_request:
+    paths:
+      - 'experiments/population_compute_scaling_v0/gate7_high_scale_execution_engineering_profile_chunked_result_v1.md'
+      - '.github/workflows/gate7-high-scale-engineering-profile-chunked-result-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  result-record:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify immutable chunked engineering result record
+        shell: bash
+        run: |
+          record=experiments/population_compute_scaling_v0/gate7_high_scale_execution_engineering_profile_chunked_result_v1.md
+          test -f "$record"
+          grep -F 'a43d0f1caf2bd9c40f0179461083eb433cf1e6e6' "$record"
+          grep -F '`COMPLETE` THROUGH N131072' "$record"
+          grep -F 'world batch 64' "$record"
+          grep -F '1,048,576 recurrent rows' "$record"
+          grep -F '21.217' "$record"
+          grep -F '9.15' "$record"
+          grep -F '47.9% lower frontier wall time' "$record"
+          grep -F '44.4% lower peak allocated memory' "$record"
+          grep -F 'e40823e3e2787151f2a63607aa3d396f18e03428b715b8864af4f549631e2953' "$record"
+          grep -F '8393f9b4f11aa90aa333c3443669306675d1e9cc746e1f1dc3aa5acd1523afe4' "$record"
+          grep -F 'High-scale Gate-7 science remains closed' "$record"
+
+      - name: Verify result branch adds no scientific execution
+        shell: bash
+        run: |
+          test ! -f ai_hypothesis/population_compute/gate7_high_scale_routing_bandwidth.py
+          test ! -f ai_hypothesis/population_compute/run_gate7_high_scale_routing_bandwidth.py
+          test ! -f scripts/run_gate7_high_scale_routing_bandwidth.ps1
+          test ! -f experiments/population_compute_scaling_v0/gate7_high_scale_routing_bandwidth_result.md
