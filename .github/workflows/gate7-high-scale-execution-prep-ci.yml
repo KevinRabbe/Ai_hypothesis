@@ -6,9 +6,11 @@ on:
       - agent/gate7-high-scale-execution-prep-v0
   pull_request:
     paths:
+      - 'ai_hypothesis/population_compute/gate7_scale_neutral_memory_bounded_prep.py'
       - 'ai_hypothesis/population_compute/gate7_high_scale_index_bank_prep.py'
       - 'ai_hypothesis/population_compute/gate7_high_scale_frontier_prep.py'
       - 'ai_hypothesis/population_compute/gate7_high_scale_terminal_stage_b_prep.py'
+      - 'tests/test_gate7_scale_neutral_memory_bounded_prep.py'
       - 'tests/test_gate7_high_scale_index_bank_prep.py'
       - 'tests/test_gate7_high_scale_frontier_prep.py'
       - 'tests/test_gate7_high_scale_terminal_stage_b_prep.py'
@@ -42,6 +44,7 @@ jobs:
       - name: Compile high-scale preparation modules
         run: |
           python -m compileall -q \
+            ai_hypothesis/population_compute/gate7_scale_neutral_memory_bounded_prep.py \
             ai_hypothesis/population_compute/gate7_high_scale_index_bank_prep.py \
             ai_hypothesis/population_compute/gate7_high_scale_frontier_prep.py \
             ai_hypothesis/population_compute/gate7_high_scale_terminal_stage_b_prep.py
@@ -49,6 +52,7 @@ jobs:
       - name: Run data-blind execution-preparation regressions
         run: |
           python -m unittest \
+            tests/test_gate7_scale_neutral_memory_bounded_prep.py \
             tests/test_gate7_high_scale_index_bank_prep.py \
             tests/test_gate7_high_scale_frontier_prep.py \
             tests/test_gate7_high_scale_terminal_stage_b_prep.py \
@@ -77,6 +81,7 @@ jobs:
           test ! -f scripts/run_gate7_high_scale_routing_bandwidth.ps1
           test ! -f experiments/population_compute_scaling_v0/gate7_high_scale_routing_bandwidth_result.md
           ! grep --line-number 'generate_gate7_high_scale_world(' \
+            tests/test_gate7_scale_neutral_memory_bounded_prep.py \
             tests/test_gate7_high_scale_index_bank_prep.py \
             tests/test_gate7_high_scale_frontier_prep.py \
             tests/test_gate7_high_scale_terminal_stage_b_prep.py \
