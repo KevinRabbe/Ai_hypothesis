@@ -168,6 +168,15 @@ class Gate7NativeTensorBankPreparationTests(unittest.TestCase):
             for forbidden in (".item(", ".cpu(", ".tolist(", "float(", "argsort(", "sorted("):
                 self.assertNotIn(forbidden, source, (function.__name__, forbidden))
 
+        # These three operations must remain true slot mutations. A full-bank clone would make their
+        # real cost O(N) even though the logical data-structure operation is O(1).
+        for function in (
+            module.swap_delete_gate7_native_parent,
+            module.append_gate7_native_children,
+            module.prune_gate7_native_overflow,
+        ):
+            self.assertNotIn(".clone(", inspect.getsource(function), function.__name__)
+
         sampler_parameters = set(inspect.signature(module.sample_gate7_native_positions).parameters)
         self.assertNotIn("scores", sampler_parameters)
         self.assertNotIn("states", sampler_parameters)
