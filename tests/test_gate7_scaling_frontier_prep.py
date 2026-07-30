@@ -4,10 +4,12 @@ import unittest
 
 from ai_hypothesis.population_compute.gate7_scaling_frontier_prep import (
     GATE7_EXISTING_CHECKPOINT_MAX_POPULATION,
+    GATE7_GATE6_FIRST_CHECKPOINT_SENSITIVE_K16_POPULATION,
+    GATE7_GATE6_LAST_ROBUST_K16_POPULATION,
     GATE7_HIGH_SCALE_LADDER,
+    GATE7_K_LADDER,
     GATE7_NONINFERIORITY_MARGIN,
     GATE7_PREPARATION_ONLY,
-    GATE7_PRIMARY_K,
     GATE7_SCREENING_WORLDS_CANDIDATE,
     build_gate7_scale_plan,
     prepared_gate7_plans,
@@ -15,14 +17,16 @@ from ai_hypothesis.population_compute.gate7_scaling_frontier_prep import (
 
 
 class Gate7ScalingFrontierPreparationTests(unittest.TestCase):
-    def test_preparation_boundary_and_ladder(self) -> None:
+    def test_preparation_boundary_and_ladders(self) -> None:
         self.assertTrue(GATE7_PREPARATION_ONLY)
         self.assertEqual(GATE7_EXISTING_CHECKPOINT_MAX_POPULATION, 512)
         self.assertEqual(
             GATE7_HIGH_SCALE_LADDER,
             (1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072),
         )
-        self.assertEqual(GATE7_PRIMARY_K, 16)
+        self.assertEqual(GATE7_K_LADDER, (16, 32, 64, 128, 256, 512))
+        self.assertEqual(GATE7_GATE6_LAST_ROBUST_K16_POPULATION, 128)
+        self.assertEqual(GATE7_GATE6_FIRST_CHECKPOINT_SENSITIVE_K16_POPULATION, 256)
         self.assertEqual(GATE7_SCREENING_WORLDS_CANDIDATE, 64)
         self.assertEqual(GATE7_NONINFERIORITY_MARGIN, 0.05)
 
@@ -36,14 +40,42 @@ class Gate7ScalingFrontierPreparationTests(unittest.TestCase):
 
         for plan in plans:
             self.assertEqual(plan.stage_a_parent_slots, plan.population - 1)
-            self.assertEqual(plan.k16_score_observations_upper_bound, 16 * 128)
             self.assertEqual(plan.global_score_observations_nominal, plan.population * 128)
+            self.assertEqual(
+                plan.valid_k_values,
+                tuple(k for k in GATE7_K_LADDER if k < plan.population),
+            )
+            self.assertEqual(
+                plan.bounded_score_observation_upper_bounds,
+                tuple((k, k * 128) for k in plan.valid_k_values),
+            )
 
-    def test_k16_visibility_stays_constant_while_global_scales(self) -> None:
+    def test_bounded_visibility_is_sublinear_for_prepared_high_scale_points(self) -> None:
+        for population in GATE7_HIGH_SCALE_LADDER:
+            plan = build_gate7_scale_plan(population)
+            for k in plan.valid_k_values:
+                self.assertLess(k, population)
+                bound = dict(plan.bounded_score_observation_upper_bounds)[k]
+                self.assertEqual(bound, k * 128)
+                self.assertLess(bound, plan.global_score_observations_nominal)
+
+    def test_geometric_k_ladder_supports_bandwidth_frontier_localization(self) -> None:
         low = build_gate7_scale_plan(1024)
         high = build_gate7_scale_plan(131072)
-        self.assertEqual(low.k16_score_observations_upper_bound, high.k16_score_observations_upper_bound)
-        self.assertEqual(high.global_score_observations_nominal // low.global_score_observations_nominal, 128)
+        self.assertEqual(low.valid_k_values, GATE7_K_LADDER)
+        self.assertEqual(high.valid_k_values, GATE7_K_LADDER)
+        self.assertEqual(
+            dict(low.bounded_score_observation_upper_bounds)[16],
+            dict(high.bounded_score_observation_upper_bounds)[16],
+        )
+        self.assertEqual(
+            high.global_score_observations_nominal // low.global_score_observations_nominal,
+            128,
+        )
+
+    def test_n512_excludes_k512_as_non_bounded(self) -> None:
+        plan = build_gate7_scale_plan(512)
+        self.assertEqual(plan.valid_k_values, (16, 32, 64, 128, 256))
 
     def test_non_power_of_two_rejected(self) -> None:
         with self.assertRaises(ValueError):
