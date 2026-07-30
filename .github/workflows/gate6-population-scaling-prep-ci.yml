@@ -1,0 +1,80 @@
+name: Gate6 population scaling preparation qualification
+
+on:
+  push:
+    branches:
+      - agent/gate6-fixed-k-population-scaling-prep-v0
+  pull_request:
+    paths:
+      - 'ai_hypothesis/population_compute/gate6_population_scaling_prep.py'
+      - 'tests/test_gate6_population_scaling_prep.py'
+      - 'experiments/population_compute_scaling_v0/gate6_fixed_k_population_scaling_candidate_protocol.md'
+      - '.github/workflows/gate6-population-scaling-prep-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preparation-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Compile preparation module
+        run: |
+          python -m compileall -q ai_hypothesis/population_compute/gate6_population_scaling_prep.py
+
+      - name: Run preparation regressions
+        run: |
+          python -m unittest tests/test_gate6_population_scaling_prep.py
+
+      - name: Verify candidate work identity
+        run: |
+          python - <<'PY'
+          from ai_hypothesis.population_compute.gate6_population_scaling_prep import (
+              GATE6_POPULATION_LADDER,
+              GATE6_STAGE_A_PARENT_SLOTS,
+              GATE6_STAGE_B_PARENT_SLOTS,
+              GATE6_TOTAL_LEARNED_UPDATES,
+              GATE6_PRIMARY_K,
+              GATE6_NONINFERIORITY_MARGIN,
+          )
+          assert GATE6_POPULATION_LADDER == (64, 128, 256)
+          assert GATE6_STAGE_A_PARENT_SLOTS == 255
+          assert GATE6_STAGE_B_PARENT_SLOTS == 128
+          assert GATE6_TOTAL_LEARNED_UPDATES == 6128
+          assert GATE6_PRIMARY_K == 16
+          assert GATE6_NONINFERIORITY_MARGIN == 0.05
+          PY
+
+      - name: Enforce preparation-only scientific boundary
+        shell: bash
+        run: |
+          grep -q 'STATUS: PREPARATION ONLY — NOT ADMITTED' experiments/population_compute_scaling_v0/gate6_fixed_k_population_scaling_candidate_protocol.md
+          grep -q 'GATE5_CONFIRMED_BOUNDED_SCORE_ACTIVATION' experiments/population_compute_scaling_v0/gate6_fixed_k_population_scaling_candidate_protocol.md
+          grep -q 'GATE6_PREPARATION_ONLY = True' ai_hypothesis/population_compute/gate6_population_scaling_prep.py
+          ! grep -R --line-number -E 'generate_gate6_(development|confirmation)_world|run_gate6_.*development|GATE6_.*WORLD_START' \
+              ai_hypothesis/population_compute/gate6_population_scaling_prep.py \
+              tests/test_gate6_population_scaling_prep.py
+
+      - name: Verify answer-blind thinning API has no score or hidden-answer input
+        shell: bash
+        run: |
+          python - <<'PY'
+          import inspect
+          from ai_hypothesis.population_compute.gate6_population_scaling_prep import nested_answer_blind_thinning
+          params = tuple(inspect.signature(nested_answer_blind_thinning).parameters)
+          assert params == ('paths', 'runtime_seed', 'population_size')
+          assert 'score' not in ' '.join(params).lower()
+          assert 'hidden' not in ' '.join(params).lower()
+          PY
