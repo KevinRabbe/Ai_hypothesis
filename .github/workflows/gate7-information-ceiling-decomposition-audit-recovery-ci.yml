@@ -1,0 +1,73 @@
+name: Gate7 information-ceiling audit recovery qualification
+
+on:
+  push:
+    branches:
+      - agent/gate7-information-ceiling-decomposition-audit-recovery-v0
+  pull_request:
+    paths:
+      - 'ai_hypothesis/population_compute/recover_gate7_information_ceiling_decomposition_audit.py'
+      - 'scripts/recover_gate7_information_ceiling_decomposition_audit.ps1'
+      - 'tests/test_gate7_information_ceiling_decomposition_audit_recovery.py'
+      - '.github/workflows/gate7-information-ceiling-decomposition-audit-recovery-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  recovery-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Compile standard-library recovery path
+        run: |
+          python -m compileall -q \
+            ai_hypothesis/population_compute/analyze_gate7_information_ceiling_decomposition.py \
+            ai_hypothesis/population_compute/recover_gate7_information_ceiling_decomposition_audit.py \
+            tests/test_gate7_information_ceiling_decomposition_audit_recovery.py
+
+      - name: Run recovery regressions
+        run: |
+          python -m unittest tests/test_gate7_information_ceiling_decomposition_audit_recovery.py
+
+      - name: Verify exact recovery reason and one-way boundary
+        shell: bash
+        run: |
+          file=ai_hypothesis/population_compute/recover_gate7_information_ceiling_decomposition_audit.py
+          grep -F 'JSON_OBJECT_KEY_ORDER_AUDITOR_DEFECT' "$file"
+          grep -F 'rewrites != 12' "$file"
+          grep -F 'scientific_execution_repeated": False' "$file"
+          grep -F 'scientific_artifact_modified": False' "$file"
+          ! grep --line-number -E '(^|[[:space:]])(import torch|from torch|torch\.|generate_gate7|run_gate7_information_ceiling)' "$file"
+
+      - name: Prove scientific executor remains unchanged by recovery branch
+        shell: bash
+        run: |
+          git diff --exit-code 161142c1e5552cb9464216c774397def6a4100be -- \
+            ai_hypothesis/population_compute/run_gate7_information_ceiling_decomposition.py \
+            ai_hypothesis/population_compute/gate7_information_ceiling_decomposition_rank.py \
+            ai_hypothesis/population_compute/gate7_information_ceiling_decomposition_statistics.py \
+            ai_hypothesis/population_compute/gate7_information_ceiling_decomposition_worlds.py \
+            scripts/run_gate7_information_ceiling_decomposition.ps1
+
+  windows-recovery-wrapper-smoke:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Smoke recovery wrapper before artifact access
+        shell: pwsh
+        env:
+          GATE7_INFORMATION_CEILING_AUDIT_RECOVERY_SMOKE: '1'
+        run: |
+          .\scripts\recover_gate7_information_ceiling_decomposition_audit.ps1
