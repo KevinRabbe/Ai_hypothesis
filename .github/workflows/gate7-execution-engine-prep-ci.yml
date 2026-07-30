@@ -13,8 +13,10 @@ on:
       - 'ai_hypothesis/population_compute/gate7_native_tensor_bank_prep.py'
       - 'ai_hypothesis/population_compute/profile_gate7_execution_engine.py'
       - 'ai_hypothesis/population_compute/profile_gate7_native_bank_scaling.py'
+      - 'ai_hypothesis/population_compute/profile_gate7_native_batch_scaling.py'
       - 'scripts/profile_gate7_execution_engine.ps1'
       - 'scripts/profile_gate7_native_bank_scaling.ps1'
+      - 'scripts/profile_gate7_native_batch_scaling.ps1'
       - 'tests/test_gate7_scaling_frontier_prep.py'
       - 'tests/test_gate7_tensor_engine_prep.py'
       - 'tests/test_gate7_dynamic_tensor_bank_prep.py'
@@ -56,7 +58,8 @@ jobs:
             ai_hypothesis/population_compute/gate7_compact_tensor_bank_prep.py \
             ai_hypothesis/population_compute/gate7_native_tensor_bank_prep.py \
             ai_hypothesis/population_compute/profile_gate7_execution_engine.py \
-            ai_hypothesis/population_compute/profile_gate7_native_bank_scaling.py
+            ai_hypothesis/population_compute/profile_gate7_native_bank_scaling.py \
+            ai_hypothesis/population_compute/profile_gate7_native_batch_scaling.py
 
       - name: Run data-blind Gate7 preparation regressions
         run: |
@@ -83,6 +86,7 @@ jobs:
             ai_hypothesis/population_compute/gate7_native_tensor_bank_prep.py \
             ai_hypothesis/population_compute/profile_gate7_execution_engine.py \
             ai_hypothesis/population_compute/profile_gate7_native_bank_scaling.py \
+            ai_hypothesis/population_compute/profile_gate7_native_batch_scaling.py \
             tests/test_gate7_scaling_frontier_prep.py \
             tests/test_gate7_tensor_engine_prep.py \
             tests/test_gate7_dynamic_tensor_bank_prep.py \
@@ -95,7 +99,8 @@ jobs:
             ai_hypothesis/population_compute/gate7_compact_tensor_bank_prep.py \
             ai_hypothesis/population_compute/gate7_native_tensor_bank_prep.py \
             ai_hypothesis/population_compute/profile_gate7_execution_engine.py \
-            ai_hypothesis/population_compute/profile_gate7_native_bank_scaling.py
+            ai_hypothesis/population_compute/profile_gate7_native_bank_scaling.py \
+            ai_hypothesis/population_compute/profile_gate7_native_batch_scaling.py
 
       - name: Verify hot tensor functions contain no CUDA-to-Python scalar extraction
         shell: bash
@@ -188,6 +193,15 @@ jobs:
           ! grep -q -- '--population' gate7-native-profile-help.txt
           ! grep -q -- '--k' gate7-native-profile-help.txt
 
+          python -m ai_hypothesis.population_compute.profile_gate7_native_batch_scaling --help > gate7-batch-profile-help.txt
+          grep -q -- '--output' gate7-batch-profile-help.txt
+          ! grep -q -- '--hidden' gate7-batch-profile-help.txt
+          ! grep -q -- '--checkpoint' gate7-batch-profile-help.txt
+          ! grep -q -- '--training' gate7-batch-profile-help.txt
+          ! grep -q -- '--reliability' gate7-batch-profile-help.txt
+          ! grep -q -- '--population' gate7-batch-profile-help.txt
+          ! grep -q -- '--k' gate7-batch-profile-help.txt
+
       - name: Verify no scientific Gate7 runner exists
         shell: bash
         run: |
@@ -212,6 +226,7 @@ jobs:
         env:
           GATE7_PROFILE_WRAPPER_SMOKE: '1'
           GATE7_NATIVE_PROFILE_WRAPPER_SMOKE: '1'
+          GATE7_NATIVE_BATCH_PROFILE_WRAPPER_SMOKE: '1'
         run: |
           .\scripts\profile_gate7_execution_engine.ps1 `
             -IdleMachineAttested `
@@ -219,3 +234,6 @@ jobs:
           .\scripts\profile_gate7_native_bank_scaling.ps1 `
             -IdleMachineAttested `
             -OutputRoot "$env:RUNNER_TEMP\gate7-native-profile-smoke"
+          .\scripts\profile_gate7_native_batch_scaling.ps1 `
+            -IdleMachineAttested `
+            -OutputRoot "$env:RUNNER_TEMP\gate7-batch-profile-smoke"
