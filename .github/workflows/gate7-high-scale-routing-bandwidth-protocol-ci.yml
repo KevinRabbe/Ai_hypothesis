@@ -79,5 +79,4 @@ jobs:
           test ! -f ai_hypothesis/population_compute/gate7_high_scale_routing_bandwidth.py
           test ! -f experiments/population_compute_scaling_v0/gate7_high_scale_routing_bandwidth_result.md
           ! grep --line-number 'generate_gate7_high_scale_world(' \
-            tests/test_gate7_high_scale_routing_bandwidth_protocol.py \
-            .github/workflows/gate7-high-scale-routing-bandwidth-protocol-ci.yml
+            tests/test_gate7_high_scale_routing_bandwidth_protocol.py
