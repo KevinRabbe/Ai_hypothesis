@@ -1,7 +1,7 @@
 """Frozen, data-blind protocol contract for Gate-7 high-scale routing-bandwidth screening.
 
 This module contains no scientific world generator, checkpoint loader, neural execution, result artifact,
-or confirmation path.  It freezes the exact population/K ladders, condition exposure order, work identity,
+or confirmation path. It freezes the exact population/K ladders, condition exposure order, work identity,
 primary criteria, and stop classes before any N>=1024 Gate-7 world is generated.
 """
 
@@ -184,11 +184,12 @@ def k_passes_all_checkpoints(*, k: int, primary_ci_lows: dict[str, float]) -> bo
 
 
 def smallest_passing_k(*, population: int, primary_ci_lows_by_k: dict[int, dict[str, float]]) -> int | None:
-    plan = build_gate7_high_scale_tier_plan(population)
     tested = tuple(primary_ci_lows_by_k)
     validate_sequential_k_exposure(population, tested)
-    for k in tested:
+    for position, k in enumerate(tested):
         if k_passes_all_checkpoints(k=k, primary_ci_lows=primary_ci_lows_by_k[k]):
+            if position != len(tested) - 1:
+                raise ValueError("larger K values were exposed after the first all-checkpoint passing K")
             return k
     return None
 
@@ -204,6 +205,8 @@ def classify_completed_tier(
     if not resource_complete:
         return GATE7_HIGH_SCALE_RESOURCE_FRONTIER_REACHED
     if not reference_viable:
+        if primary_ci_lows_by_k:
+            raise ValueError("K conditions were exposed after the global reference failed viability")
         return GATE7_HIGH_SCALE_REFERENCE_FRONTIER_REACHED
     passing = smallest_passing_k(population=population, primary_ci_lows_by_k=primary_ci_lows_by_k)
     if passing is not None:
