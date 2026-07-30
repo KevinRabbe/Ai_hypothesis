@@ -1,176 +1,234 @@
-# Gate-7 candidate — high-scale bounded-routing frontier campaign
+# Gate-7 candidate — routing-bandwidth scaling frontier campaign
 
 **STATUS: PREPARATION ONLY — NOT ADMITTED.**
 
-This candidate may be prepared while Gate-6 remains unresolved. It must not generate Gate-7 scientific worlds, train a replacement scorer, execute an admitted scale sweep, or assign a Gate-7 outcome until a later admission commit explicitly freezes the scientific protocol.
+This candidate was originally prepared before Gate-6 resolved. Gate-6 has now returned valid development outcome `G6_S3_CHECKPOINT_SENSITIVE_SCALING`: fixed K16 remains strongly useful relative to its matched hash control at N64/N128/N256, but the frozen five-percentage-point near-global criterion is robust through N128 and becomes checkpoint-sensitive at N256.
 
-Base preparation state: Gate-6 pre-result qualified head `02671dcd070201690aa71f7326b1f0779bc660c4`.
+Therefore Gate-7 must **not** continue as a blind fixed-K16 doubling campaign. The first fixed-K16 near-global boundary has already been localized. Gate-7 is repurposed, before any Gate-7 scientific exposure, to ask how the routing-visibility budget required for near-global learned routing scales with population size.
 
-## Purpose
+No Gate-7 scientific world, replacement-checkpoint training run, admitted sweep, or Gate-7 outcome exists while this file remains preparation-only.
 
-Locate the population scale at which fixed bounded learned routing (primary K16) stops retaining near-global routing quality, without spending a full confirmation experiment at every power-of-two population size.
+## Gate-6 motivation
 
-This is a **frontier-localization campaign**, not a final confirmatory result. Its job is to rapidly bracket the first scaling failure. A later separately frozen confirmation experiment must test the last-pass / first-fail neighborhood on an untouched namespace.
+Gate-6 primary K16 status:
 
-## Why not stop at 1K
+```text
+N64   C0 PASS  C1 PASS  C2 PASS
+N128  C0 PASS  C1 PASS  C2 PASS
+N256  C0 PASS  C1 FAIL  C2 FAIL
+```
 
-A single N1024 experiment is inefficient. If K16 still works there, the next scientific question is immediately N2048. The prepared ladder therefore doubles population geometrically until the first clear routing failure, a reference-search failure, a resource stop, or the campaign ceiling.
+The N256 failures are non-inferiority failures, **not** loss of learned routing signal. At N256, `K16 - hashK16` remains strongly positive on all three checkpoints, while `K16 - global` crosses the frozen -0.05 NI boundary on C1/C2.
 
-Prepared ladder:
+This suggests a routing-bandwidth frontier: constant K16 is no longer robustly sufficient, but learned bounded routing itself remains highly informative.
+
+## Scientific question
+
+> As live population N grows, how slowly can score-visibility budget K grow while learned bounded routing remains useful relative to a matched answer-blind K control and near-global under the inherited five-percentage-point margin?
+
+The object of study is now the **K_required(N)** frontier, not whether K16 works forever.
+
+The desired scalable regime is sublinear routing visibility:
+
+`K_required(N) << N`.
+
+A future positive result may support only the tested finite-range relation. It must not be presented as a proof of asymptotic complexity.
+
+## Why this is faster than one full gate per doubling
+
+Prepare one geometric population ladder and one geometric K ladder, use a cheap exploratory screening namespace to locate the routing-bandwidth frontier, then spend high-power confirmation only on selected boundary points.
+
+Prepared population ladder:
 
 `512 -> 1024 -> 2048 -> 4096 -> 8192 -> 16384 -> 32768 -> 65536 -> 131072`
 
-The campaign must report the largest tested N at which K16 remains established and near-global, plus the first tested N at which either routing criterion fails. If no routing failure occurs, report only the tested lower bound.
+Prepared bounded-score ladder:
 
-## Phase A — exact existing frozen checkpoints
+`K = 16 -> 32 -> 64 -> 128 -> 256 -> 512`
 
-The existing Gate-3 v1 scorer/checkpoints have a hard representation ceiling:
+K values greater than or equal to N are not evaluated as bounded conditions; `global_score` remains the full-information reference.
+
+The exact admitted ladder may be reduced for resource reasons **before exposure**, but no K may be inserted after results merely to rescue a tier.
+
+## Phase A — bridge using exact existing frozen checkpoints
+
+The current Gate-3 v1 scorer/checkpoints have a hard representation ceiling:
 
 - maximum supported world depth: 10;
 - child depth is encoded into a 10-position one-hot;
 - world depth is indexed from the frozen `(6, 8, 10)` set.
 
-Therefore the largest clean simultaneously live **nonterminal** frontier available without changing the scorer representation is depth 9 = **512 candidates**.
+Therefore the largest clean simultaneously live nonterminal frontier available without changing scorer representation is depth 9 = **512 candidates**.
 
-Phase A may therefore test N512 using the exact existing three checkpoints, but must not pretend they support N1024+ nonterminal search.
+Phase A should use the exact existing three 19,649-parameter checkpoints to test a **bandwidth bridge at N512**, with K16/K32/K64/K128 (subject to final pre-exposure freeze), plus global and matched hash controls.
 
-## Phase B — one architecture transition, then push hard
+N256 does not need to be rerun merely to rescue Gate-6. Gate-6 remains closed. Any N256 point included in Gate-7 must use a fresh Gate-7 namespace and be justified as a bridge/comparability condition, not as a Gate-6 reinterpretation.
 
-To avoid one architecture change per scale, prepare one **scale-neutral scorer** and freeze it before high-scale scientific exposure.
+## Phase B — one scale-neutral scorer transition
+
+N1024+ nonterminal search requires a representation that is not hard-coded to depth <=10.
+
+Prepare one scale-neutral scorer and freeze it before high-scale scientific exposure.
 
 Candidate representation constraint:
 
-- preserve total scorer input width at 19 so the neural architecture remains `Linear(19->32) + GRU(32->64) + LayerNorm + Linear(64->1)` and therefore retains the same 19,649 learned-parameter count;
-- replace the hard-coded depth one-hots with fixed, non-learned depth features that support the whole prepared depth range in one representation;
+- preserve scorer input width at 19 so the neural architecture remains `Linear(19->32) + GRU(32->64) + LayerNorm + Linear(64->1)` and therefore retains 19,649 learned parameters;
+- replace hard-coded depth one-hots with fixed non-learned depth features that support the entire prepared depth range;
 - keep noisy-hint/action/sink semantics unchanged;
 - no population-size input, slot ID, N embedding, routing-condition input, or hidden-answer channel;
-- train a new set of three checkpoints once under one depth-diverse frozen recipe, then reuse those exact checkpoints for the entire N1024->N131072 sweep.
+- train one new set of three checkpoints under one frozen depth-diverse recipe;
+- reuse those exact checkpoints for the entire N1024->N131072 campaign.
 
-The exact fixed depth-feature transform, depth-training mixture and optimization recipe must be frozen in a later admission commit before any replacement-checkpoint training occurs.
+For N131072, the representation must support at least a depth-17 nonterminal frontier and depth-18 terminal task without changing learned dimensions or parameter count.
 
-For the prepared ceiling N131072, the scale-neutral representation must support at least a depth-17 nonterminal frontier and depth-18 terminal task without changing learned dimensions or parameter count.
+### Mandatory low-scale bridge for the replacement scorer
 
-## High-scale runtime preparation
+Before its high-scale frontier can be interpreted, the new checkpoint set must demonstrate the already-established mechanism on fresh bridge worlds at smaller N. The exact bridge criteria must be frozen before replacement-checkpoint training or evaluation.
 
-The admitted high-scale runner should not use one Python object per candidate as its primary representation. Prepare a tensorized candidate bank:
+At minimum the bridge must establish:
 
-- recurrent states: dense tensor `[batch, population, 64]`;
-- scores: dense tensor `[batch, population]`;
-- path/prefix identity: compact integer representation;
-- live/terminal masks: boolean tensors;
-- bounded K sampling: deterministic answer-blind integer indices;
-- K16 parent selection may read only sampled candidate scores before selection;
-- global-score mode may read all live scores;
-- hash K16 control reads zero neural scores before selection.
+- learned bounded-score routing > matched answer-blind bounded control;
+- a sensible monotone or near-monotone K frontier at N64/N128/N256;
+- global learned reference remains viable.
 
-Stage-A frontier construction should use generation-synchronous batching. This changes execution efficiency only; every generated child must still receive the frozen number of recurrent updates.
+Failure of this bridge is `MODEL_TRANSITION_NOT_QUALIFIED`, not a population-scaling result.
 
-For evaluation speed, the common Stage-A frontier may be materialized **once per checkpoint/world batch** and copied into the scheduler conditions, provided CI proves the copies are state-identical before treatment and no condition can mutate another condition's bank. Logical learned-work accounting remains attached to every condition; physical evaluation reuse is not a capability-per-compute claim.
+## High-scale tensor runtime
 
-No wall-clock/per-FLOP claim may be made against earlier eager object-based gates from this campaign alone.
+The high-scale runner must not use one Python object per candidate as its primary representation.
 
-## Frontier-localization ladder
+Prepare a tensorized candidate bank:
 
-After the scale-neutral three-checkpoint set is frozen, evaluate N geometrically:
+- recurrent states `[batch, population, 64]`;
+- scores `[batch, population]`;
+- compact integer path/prefix identity;
+- live/terminal masks;
+- deterministic answer-blind integer sampling;
+- bounded parent selection reads only its sampled K neural scores before selection;
+- global mode may read all live scores;
+- matched hash control reads zero neural scores before selection.
 
-- N1024
-- N2048
-- N4096
-- N8192
-- N16384
-- N32768
-- N65536
-- N131072
+Logical sparse activation and physical GPU execution are separate:
 
-At every N use the same primary scheduler trio:
+- each world retains the frozen logical active-parent/child budget;
+- selected neural updates from many independent worlds may be gathered into large GPU batches and scattered back;
+- this is execution batching, not additional learned work.
 
-1. `global_score`
-2. `bounded_score_k16`
-3. `bounded_hash_k16`
+The tensor engine must pass exact small-scale transcript equivalence against the qualified eager reference before high-scale admission.
 
-K8 may remain descriptive if frozen before exposure.
+## Remove accidental N-scaling overhead before frontier search
 
-The primary K remains K16. The campaign may not increase K merely to keep a positive result while locating the K16 scaling frontier.
+The high-scale baseline must remove known implementation costs that should not define the scientific frontier:
 
-## Fast screening before expensive confirmation
+- no full-reserve path sort merely to sample K candidates;
+- no full-reserve score sort after every bounded decision solely for telemetry in the hot path;
+- no per-child CUDA `.item()` extraction;
+- no one-Python-object-per-candidate hot representation;
+- no O(N) tuple rebuild to delete one parent;
+- no cryptographic SHA-256 + full sort for routine answer-blind capacity pruning;
+- no repeated state clone/list/stack churn where indexed tensor gather/scatter suffices.
 
-The intended campaign is deliberately cheaper than a confirmation matrix at every tier.
+Diagnostic telemetry that requires O(N) work may be sampled or executed out-of-band if the frozen protocol permits, but it must never alter scientific decisions or runtime state.
 
-Prepared screening target: **64 fresh worlds/checkpoint/tier**, paired across schedulers, with a deterministic paired-bootstrap analysis. This count is exploratory and must be frozen before the first high-scale world is generated.
+Compiler/CUDA-graph modes remain separate execution variables. First establish a clean eager tensor baseline.
 
-The first clear boundary then receives a separately frozen high-power confirmation on untouched worlds. The screening intervals are therefore frontier-localization evidence, not the final inferential claim.
+## Exploratory screening design
 
-If 64 worlds prove mechanically insufficient before exposure for a preregistered numerical reason, that count may be changed only in the later admission commit and must then stay fixed for the entire high-scale ladder.
+The high-scale campaign is frontier localization, not final inference.
 
-## Within-N causal comparisons
+Prepared screening target:
 
-The high-scale frontier campaign does **not** require equal Stage-A construction work between different N values. Larger N necessarily requires a larger frontier. It therefore makes no capability-per-compute claim across N.
+- 64 fresh worlds/checkpoint/tier;
+- same worlds paired across K/global/control conditions;
+- deterministic paired-bootstrap summaries;
+- preserve every tested tier and failure.
 
-Instead, at each N independently compare schedulers on identical worlds/candidates/logical work:
+At each N, evaluate:
 
-- learned-routing effect: `K16 - hashK16`;
-- near-global gap: `K16 - global`.
+1. `global_score`;
+2. bounded-score K ladder values valid for that N;
+3. matched answer-blind hash control(s) for the K values used in primary bandwidth decisions.
 
-For a tested N to count as a **routing pass candidate**:
+To keep the matrix tractable, admission may freeze one matched hash control for each candidate K or a preregistered subset sufficient to establish learned-score value. This choice must be fixed before any Gate-7 world is exposed.
 
-- `CI_low(K16 - hashK16) > 0`;
-- `CI_low(K16 - global) > -0.05`;
-- both conditions must hold for all three frozen high-scale checkpoints.
+## Per-K criteria
 
-The five-percentage-point margin is inherited from Gates 5–6 rather than selected after seeing high-scale data.
+For checkpoint C and population N, a bounded score treatment K is a **routing pass candidate** only if both hold:
 
-## Reference viability
+- `CI_low(score_K - hash_K) > 0`;
+- `CI_low(score_K - global_score) > -0.05`.
 
-A bounded router being near a useless global router is not evidence of useful scaling.
+The 0.05 NI margin is inherited from Gates 5–6.
 
-Therefore the campaign must separately classify whether the global learned reference itself remains useful at a tier. The exact preregistered reference-viability rule must be frozen at admission before high-scale data. At minimum it must use a paired comparison against an answer-blind reference and may also freeze an absolute coverage floor.
+For a population N, define exploratory `K_required(N)` as the **smallest preregistered K** whose two criteria pass on all three frozen checkpoints.
 
-If the global reference fails that preregistered viability rule, stop the routing-frontier interpretation at that N and classify the boundary as `REFERENCE_FRONTIER_REACHED`, not as K16 success or failure.
+If no tested K passes, report `K_required(N) > K_max_tested`; do not insert a new K after exposure for rescue.
 
-## Sequential frontier-search rule
+Because this is sequential exploratory localization, its repeated intervals are not a final familywise-controlled confirmation claim.
 
-This is explicitly exploratory frontier localization.
+## Scaling summaries
 
-Starting at N1024 after the scale-neutral scorer is frozen:
+For every completed N report:
 
-1. evaluate N;
-2. verify the global reference remains viable;
-3. if the reference is viable and all three checkpoints satisfy both K16 criteria, proceed to the next doubled N;
-4. at the first N where K16 fails while the global reference remains viable, stop with `ROUTING_FRONTIER_FAILURE`;
-5. at the first N where the global reference itself fails its frozen viability criterion, stop with `REFERENCE_FRONTIER_REACHED`;
-6. preserve all results including failures;
-7. do not retrain, alter K16, change the margin, or rerun alternate namespaces to extend the frontier;
-8. separately freeze a confirmation experiment around the **largest passing N and first failing N** whenever a routing boundary is found.
+- `K_required(N)` or lower bound;
+- K/N fraction;
+- score observations/world for each K;
+- global score observations/world;
+- learned-routing delta versus matched hash;
+- near-global delta;
+- coverage/reference viability;
+- wall time and peak VRAM as engineering telemetry only.
 
-If every tier through N131072 passes, report only a lower bound: `K16 frontier > 131072 within the tested regime`. Do not claim the scaling limit was found.
+Useful descriptive ratios include:
 
-Because the ladder is sequential/exploratory, its repeated confidence intervals are not a final familywise-controlled confirmation claim. The later bracket confirmation supplies the inferential test.
+`K_required(N) / N`
 
-## Resource stop boundary
+and doubling ratios:
 
-A resource failure is not a scientific K16 failure.
+`K_required(2N) / K_required(N)`.
 
-Record separately if a tier cannot be completed because of VRAM, host RAM, numerical/runtime failure, or a preregistered wall-time ceiling. The campaign must distinguish:
+Do not fit or claim an asymptotic law unless enough independent N tiers support it and a later protocol preregisters that analysis.
 
-- `ROUTING_FRONTIER_FAILURE`
-- `REFERENCE_FRONTIER_REACHED`
-- `RESOURCE_FRONTIER_REACHED`
-- `CAMPAIGN_CEILING_REACHED`
+## Sequential high-scale rule
 
-A resource stop may motivate an execution/memory-engineering experiment but cannot be reclassified as evidence that bounded routing failed.
+After the scale-neutral scorer and tensor engine are separately qualified:
 
-## What this campaign can answer
+1. start at N1024;
+2. verify global reference viability;
+3. evaluate the frozen K ladder from smallest upward;
+4. record the smallest passing K, or the tested lower bound if none passes;
+5. continue doubling N while a bounded K materially smaller than N remains viable and resource limits allow;
+6. stop scientific routing interpretation if the global reference fails;
+7. stop engineering execution separately on a resource limit;
+8. preserve all failures;
+9. do not retrain checkpoints, alter the NI margin, or add rescue K values after exposure;
+10. later freeze a high-power confirmation around representative population/K points that define the observed bandwidth frontier.
 
-It can rapidly estimate how far a fixed K16 learned routing channel continues to work as the available population grows by powers of two, potentially into the 10K–100K regime on one local machine.
+## Distinct stop classes
+
+A stop must be classified as one of:
+
+- `MODEL_TRANSITION_NOT_QUALIFIED`;
+- `ROUTING_BANDWIDTH_FRONTIER_REACHED`;
+- `REFERENCE_FRONTIER_REACHED`;
+- `RESOURCE_FRONTIER_REACHED`;
+- `CAMPAIGN_CEILING_REACHED`.
+
+A VRAM/OOM/runtime stop is not a scientific routing failure.
+
+## Claims boundary
+
+This campaign can estimate over the tested finite range how much score visibility is needed as population grows.
 
 It cannot by itself establish:
 
+- an asymptotic Big-O law for K_required(N);
 - physical decentralization;
+- communication-network scalability;
 - multi-machine scaling;
-- optimal K asymptotics;
-- general intelligence;
-- capability-per-FLOP superiority;
-- the true asymptotic scaling limit if the campaign ceiling is reached without failure.
+- capability-per-FLOP/per-joule superiority;
+- AGI/general intelligence;
+- a true universal maximum population.
 
 ## Preparation boundary
 
@@ -182,4 +240,4 @@ While this file remains preparation-only:
 - no result classifier execution;
 - no confirmation namespace.
 
-Only data-blind mechanics, tensor-bank infrastructure, work/resource accounting, and protocol checks may be prepared.
+Only data-blind mechanics, tensor-bank infrastructure, work/resource accounting, profiler preparation, and protocol checks may be prepared.
