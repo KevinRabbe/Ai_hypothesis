@@ -1,0 +1,68 @@
+name: Gate7 routing-bandwidth confirmation protocol qualification
+
+on:
+  push:
+    branches:
+      - agent/gate7-high-scale-routing-bandwidth-confirmation-protocol-v0
+  pull_request:
+    paths:
+      - 'ai_hypothesis/population_compute/gate7_high_scale_routing_bandwidth_confirmation_protocol.py'
+      - 'experiments/population_compute_scaling_v0/gate7_high_scale_routing_bandwidth_confirmation_protocol.md'
+      - 'tests/test_gate7_high_scale_routing_bandwidth_confirmation_protocol.py'
+      - '.github/workflows/gate7-high-scale-routing-bandwidth-confirmation-protocol-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  protocol:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Compile frozen confirmation protocol
+        run: |
+          python -m compileall -q ai_hypothesis/population_compute/gate7_high_scale_routing_bandwidth_confirmation_protocol.py
+
+      - name: Run confirmation-protocol regressions
+        run: |
+          python -m unittest tests/test_gate7_high_scale_routing_bandwidth_confirmation_protocol.py
+
+      - name: Verify exact frozen matrix and evidence bindings
+        run: |
+          python - <<'PY'
+          from ai_hypothesis.population_compute import gate7_high_scale_routing_bandwidth_confirmation_protocol as p
+          assert p.GATE7_CONFIRMATION_PROTOCOL_FROZEN is True
+          assert p.GATE7_CONFIRMATION_EXECUTION_OPENED is False
+          assert p.GATE7_CONFIRMATION_SCREENING_RESULT_HEAD == '07b6397f2a9d4f71ed789d6c7011e12b4cbf90e0'
+          assert p.GATE7_CONFIRMATION_SCREENING_RESULT_SHA256 == 'd76c8b0753a518b4c61b3ff42c1f3e85902e2e492342f23fa6706459ee13a9b5'
+          assert p.GATE7_CONFIRMATION_SCREENING_AUDIT_SHA256 == '7352621ef5c5199cba98070e2f2511674bd2f4aba8b20b48c0ec87436c5204d5'
+          assert p.GATE7_CONFIRMATION_POPULATIONS == (4096, 8192)
+          assert p.GATE7_CONFIRMATION_WORLD_COUNT == 512
+          assert p.GATE7_CONFIRMATION_EVALUATION_BATCH_SIZE == 64
+          assert p.GATE7_CONFIRMATION_BOOTSTRAP_SAMPLES == 10_000
+          assert p.build_confirmation_tier_plan(4096).k_values == (512,)
+          assert p.build_confirmation_tier_plan(8192).k_values == (16, 32, 64, 128, 256, 512)
+          PY
+
+      - name: Verify protocol-only confirmation boundary
+        shell: bash
+        run: |
+          module=ai_hypothesis/population_compute/gate7_high_scale_routing_bandwidth_confirmation_protocol.py
+          ! grep --line-number '^import torch' "$module"
+          ! grep --line-number '^from torch' "$module"
+          ! grep --line-number 'torch.load' "$module"
+          ! grep --line-number 'generate_gate7' "$module"
+          ! grep --line-number 'run_gate7' "$module"
+          test ! -f ai_hypothesis/population_compute/gate7_high_scale_routing_bandwidth_confirmation.py
+          test ! -f ai_hypothesis/population_compute/run_gate7_high_scale_routing_bandwidth_confirmation.py
+          test ! -f scripts/run_gate7_high_scale_routing_bandwidth_confirmation.ps1
+          test ! -f experiments/population_compute_scaling_v0/gate7_high_scale_routing_bandwidth_confirmation_result.md
