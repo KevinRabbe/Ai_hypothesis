@@ -1,0 +1,47 @@
+name: Gate7 routing-bandwidth confirmation result qualification
+
+on:
+  push:
+    branches:
+      - agent/gate7-high-scale-routing-bandwidth-confirmation-result-v0
+  pull_request:
+    paths:
+      - 'experiments/population_compute_scaling_v0/gate7_high_scale_routing_bandwidth_confirmation_result_v0.md'
+      - '.github/workflows/gate7-high-scale-routing-bandwidth-confirmation-result-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  result-record:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify immutable confirmation result record
+        shell: bash
+        run: |
+          record=experiments/population_compute_scaling_v0/gate7_high_scale_routing_bandwidth_confirmation_result_v0.md
+          test -f "$record"
+          grep -F '7afa6f204215bac7da4623e231ec34ef3b7fdc9f' "$record"
+          grep -F 'G7_ROUTING_BANDWIDTH_FRONTIER_NOT_CONFIRMED' "$record"
+          grep -F 'artifact_valid = true' "$record"
+          grep -F 'errors = []' "$record"
+          grep -F 'anchor_k512_passed = true' "$record"
+          grep -F 'passing_k_at_n8192 = [256, 512]' "$record"
+          grep -F 'K_required(8192) = 256' "$record"
+          grep -F '3.125%' "$record"
+          grep -F 'finite-sample false frontier' "$record"
+          grep -F '725e3749ba5fed7cdcbb6d61df81bcc77a7b69bacfdc82d553efb06f5ff888da' "$record"
+          grep -F '27a46ba0feccf6b3322885334819e0e7a07bb02be930122eb1f063c65d69fb99' "$record"
+          grep -F 'e7c1823dc59a50b58250cab0f7b18b95ca42b831e90182f07295680b6986b263' "$record"
+          grep -F 'A second confirmation is closed' "$record"
+
+      - name: Verify result branch adds no continuation execution
+        shell: bash
+        run: |
+          test ! -f ai_hypothesis/population_compute/gate7_high_scale_routing_bandwidth_continuation_protocol.py
+          test ! -f ai_hypothesis/population_compute/run_gate7_high_scale_routing_bandwidth_continuation.py
+          test ! -f scripts/run_gate7_high_scale_routing_bandwidth_continuation.ps1
