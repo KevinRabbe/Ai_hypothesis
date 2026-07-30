@@ -145,6 +145,12 @@ jobs:
               source = inspect.getsource(fn)
               assert 'argsort(' not in source, fn.__name__
               assert 'sorted(' not in source, fn.__name__
+          for fn in (
+              native.swap_delete_gate7_native_parent,
+              native.append_gate7_native_children,
+              native.prune_gate7_native_overflow,
+          ):
+              assert '.clone(' not in inspect.getsource(fn), fn.__name__
           sampler_params = set(inspect.signature(native.sample_gate7_native_positions).parameters)
           victim_params = set(inspect.signature(native.gate7_native_victim_positions).parameters)
           assert 'scores' not in sampler_params and 'states' not in sampler_params
