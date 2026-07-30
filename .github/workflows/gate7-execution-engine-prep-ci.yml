@@ -10,12 +10,14 @@ on:
       - 'ai_hypothesis/population_compute/gate7_tensor_engine_prep.py'
       - 'ai_hypothesis/population_compute/gate7_dynamic_tensor_bank_prep.py'
       - 'ai_hypothesis/population_compute/gate7_compact_tensor_bank_prep.py'
+      - 'ai_hypothesis/population_compute/gate7_native_tensor_bank_prep.py'
       - 'ai_hypothesis/population_compute/profile_gate7_execution_engine.py'
       - 'scripts/profile_gate7_execution_engine.ps1'
       - 'tests/test_gate7_scaling_frontier_prep.py'
       - 'tests/test_gate7_tensor_engine_prep.py'
       - 'tests/test_gate7_dynamic_tensor_bank_prep.py'
       - 'tests/test_gate7_compact_tensor_bank_prep.py'
+      - 'tests/test_gate7_native_tensor_bank_prep.py'
       - 'experiments/population_compute_scaling_v0/gate7_*'
       - '.github/workflows/gate7-execution-engine-prep-ci.yml'
   workflow_dispatch:
@@ -50,6 +52,7 @@ jobs:
             ai_hypothesis/population_compute/gate7_tensor_engine_prep.py \
             ai_hypothesis/population_compute/gate7_dynamic_tensor_bank_prep.py \
             ai_hypothesis/population_compute/gate7_compact_tensor_bank_prep.py \
+            ai_hypothesis/population_compute/gate7_native_tensor_bank_prep.py \
             ai_hypothesis/population_compute/profile_gate7_execution_engine.py
 
       - name: Run data-blind Gate7 preparation regressions
@@ -58,7 +61,8 @@ jobs:
             tests/test_gate7_scaling_frontier_prep.py \
             tests/test_gate7_tensor_engine_prep.py \
             tests/test_gate7_dynamic_tensor_bank_prep.py \
-            tests/test_gate7_compact_tensor_bank_prep.py
+            tests/test_gate7_compact_tensor_bank_prep.py \
+            tests/test_gate7_native_tensor_bank_prep.py
 
       - name: Verify Gate7 remains preparation only
         shell: bash
@@ -67,21 +71,25 @@ jobs:
           grep -q 'GATE7_TENSOR_ENGINE_PREPARATION_ONLY = True' ai_hypothesis/population_compute/gate7_tensor_engine_prep.py
           grep -q 'GATE7_DYNAMIC_TENSOR_BANK_PREPARATION_ONLY = True' ai_hypothesis/population_compute/gate7_dynamic_tensor_bank_prep.py
           grep -q 'GATE7_COMPACT_TENSOR_BANK_PREPARATION_ONLY = True' ai_hypothesis/population_compute/gate7_compact_tensor_bank_prep.py
+          grep -q 'GATE7_NATIVE_TENSOR_BANK_PREPARATION_ONLY = True' ai_hypothesis/population_compute/gate7_native_tensor_bank_prep.py
           ! grep -R --line-number 'generate_gate7.*world' \
             ai_hypothesis/population_compute/gate7_scaling_frontier_prep.py \
             ai_hypothesis/population_compute/gate7_tensor_engine_prep.py \
             ai_hypothesis/population_compute/gate7_dynamic_tensor_bank_prep.py \
             ai_hypothesis/population_compute/gate7_compact_tensor_bank_prep.py \
+            ai_hypothesis/population_compute/gate7_native_tensor_bank_prep.py \
             ai_hypothesis/population_compute/profile_gate7_execution_engine.py \
             tests/test_gate7_scaling_frontier_prep.py \
             tests/test_gate7_tensor_engine_prep.py \
             tests/test_gate7_dynamic_tensor_bank_prep.py \
-            tests/test_gate7_compact_tensor_bank_prep.py
+            tests/test_gate7_compact_tensor_bank_prep.py \
+            tests/test_gate7_native_tensor_bank_prep.py
           ! grep -R --line-number 'gate7-.*-hidden' \
             ai_hypothesis/population_compute/gate7_scaling_frontier_prep.py \
             ai_hypothesis/population_compute/gate7_tensor_engine_prep.py \
             ai_hypothesis/population_compute/gate7_dynamic_tensor_bank_prep.py \
             ai_hypothesis/population_compute/gate7_compact_tensor_bank_prep.py \
+            ai_hypothesis/population_compute/gate7_native_tensor_bank_prep.py \
             ai_hypothesis/population_compute/profile_gate7_execution_engine.py
 
       - name: Verify hot tensor functions contain no CUDA-to-Python scalar extraction
@@ -92,6 +100,7 @@ jobs:
           from ai_hypothesis.population_compute import gate7_tensor_engine_prep as stage_a
           from ai_hypothesis.population_compute import gate7_dynamic_tensor_bank_prep as stage_b_ref
           from ai_hypothesis.population_compute import gate7_compact_tensor_bank_prep as stage_b
+          from ai_hypothesis.population_compute import gate7_native_tensor_bank_prep as native
           for fn in (
               stage_a.build_productive_child_inputs,
               stage_a.build_complete_tensor_frontier,
@@ -109,6 +118,14 @@ jobs:
               stage_b._ordered_expand,
               stage_b._drop_single_overflow,
               stage_b.run_gate6_compatible_compact_stage_b_tensor,
+              native.sample_gate7_native_positions,
+              native.gate7_native_priority,
+              native.select_gate7_native_bounded_score,
+              native.select_gate7_native_bounded_hash,
+              native.gate7_native_victim_positions,
+              native.swap_delete_gate7_native_parent,
+              native.append_gate7_native_children,
+              native.prune_gate7_native_overflow,
           ):
               source = inspect.getsource(fn)
               for forbidden in ('.item(', '.cpu(', '.tolist(', 'float('):
@@ -118,6 +135,18 @@ jobs:
               source = inspect.getsource(fn)
               assert 'argsort(' not in source, fn.__name__
               assert 'topk(' not in source, fn.__name__
+          for fn in (
+              native.sample_gate7_native_positions,
+              native.gate7_native_victim_positions,
+              native.swap_delete_gate7_native_parent,
+              native.append_gate7_native_children,
+              native.prune_gate7_native_overflow,
+          ):
+              source = inspect.getsource(fn)
+              assert 'argsort(' not in source, fn.__name__
+              assert 'sorted(' not in source, fn.__name__
+          assert 'scores' not in inspect.getsource(native.sample_gate7_native_positions)
+          assert 'scores' not in inspect.getsource(native.gate7_native_victim_positions)
           PY
 
       - name: Verify engineering profiler exposes only execution knobs
