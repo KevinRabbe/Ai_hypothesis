@@ -1,0 +1,127 @@
+name: Gate7 routing-bandwidth continuation execution qualification
+
+on:
+  push:
+    branches:
+      - agent/gate7-high-scale-routing-bandwidth-continuation-execution-v0
+  pull_request:
+    paths:
+      - 'ai_hypothesis/population_compute/gate7_high_scale_routing_bandwidth_continuation*.py'
+      - 'ai_hypothesis/population_compute/run_gate7_high_scale_routing_bandwidth_continuation.py'
+      - 'ai_hypothesis/population_compute/analyze_gate7_high_scale_routing_bandwidth_continuation.py'
+      - 'scripts/run_gate7_high_scale_routing_bandwidth_continuation.ps1'
+      - 'tests/test_gate7_high_scale_routing_bandwidth_continuation_execution.py'
+      - '.github/workflows/gate7-high-scale-routing-bandwidth-continuation-execution-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  execution-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install CPU Torch for import boundary
+        run: |
+          python -m pip install --quiet --index-url https://download.pytorch.org/whl/cpu torch
+          python - <<'PY'
+          import torch
+          print('torch', torch.__version__)
+          PY
+
+      - name: Compile continuation execution and independent audit
+        run: |
+          python -m compileall -q \
+            ai_hypothesis/population_compute/gate7_high_scale_routing_bandwidth_continuation.py \
+            ai_hypothesis/population_compute/gate7_high_scale_routing_bandwidth_continuation_worlds.py \
+            ai_hypothesis/population_compute/gate7_high_scale_routing_bandwidth_continuation_conditions.py \
+            ai_hypothesis/population_compute/gate7_high_scale_routing_bandwidth_continuation_statistics.py \
+            ai_hypothesis/population_compute/gate7_high_scale_routing_bandwidth_continuation_campaign.py \
+            ai_hypothesis/population_compute/gate7_high_scale_routing_bandwidth_continuation_audit_spec.py \
+            ai_hypothesis/population_compute/gate7_high_scale_routing_bandwidth_continuation_audit_tier.py \
+            ai_hypothesis/population_compute/run_gate7_high_scale_routing_bandwidth_continuation.py \
+            ai_hypothesis/population_compute/analyze_gate7_high_scale_routing_bandwidth_continuation.py
+
+      - name: Run non-exposure continuation regressions
+        run: |
+          python -m unittest tests/test_gate7_high_scale_routing_bandwidth_continuation_execution.py
+
+      - name: Verify exact frozen continuation bindings
+        run: |
+          python - <<'PY'
+          from ai_hypothesis.population_compute import gate7_high_scale_routing_bandwidth_continuation as e
+          from ai_hypothesis.population_compute import gate7_high_scale_routing_bandwidth_continuation_audit_spec as a
+          from ai_hypothesis.population_compute.gate7_high_scale_routing_bandwidth_continuation_protocol import (
+              GATE7_CONTINUATION_POPULATIONS,
+              GATE7_CONTINUATION_K_LADDER,
+          )
+          assert e.GATE7_CONTINUATION_EXECUTION_ADMITTED is True
+          assert e.GATE7_CONTINUATION_PROTOCOL_HEAD == '4f05f8b1f9a33aed712edbf28691b927d2e220d3'
+          assert e.continuation_provenance()['confirmation_result_head'] == 'ae8bd8544a03e48f4f397d2ca5ae933d9247e430'
+          assert e.continuation_provenance()['confirmation_result_sha256'] == '725e3749ba5fed7cdcbb6d61df81bcc77a7b69bacfdc82d553efb06f5ff888da'
+          assert e.continuation_provenance()['confirmed_n8192_passing_k'] == [256, 512]
+          assert GATE7_CONTINUATION_POPULATIONS == (16384, 32768, 65536, 131072)
+          assert GATE7_CONTINUATION_K_LADDER == (16, 32, 64, 128, 256, 512)
+          assert a.PROTOCOL_HEAD == e.GATE7_CONTINUATION_PROTOCOL_HEAD
+          assert a.POPULATIONS == GATE7_CONTINUATION_POPULATIONS
+          PY
+
+      - name: Prove CI never invokes continuation world generation or runner
+        shell: bash
+        run: |
+          test_file=tests/test_gate7_high_scale_routing_bandwidth_continuation_execution.py
+          ! grep --line-number -E '^\s*(generate_gate7_continuation_world|continuation_world_batch|run_gate7_high_scale_routing_bandwidth_continuation)\(' "$test_file"
+          workflow=.github/workflows/gate7-high-scale-routing-bandwidth-continuation-execution-ci.yml
+          ! grep --line-number -E '^[[:space:]]*python -m ai_hypothesis\.population_compute\.run_gate7_high_scale_routing_bandwidth_continuation([[:space:]]|$)' "$workflow"
+          ! grep --line-number -E '^[[:space:]]*--transition-checkpoint0([[:space:]]|$)' "$workflow"
+          ! grep --line-number -E '^[[:space:]]*if .*cuda\.is_available' "$workflow"
+
+      - name: Verify independent auditor dependency boundary
+        shell: bash
+        run: |
+          for file in \
+            ai_hypothesis/population_compute/gate7_high_scale_routing_bandwidth_continuation_audit_spec.py \
+            ai_hypothesis/population_compute/gate7_high_scale_routing_bandwidth_continuation_audit_tier.py \
+            ai_hypothesis/population_compute/analyze_gate7_high_scale_routing_bandwidth_continuation.py
+          do
+            ! grep --line-number '^import torch' "$file"
+            ! grep --line-number '^from torch' "$file"
+            ! grep --line-number 'gate7_high_scale_routing_bandwidth_continuation import' "$file"
+            ! grep --line-number 'generate_gate7_continuation_world' "$file"
+          done
+
+  windows-wrapper-smoke:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Smoke PowerShell wrapper before checkpoints, CUDA or world generation
+        shell: pwsh
+        env:
+          GATE7_CONTINUATION_WRAPPER_SMOKE: '1'
+        run: |
+          $output = Join-Path $env:RUNNER_TEMP 'gate7-continuation-wrapper-smoke'
+          if (Test-Path -LiteralPath $output) {
+              Remove-Item -LiteralPath $output -Recurse -Force
+          }
+          .\scripts\run_gate7_high_scale_routing_bandwidth_continuation.ps1 `
+              -IdleMachineAttested `
+              -OutputRoot $output
+          if (Test-Path -LiteralPath (Join-Path $output 'science')) {
+              throw 'Continuation wrapper smoke reached the scientific output boundary.'
+          }
+          if (-not (Test-Path -LiteralPath (Join-Path $output 'run-config.json') -PathType Leaf)) {
+              throw 'Continuation wrapper smoke did not preserve run provenance.'
+          }
