@@ -1,26 +1,39 @@
 from __future__ import annotations
 
+import importlib.util
+import pathlib
+import sys
 import unittest
 
-from ai_hypothesis.population_compute.gate7_high_scale_routing_bandwidth_continuation_result_protocol import (
-    GATE7_CAMPAIGN_COMPLETE,
-    GATE7_CAMPAIGN_RESOURCE_FRONTIER,
-    GATE7_CONTINUATION_EXECUTION_HEAD,
-    GATE7_CONTINUATION_K_LADDER,
-    GATE7_CONTINUATION_POPULATIONS,
-    GATE7_NEXT_COORDINATION_EFFICIENCY,
-    GATE7_NEXT_GLOBAL_SIGNAL_OR_REPRESENTATION,
-    GATE7_NEXT_RESOURCE_ENGINEERING,
-    GATE7_NEXT_ROUTING_MECHANISM_OR_BUDGET,
-    GATE7_TIER_K_REQUIRED,
-    GATE7_TIER_NO_K_LE_512,
-    GATE7_TIER_REFERENCE_NOT_VIABLE,
-    Gate7ContinuationCampaignResultSummary,
-    Gate7ContinuationTierResultSummary,
-    allowed_cross_population_statements,
-    choose_next_question_family,
-    required_reporting_surface,
+MODULE_PATH = pathlib.Path(
+    "ai_hypothesis/population_compute/"
+    "gate7_high_scale_routing_bandwidth_continuation_result_protocol.py"
 )
+SPEC = importlib.util.spec_from_file_location("gate7_continuation_result_protocol_test", MODULE_PATH)
+assert SPEC is not None and SPEC.loader is not None
+protocol = importlib.util.module_from_spec(SPEC)
+sys.modules[SPEC.name] = protocol
+SPEC.loader.exec_module(protocol)
+
+GATE7_CAMPAIGN_COMPLETE = protocol.GATE7_CAMPAIGN_COMPLETE
+GATE7_CAMPAIGN_RESOURCE_FRONTIER = protocol.GATE7_CAMPAIGN_RESOURCE_FRONTIER
+GATE7_CONTINUATION_EXECUTION_HEAD = protocol.GATE7_CONTINUATION_EXECUTION_HEAD
+GATE7_CONTINUATION_K_LADDER = protocol.GATE7_CONTINUATION_K_LADDER
+GATE7_CONTINUATION_POPULATIONS = protocol.GATE7_CONTINUATION_POPULATIONS
+GATE7_NEXT_COORDINATION_EFFICIENCY = protocol.GATE7_NEXT_COORDINATION_EFFICIENCY
+GATE7_NEXT_GLOBAL_SIGNAL_OR_REPRESENTATION = (
+    protocol.GATE7_NEXT_GLOBAL_SIGNAL_OR_REPRESENTATION
+)
+GATE7_NEXT_RESOURCE_ENGINEERING = protocol.GATE7_NEXT_RESOURCE_ENGINEERING
+GATE7_NEXT_ROUTING_MECHANISM_OR_BUDGET = protocol.GATE7_NEXT_ROUTING_MECHANISM_OR_BUDGET
+GATE7_TIER_K_REQUIRED = protocol.GATE7_TIER_K_REQUIRED
+GATE7_TIER_NO_K_LE_512 = protocol.GATE7_TIER_NO_K_LE_512
+GATE7_TIER_REFERENCE_NOT_VIABLE = protocol.GATE7_TIER_REFERENCE_NOT_VIABLE
+Gate7ContinuationCampaignResultSummary = protocol.Gate7ContinuationCampaignResultSummary
+Gate7ContinuationTierResultSummary = protocol.Gate7ContinuationTierResultSummary
+allowed_cross_population_statements = protocol.allowed_cross_population_statements
+choose_next_question_family = protocol.choose_next_question_family
+required_reporting_surface = protocol.required_reporting_surface
 
 
 def tier(
