@@ -57,12 +57,11 @@ jobs:
           assert bridge.GATE7_TRANSITION_BRIDGE_NONINFERIORITY_MARGIN == 0.05
           PY
 
-      - name: Verify CI never instantiates frozen bridge worlds
+      - name: Verify tests never instantiate frozen bridge worlds
         shell: bash
         run: |
-          ! grep -R --line-number 'generate_gate7_transition_bridge_world(' \
-            tests/test_gate7_scale_neutral_transition_bridge_prep.py \
-            .github/workflows/gate7-scale-neutral-transition-bridge-prep-ci.yml
+          ! grep --line-number 'generate_gate7_transition_bridge_world(' \
+            tests/test_gate7_scale_neutral_transition_bridge_prep.py
 
       - name: Verify bridge execution remains locked
         shell: bash
