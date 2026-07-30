@@ -1,0 +1,117 @@
+name: Gate7 routing-bandwidth confirmation execution qualification
+
+on:
+  push:
+    branches:
+      - agent/gate7-high-scale-routing-bandwidth-confirmation-execution-v0
+  pull_request:
+    paths:
+      - 'ai_hypothesis/population_compute/gate7_high_scale_routing_bandwidth_confirmation.py'
+      - 'ai_hypothesis/population_compute/run_gate7_high_scale_routing_bandwidth_confirmation.py'
+      - 'ai_hypothesis/population_compute/analyze_gate7_high_scale_routing_bandwidth_confirmation.py'
+      - 'scripts/run_gate7_high_scale_routing_bandwidth_confirmation.ps1'
+      - 'tests/test_gate7_high_scale_routing_bandwidth_confirmation_execution.py'
+      - '.github/workflows/gate7-high-scale-routing-bandwidth-confirmation-execution-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  execution-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install CPU Torch for import boundary
+        run: |
+          python -m pip install --disable-pip-version-check torch --index-url https://download.pytorch.org/whl/cpu
+          python -c "import torch; print('torch', torch.__version__)"
+
+      - name: Compile confirmation execution and independent audit
+        run: |
+          python -m compileall -q \
+            ai_hypothesis/population_compute/gate7_high_scale_routing_bandwidth_confirmation.py \
+            ai_hypothesis/population_compute/run_gate7_high_scale_routing_bandwidth_confirmation.py \
+            ai_hypothesis/population_compute/analyze_gate7_high_scale_routing_bandwidth_confirmation.py
+
+      - name: Run non-exposure confirmation regressions
+        run: |
+          python -m unittest tests/test_gate7_high_scale_routing_bandwidth_confirmation_execution.py
+
+      - name: Verify exact frozen confirmation bindings
+        run: |
+          python - <<'PY'
+          from ai_hypothesis.population_compute import gate7_high_scale_routing_bandwidth_confirmation as e
+          from ai_hypothesis.population_compute import gate7_high_scale_routing_bandwidth_confirmation_protocol as p
+          assert e.GATE7_CONFIRMATION_EXECUTION_ADMITTED is True
+          assert e.GATE7_CONFIRMATION_PROTOCOL_HEAD == 'b0f0cfca736186b9400f82a7539a54f888dc59e5'
+          assert p.GATE7_CONFIRMATION_WORLD_COUNT == 512
+          assert p.GATE7_CONFIRMATION_EVALUATION_BATCH_SIZE == 64
+          assert p.GATE7_CONFIRMATION_BOOTSTRAP_SAMPLES == 10_000
+          assert p.build_confirmation_tier_plan(4096).conditions == (
+              'global_score', 'global_hash', 'bounded_score_k512', 'bounded_hash_k512'
+          )
+          assert len(p.build_confirmation_tier_plan(8192).conditions) == 14
+          PY
+
+      - name: Prove CI never invokes confirmation world generation or runner
+        shell: bash
+        run: |
+          test_file=tests/test_gate7_high_scale_routing_bandwidth_confirmation_execution.py
+          ! grep --line-number 'generate_gate7_confirmation_world(' "$test_file"
+          ! grep --line-number 'confirmation_world_batch(' "$test_file"
+          ! grep --line-number 'run_gate7_high_scale_routing_bandwidth_confirmation(' "$test_file"
+
+      - name: Verify independent auditor dependency boundary
+        shell: bash
+        run: |
+          auditor=ai_hypothesis/population_compute/analyze_gate7_high_scale_routing_bandwidth_confirmation.py
+          ! grep --line-number '^import torch' "$auditor"
+          ! grep --line-number '^from torch' "$auditor"
+          ! grep --line-number 'gate7_high_scale_routing_bandwidth_confirmation import' "$auditor"
+          ! grep --line-number 'generate_gate7_confirmation_world' "$auditor"
+
+  windows-wrapper-smoke:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Smoke PowerShell wrapper before checkpoints, CUDA or world generation
+        shell: pwsh
+        env:
+          GATE7_CONFIRMATION_WRAPPER_SMOKE: '1'
+        run: |
+          $output = Join-Path $env:RUNNER_TEMP "gate7-confirmation-smoke-${{ github.run_id }}"
+          .\scripts\run_gate7_high_scale_routing_bandwidth_confirmation.ps1 `
+            -IdleMachineAttested `
+            -OutputRoot $output
+          $config = Join-Path $output "run-config.json"
+          if (-not (Test-Path -LiteralPath $config -PathType Leaf)) {
+              throw "Gate-7 confirmation wrapper smoke did not write run-config.json"
+          }
+          $payload = Get-Content -Raw $config | ConvertFrom-Json
+          if ($payload.worlds_per_checkpoint_population -ne 512) {
+              throw "Gate-7 confirmation wrapper changed world count"
+          }
+          if ($payload.evaluation_batch_size -ne 64 -or $payload.physical_batches -ne 8) {
+              throw "Gate-7 confirmation wrapper changed B64 batching"
+          }
+          if ($payload.bootstrap_samples -ne 10000) {
+              throw "Gate-7 confirmation wrapper changed bootstrap count"
+          }
+          if (Test-Path -LiteralPath (Join-Path $output "science")) {
+              throw "Gate-7 confirmation wrapper smoke reached scientific execution"
+          }
