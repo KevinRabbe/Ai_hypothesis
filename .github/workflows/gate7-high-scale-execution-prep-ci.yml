@@ -12,6 +12,7 @@ on:
       - 'tests/test_gate7_high_scale_index_bank_prep.py'
       - 'tests/test_gate7_high_scale_frontier_prep.py'
       - 'tests/test_gate7_high_scale_terminal_stage_b_prep.py'
+      - 'tests/test_gate7_high_scale_execution_isolation_prep.py'
       - '.github/workflows/gate7-high-scale-execution-prep-ci.yml'
   workflow_dispatch:
 
@@ -40,25 +41,18 @@ jobs:
 
       - name: Compile high-scale preparation modules
         run: |
-          files=(
-            ai_hypothesis/population_compute/gate7_high_scale_index_bank_prep.py
-            ai_hypothesis/population_compute/gate7_high_scale_frontier_prep.py
-          )
-          if test -f ai_hypothesis/population_compute/gate7_high_scale_terminal_stage_b_prep.py; then
-            files+=(ai_hypothesis/population_compute/gate7_high_scale_terminal_stage_b_prep.py)
-          fi
-          python -m compileall -q "${files[@]}"
+          python -m compileall -q \
+            ai_hypothesis/population_compute/gate7_high_scale_index_bank_prep.py \
+            ai_hypothesis/population_compute/gate7_high_scale_frontier_prep.py \
+            ai_hypothesis/population_compute/gate7_high_scale_terminal_stage_b_prep.py
 
       - name: Run data-blind execution-preparation regressions
         run: |
-          tests=(
-            tests/test_gate7_high_scale_index_bank_prep.py
-            tests/test_gate7_high_scale_frontier_prep.py
-          )
-          if test -f tests/test_gate7_high_scale_terminal_stage_b_prep.py; then
-            tests+=(tests/test_gate7_high_scale_terminal_stage_b_prep.py)
-          fi
-          python -m unittest "${tests[@]}"
+          python -m unittest \
+            tests/test_gate7_high_scale_index_bank_prep.py \
+            tests/test_gate7_high_scale_frontier_prep.py \
+            tests/test_gate7_high_scale_terminal_stage_b_prep.py \
+            tests/test_gate7_high_scale_execution_isolation_prep.py
 
       - name: Verify immutable-frontier memory boundary
         run: |
@@ -84,4 +78,6 @@ jobs:
           test ! -f experiments/population_compute_scaling_v0/gate7_high_scale_routing_bandwidth_result.md
           ! grep --line-number 'generate_gate7_high_scale_world(' \
             tests/test_gate7_high_scale_index_bank_prep.py \
-            tests/test_gate7_high_scale_frontier_prep.py
+            tests/test_gate7_high_scale_frontier_prep.py \
+            tests/test_gate7_high_scale_terminal_stage_b_prep.py \
+            tests/test_gate7_high_scale_execution_isolation_prep.py
