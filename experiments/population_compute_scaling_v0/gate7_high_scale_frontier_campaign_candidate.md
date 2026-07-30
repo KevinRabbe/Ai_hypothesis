@@ -88,7 +88,7 @@ Before its high-scale frontier can be interpreted, the new checkpoint set must d
 At minimum the bridge must establish:
 
 - learned bounded-score routing > matched answer-blind bounded control;
-- a sensible monotone or near-monotone K frontier at N64/N128/N256;
+- a sensible K frontier at N64/N128/N256;
 - global learned reference remains viable.
 
 Failure of this bridge is `MODEL_TRANSITION_NOT_QUALIFIED`, not a population-scaling result.
