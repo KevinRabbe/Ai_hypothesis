@@ -1,7 +1,7 @@
 """Engineering-only CUDA scaling profile for Gate-7 native routing-bank mechanics.
 
 This profile deliberately contains no scientific worlds, hidden answers, checkpoint loading, training,
-or capability outcome.  It measures whether the prepared bounded-routing data structure itself remains
+or capability outcome. It measures whether the prepared bounded-routing data structure itself remains
 bounded as N grows, before the Gate-7 scientific protocol is admitted.
 """
 
@@ -16,7 +16,6 @@ from pathlib import Path
 import torch
 
 from .gate7_native_tensor_bank_prep import (
-    GATE7_NATIVE_K_LADDER,
     GATE7_NATIVE_MAX_STAGE_B_SLOTS,
     GATE7_NATIVE_POPULATION_LADDER,
     GATE7_NATIVE_STATE_WIDTH,
@@ -43,12 +42,14 @@ def _synchronize() -> None:
 
 def _allocate_bank(*, batch_size: int, population: int, device: torch.device) -> Gate7NativeTensorBank:
     width = population + 1
-    # State contents are irrelevant to this mechanics-only profile; storage size and indexed mutation
-    # are what matter. Scores/IDs are deterministic public synthetic values.
     states = torch.empty((batch_size, width, GATE7_NATIVE_STATE_WIDTH), dtype=torch.float32, device=device)
     base_scores = torch.linspace(-1.0, 1.0, steps=width, dtype=torch.float32, device=device)
     scores = base_scores[None, :].expand(batch_size, width).clone()
-    heap_ids = torch.arange(1, width + 1, dtype=torch.int64, device=device)[None, :].expand(batch_size, width).clone()
+    heap_ids = (
+        torch.arange(1, width + 1, dtype=torch.int64, device=device)[None, :]
+        .expand(batch_size, width)
+        .clone()
+    )
     live_counts = torch.full((batch_size,), population, dtype=torch.int64, device=device)
     bank = Gate7NativeTensorBank(
         states=states,
@@ -67,10 +68,11 @@ def _synthetic_children(*, batch_size: int, device: torch.device) -> tuple[torch
     return child_states, child_scores
 
 
-def _child_ids(*, batch_size: int, slot_index: int, device: torch.device) -> torch.Tensor:
-    rows = torch.arange(batch_size, dtype=torch.int64, device=device)
-    base = 10_000_000 + slot_index * 10_000 + rows * 2
-    return torch.stack((base, base + 1), dim=1)
+def _all_child_ids(*, batch_size: int, slots: int, device: torch.device) -> torch.Tensor:
+    slot = torch.arange(slots, dtype=torch.int64, device=device)[:, None]
+    row = torch.arange(batch_size, dtype=torch.int64, device=device)[None, :]
+    base = 10_000_000 + slot * 10_000 + row * 2
+    return torch.stack((base, base + 1), dim=2)
 
 
 def _select_global(bank: Gate7NativeTensorBank, *, public_seeds: torch.Tensor, slot_index: int) -> torch.Tensor:
@@ -104,6 +106,7 @@ def _run_cycle(
         tuple(100_003 + index * 7_919 for index in range(batch_size)), device=device
     )
     child_states, child_scores = _synthetic_children(batch_size=batch_size, device=device)
+    child_ids = _all_child_ids(batch_size=batch_size, slots=slots, device=device)
     terminal = torch.zeros(batch_size, dtype=torch.bool, device=device)
 
     _synchronize()
@@ -145,7 +148,7 @@ def _run_cycle(
             bank,
             child_states=child_states,
             child_scores=child_scores,
-            child_heap_ids=_child_ids(batch_size=batch_size, slot_index=slot_index, device=device),
+            child_heap_ids=child_ids[slot_index],
             terminal=terminal,
         )
         bank, _overflow = prune_gate7_native_overflow(
@@ -164,7 +167,11 @@ def _run_cycle(
         "world_decisions_per_second": world_decisions / elapsed_s,
         "microseconds_per_world_decision": elapsed_s * 1_000_000.0 / world_decisions,
         "metadata_candidates_examined_per_world": metadata_examined_per_world,
-        "neural_score_reads_per_world": population * slots if mode == "global_score" else (0 if mode == "bounded_hash" else int(k) * slots),
+        "neural_score_reads_per_world": (
+            population * slots
+            if mode == "global_score"
+            else (0 if mode == "bounded_hash" else int(k) * slots)
+        ),
         "peak_allocated_bytes": int(torch.cuda.max_memory_allocated(device)),
     }
 
@@ -179,7 +186,6 @@ def _measure_condition(
     repeats: int,
     device: torch.device,
 ) -> dict[str, object]:
-    # One warmup isolates allocator/kernel first-use noise from timed repetitions.
     _run_cycle(
         population=population,
         batch_size=batch_size,
@@ -218,6 +224,68 @@ def _measure_condition(
         "peak_allocated_bytes_max": max(int(row["peak_allocated_bytes"]) for row in samples),
         "samples_elapsed_ms": elapsed,
     }
+
+
+def _scaling_ratios(rows: list[dict[str, object]]) -> dict[str, dict[str, float | int]]:
+    groups: dict[str, list[dict[str, object]]] = {}
+    for row in rows:
+        mode = str(row["mode"])
+        k = row["k"]
+        key = mode if k is None else f"{mode}_k{k}"
+        groups.setdefault(key, []).append(row)
+
+    ratios: dict[str, dict[str, float | int]] = {}
+    for key, group in groups.items():
+        group.sort(key=lambda row: int(row["population"]))
+        first = group[0]
+        last = group[-1]
+        first_latency = float(first["mean_microseconds_per_world_decision"])
+        last_latency = float(last["mean_microseconds_per_world_decision"])
+        ratios[key] = {
+            "first_population": int(first["population"]),
+            "last_population": int(last["population"]),
+            "first_us_per_world_decision": first_latency,
+            "last_us_per_world_decision": last_latency,
+            "last_over_first_latency_ratio": last_latency / first_latency,
+        }
+    return ratios
+
+
+def _print_compact(payload: dict[str, object], *, output: Path) -> None:
+    rows = payload["rows"]
+    assert isinstance(rows, list)
+    lookup = {
+        (int(row["population"]), str(row["mode"]), row["k"]): row
+        for row in rows
+        if isinstance(row, dict)
+    }
+    print("Gate-7 native-bank scaling profile — ENGINEERING ONLY")
+    print(f"GPU: {payload['cuda_device_name']} | batch={payload['batch_size']} | slots={payload['slots']} | repeats={payload['repeats']}")
+    print("latency = mean microseconds / world routing decision")
+    for population in GATE7_NATIVE_POPULATION_LADDER:
+        global_us = float(lookup[(population, "global_score", None)]["mean_microseconds_per_world_decision"])
+        fields = [f"N={population:6d}", f"global={global_us:8.3f}us"]
+        for k in _PROFILE_K:
+            if k >= population:
+                continue
+            score_us = float(lookup[(population, "bounded_score", k)]["mean_microseconds_per_world_decision"])
+            hash_us = float(lookup[(population, "bounded_hash", k)]["mean_microseconds_per_world_decision"])
+            fields.append(f"K{k}={score_us:7.3f}/{hash_us:7.3f}us")
+        print("  ".join(fields))
+
+    print("\nLargest-N / smallest-N latency ratios:")
+    ratios = payload["scaling_ratios"]
+    assert isinstance(ratios, dict)
+    for key in ("global_score", "bounded_score_k16", "bounded_score_k64", "bounded_score_k256", "bounded_score_k512"):
+        if key not in ratios:
+            continue
+        row = ratios[key]
+        assert isinstance(row, dict)
+        print(
+            f"  {key:22s} {int(row['first_population']):6d}->{int(row['last_population']):6d}: "
+            f"{float(row['last_over_first_latency_ratio']):.3f}x"
+        )
+    print(f"\nFull JSON: {output}")
 
 
 def parse_args() -> argparse.Namespace:
@@ -270,7 +338,8 @@ def main() -> int:
                     )
                 )
 
-    payload = {
+    ratios = _scaling_ratios(rows)
+    payload: dict[str, object] = {
         "profile_version": PROFILE_VERSION,
         "status": "ENGINEERING_ONLY_NOT_SCIENTIFIC_EVIDENCE",
         "torch_version": torch.__version__,
@@ -287,10 +356,11 @@ def main() -> int:
         "population_ladder": list(GATE7_NATIVE_POPULATION_LADDER),
         "profile_k_values": list(_PROFILE_K),
         "rows": rows,
+        "scaling_ratios": ratios,
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
-    print(json.dumps(payload, indent=2, sort_keys=True))
+    _print_compact(payload, output=args.output)
     return 0
 
 
