@@ -25,8 +25,21 @@ try {
     }
 
     $branch = (git branch --show-current).Trim()
-    if ($LASTEXITCODE -ne 0 -or $branch -ne "agent/gate7-scale-neutral-transition-training-v0") {
-        throw "Gate-7 transition training must run from agent/gate7-scale-neutral-transition-training-v0."
+    $isSmoke = $env:GATE7_SCALE_NEUTRAL_TRAINING_WRAPPER_SMOKE -eq "1"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Could not resolve current Git branch."
+    }
+    if ($isSmoke) {
+        $allowedSmokeBranches = @(
+            "agent/gate7-high-scale-frontier-prep-v0",
+            "agent/gate7-scale-neutral-transition-training-v0"
+        )
+        if ($allowedSmokeBranches -notcontains $branch) {
+            throw "Gate-7 transition-training wrapper smoke is on an unexpected branch: $branch"
+        }
+    }
+    elseif ($branch -ne "agent/gate7-scale-neutral-transition-training-v0") {
+        throw "Real Gate-7 transition training must run from agent/gate7-scale-neutral-transition-training-v0."
     }
 
     $head = (git rev-parse HEAD).Trim()
@@ -54,7 +67,7 @@ try {
     Write-Host "Mixed precision: OFF"
     Write-Host ""
 
-    if ($env:GATE7_SCALE_NEUTRAL_TRAINING_WRAPPER_SMOKE -eq "1") {
+    if ($isSmoke) {
         Write-Host "Gate-7 scale-neutral transition training wrapper smoke completed before CUDA/training."
         return
     }
