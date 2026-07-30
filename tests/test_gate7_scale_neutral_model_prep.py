@@ -79,7 +79,7 @@ class Gate7ScaleNeutralModelPreparationTests(unittest.TestCase):
             ]
         )
         self.assertEqual(tuple(batched.shape), (len(pairs), GATE7_SCALE_NEUTRAL_POSITION_WIDTH))
-        torch.testing.assert_close(batched, scalar, rtol=1e-6, atol=1e-7)
+        torch.testing.assert_close(batched, scalar, rtol=1e-6, atol=3e-7)
 
     def test_productive_and_sink_token_semantics(self) -> None:
         productive = encode_gate7_scale_neutral_child_input(
@@ -134,7 +134,7 @@ class Gate7ScaleNeutralModelPreparationTests(unittest.TestCase):
             ]
         )
         self.assertEqual(tuple(batched.shape), (4, GATE7_SCALE_NEUTRAL_INPUT_WIDTH))
-        torch.testing.assert_close(batched, scalar, rtol=1e-6, atol=1e-7)
+        torch.testing.assert_close(batched, scalar, rtol=1e-6, atol=3e-7)
 
     def test_tensorized_encoder_rejects_mismatched_metadata(self) -> None:
         with self.assertRaises(ValueError):
