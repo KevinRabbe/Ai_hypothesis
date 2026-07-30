@@ -1,0 +1,190 @@
+name: Gate6 fixed-K population scaling qualification
+
+on:
+  push:
+    branches:
+      - agent/gate6-fixed-k-population-scaling-v0
+  pull_request:
+    paths:
+      - 'ai_hypothesis/population_compute/gate6_fixed_k_population_scaling.py'
+      - 'ai_hypothesis/population_compute/run_gate6_fixed_k_population_scaling.py'
+      - 'ai_hypothesis/population_compute/analyze_gate6_fixed_k_population_scaling.py'
+      - 'scripts/run_gate6_fixed_k_population_scaling.ps1'
+      - 'tests/test_gate6_fixed_k_population_scaling.py'
+      - 'tests/test_gate6_fixed_k_population_scaling_audit.py'
+      - 'experiments/population_compute_scaling_v0/gate6_fixed_k_population_scaling_protocol.md'
+      - 'experiments/population_compute_scaling_v0/gate5_confirmation_result.md'
+      - '.github/workflows/gate6-fixed-k-population-scaling-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gate6-qualification:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install CPU Torch
+        run: |
+          python -m pip install --disable-pip-version-check torch --index-url https://download.pytorch.org/whl/cpu
+          python -c "import torch; print('torch', torch.__version__)"
+
+      - name: Verify confirmed Gate5 base permits Gate6 admission
+        shell: bash
+        run: |
+          RESULT=experiments/population_compute_scaling_v0/gate5_confirmation_result.md
+          grep -q 'GATE5_CONFIRMED_BOUNDED_SCORE_ACTIVATION' "$RESULT"
+          grep -q '0705afc8f31d49a70158b4011631a31dc075c681' "$RESULT" || true
+          grep -q 'e49ad074080673b93bf8c22347a9ea34b16ccca4a7e6d12d934df844cfe7ef96' "$RESULT"
+          grep -q 'Gate-5 v0 is closed' "$RESULT"
+
+      - name: Compile frozen Gate6 modules
+        run: |
+          python -m compileall -q \
+            ai_hypothesis/population_compute/gate6_fixed_k_population_scaling.py \
+            ai_hypothesis/population_compute/run_gate6_fixed_k_population_scaling.py \
+            ai_hypothesis/population_compute/analyze_gate6_fixed_k_population_scaling.py
+
+      - name: Run synthetic Gate6 structural regressions
+        run: |
+          python -m unittest \
+            tests/test_gate6_fixed_k_population_scaling.py \
+            tests/test_gate6_fixed_k_population_scaling_audit.py
+
+      - name: Verify frozen Gate6 constants and work identity
+        shell: bash
+        run: |
+          python - <<'PY'
+          from ai_hypothesis.population_compute.gate6_fixed_k_population_scaling import (
+              GATE6_BOOTSTRAP_SAMPLES,
+              GATE6_CHECKPOINT_INDICES,
+              GATE6_CONDITIONS,
+              GATE6_DEPTH,
+              GATE6_DESCRIPTIVE_K,
+              GATE6_EVAL_BATCH_SIZE,
+              GATE6_FRONTIER_DEPTH,
+              GATE6_HINT_RELIABILITY,
+              GATE6_NONINFERIORITY_MARGIN,
+              GATE6_POPULATION_LADDER,
+              GATE6_PRIMARY_K,
+              GATE6_STAGE_A_PARENT_SLOTS,
+              GATE6_STAGE_B_PARENT_SLOTS,
+              GATE6_TOTAL_LEARNED_UPDATES,
+              GATE6_WORLD_COUNT,
+          )
+          assert GATE6_DEPTH == 10
+          assert GATE6_FRONTIER_DEPTH == 8
+          assert GATE6_HINT_RELIABILITY == 0.70
+          assert GATE6_POPULATION_LADDER == (64, 128, 256)
+          assert GATE6_WORLD_COUNT == 256
+          assert GATE6_EVAL_BATCH_SIZE == 64
+          assert GATE6_BOOTSTRAP_SAMPLES == 2000
+          assert GATE6_STAGE_A_PARENT_SLOTS == 255
+          assert GATE6_STAGE_B_PARENT_SLOTS == 128
+          assert GATE6_TOTAL_LEARNED_UPDATES == 6128
+          assert GATE6_PRIMARY_K == 16
+          assert GATE6_DESCRIPTIVE_K == 8
+          assert GATE6_NONINFERIORITY_MARGIN == 0.05
+          assert GATE6_CHECKPOINT_INDICES == (0, 1, 2)
+          assert len(GATE6_CONDITIONS) == 4
+          PY
+
+      - name: Verify Gate6 qualification remains development-data blind
+        shell: bash
+        run: |
+          ! grep -R --line-number 'generate_gate6_development_world' \
+              tests/test_gate6_fixed_k_population_scaling.py \
+              tests/test_gate6_fixed_k_population_scaling_audit.py
+          grep -q 'gate6-fixed-k-population-scaling-development-hidden' ai_hypothesis/population_compute/gate6_fixed_k_population_scaling.py
+          grep -q 'gate6-fixed-k-population-scaling-development-hints' ai_hypothesis/population_compute/gate6_fixed_k_population_scaling.py
+          grep -q 'gate6-fixed-k-population-scaling-development-runtime' ai_hypothesis/population_compute/gate6_fixed_k_population_scaling.py
+          ! grep -q 'gate5-bounded-score-activation-development-hidden' ai_hypothesis/population_compute/gate6_fixed_k_population_scaling.py
+          ! grep -q 'gate5-bounded-score-activation-confirmation-hidden' ai_hypothesis/population_compute/gate6_fixed_k_population_scaling.py
+
+      - name: Verify thinning and capacity pruning are answer blind by API
+        shell: bash
+        run: |
+          python - <<'PY'
+          import inspect
+          from ai_hypothesis.population_compute.gate6_fixed_k_population_scaling import (
+              _initial_thinning,
+              _prune_to_capacity,
+          )
+          thin = tuple(inspect.signature(_initial_thinning).parameters)
+          prune = tuple(inspect.signature(_prune_to_capacity).parameters)
+          assert thin == ('population', 'world_seed', 'population_size')
+          assert prune == ('population', 'world_seed', 'slot_index', 'population_size')
+          for params in (thin, prune):
+              joined = ' '.join(params).lower()
+              assert 'score' not in joined
+              assert 'hidden' not in joined
+              assert 'label' not in joined
+          PY
+
+      - name: Verify bounded selector reads full reserve only after decision
+        shell: bash
+        run: |
+          grep -q 'Full-reserve score access happens only after bounded parent selection is fixed' ai_hypothesis/population_compute/gate6_fixed_k_population_scaling.py
+          grep -q 'global_ranked_after_decision' ai_hypothesis/population_compute/gate6_fixed_k_population_scaling.py
+          grep -q 'BOUNDED_HASH_K16' ai_hypothesis/population_compute/gate6_fixed_k_population_scaling.py
+
+      - name: Verify admitted Gate6 CLI exposes no scientific tuning knobs
+        shell: bash
+        run: |
+          python -m ai_hypothesis.population_compute.run_gate6_fixed_k_population_scaling --help > gate6-help.txt
+          grep -q -- '--output-root' gate6-help.txt
+          grep -q -- '--checkpoint0' gate6-help.txt
+          grep -q -- '--checkpoint1' gate6-help.txt
+          grep -q -- '--checkpoint2' gate6-help.txt
+          ! grep -q -- '--world-count' gate6-help.txt
+          ! grep -q -- '--population' gate6-help.txt
+          ! grep -q -- '--capacity' gate6-help.txt
+          ! grep -q -- '--stage-a' gate6-help.txt
+          ! grep -q -- '--stage-b' gate6-help.txt
+          ! grep -q -- '--k' gate6-help.txt
+          ! grep -q -- '--margin' gate6-help.txt
+          ! grep -q -- '--reliability' gate6-help.txt
+          ! grep -q -- '--bootstrap' gate6-help.txt
+          ! grep -q -- '--training' gate6-help.txt
+
+      - name: Verify Gate6 remains frozen pre-result
+        shell: bash
+        run: |
+          PROTOCOL=experiments/population_compute_scaling_v0/gate6_fixed_k_population_scaling_protocol.md
+          grep -q 'FROZEN BEFORE ANY GATE-6 DEVELOPMENT WORLD IS GENERATED OR INSPECTED' "$PROTOCOL"
+          grep -q 'G6_S2_ROBUST_FIXED_K_POPULATION_SCALING' "$PROTOCOL"
+          grep -q 'delta_NI = 0.05' "$PROTOCOL"
+          grep -q '6,128' "$PROTOCOL"
+          test ! -f experiments/population_compute_scaling_v0/gate6_fixed_k_population_scaling_development_result.md
+
+  windows-powershell-smoke:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Put checkout on admitted Gate6 branch name
+        shell: powershell
+        run: git switch -C agent/gate6-fixed-k-population-scaling-v0
+
+      - name: Execute Gate6 pre-science wrapper under Windows PowerShell 5.1 StrictMode
+        shell: powershell
+        env:
+          GATE6_WRAPPER_SMOKE: '1'
+        run: |
+          .\scripts\run_gate6_fixed_k_population_scaling.ps1 `
+            -IdleMachineAttested `
+            -OutputRoot "$env:RUNNER_TEMP\gate6-smoke"
