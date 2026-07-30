@@ -14,6 +14,7 @@ on:
       - 'tests/test_gate5_confirmation_audit.py'
       - 'experiments/population_compute_scaling_v0/gate5_confirmation_protocol.md'
       - 'experiments/population_compute_scaling_v0/gate5_bounded_score_activation_development_result.md'
+      - 'experiments/population_compute_scaling_v0/gate5_confirmation_result.md'
       - '.github/workflows/gate5-confirmation-ci.yml'
   workflow_dispatch:
 
@@ -40,7 +41,7 @@ jobs:
           python -m pip install --disable-pip-version-check torch --index-url https://download.pytorch.org/whl/cpu
           python -c "import torch; print('torch', torch.__version__)"
 
-      - name: Verify Gate5 B2 development mechanically permits confirmation
+      - name: Verify Gate5 B2 development mechanically permitted confirmation
         shell: bash
         run: |
           RESULT=experiments/population_compute_scaling_v0/gate5_bounded_score_activation_development_result.md
@@ -62,7 +63,7 @@ jobs:
             tests/test_gate5_confirmation.py \
             tests/test_gate5_confirmation_audit.py
 
-      - name: Verify frozen confirmation constants without generating worlds
+      - name: Verify frozen confirmation constants
         shell: bash
         run: |
           python - <<'PY'
@@ -100,10 +101,9 @@ jobs:
           assert GATE5_NONINFERIORITY_MARGIN == 0.05
           PY
 
-      - name: Verify confirmation namespace remains unexposed in qualification
+      - name: Verify confirmation namespace separation remains frozen
         shell: bash
         run: |
-          ! grep -R --line-number 'generate_gate5_confirmation_world' tests/test_gate5_confirmation.py tests/test_gate5_confirmation_audit.py
           grep -q 'gate5-bounded-score-activation-confirmation-hidden' ai_hypothesis/population_compute/gate5_confirmation.py
           grep -q 'gate5-bounded-score-activation-confirmation-hints' ai_hypothesis/population_compute/gate5_confirmation.py
           grep -q 'gate5-bounded-score-activation-confirmation-runtime' ai_hypothesis/population_compute/gate5_confirmation.py
@@ -137,15 +137,26 @@ jobs:
           ! grep -q -- '--bootstrap' gate5-confirmation-help.txt
           ! grep -q -- '--training' gate5-confirmation-help.txt
 
-      - name: Verify confirmation remains pre-result during qualification
+      - name: Verify final Gate5 confirmation evidence record
         shell: bash
         run: |
           PROTOCOL=experiments/population_compute_scaling_v0/gate5_confirmation_protocol.md
+          RESULT=experiments/population_compute_scaling_v0/gate5_confirmation_result.md
           grep -q 'FROZEN BEFORE ANY GATE-5 CONFIRMATION WORLD IS GENERATED OR INSPECTED' "$PROTOCOL"
-          grep -q '512 untouched confirmation worlds' "$PROTOCOL"
           grep -q 'delta_NI = 0.05' "$PROTOCOL"
-          grep -q 'GATE5_CONFIRMED_BOUNDED_SCORE_ACTIVATION' "$PROTOCOL"
-          ! find experiments/population_compute_scaling_v0 -maxdepth 1 -type f -iname 'gate5_confirmation_result.md' | grep -q .
+          grep -q 'GATE5_CONFIRMED_BOUNDED_SCORE_ACTIVATION' "$RESULT"
+          grep -q 'd6541dc1e2f9c15c4c30408b2616ec04f10affe9' "$RESULT"
+          grep -q 'smallest_noninferior_k = 8' "$RESULT"
+          grep -q '+0.47265625' "$RESULT"
+          grep -q '+0.470703125' "$RESULT"
+          grep -q '+0.46875' "$RESULT"
+          grep -q '\[-0.0234375, 0.0078125\]' "$RESULT"
+          grep -q '\[-0.03125, -0.001953125\]' "$RESULT"
+          grep -q '\[-0.01953125, 0.0078125\]' "$RESULT"
+          grep -q 'e49ad074080673b93bf8c22347a9ea34b16ccca4a7e6d12d934df844cfe7ef96' "$RESULT"
+          grep -q '282f45dc04c6dd8977796647d3f3094f20c0f931a85867dd35086b8bf5c76f63' "$RESULT"
+          grep -q '4e2f110be21a12c0a0d3f3e1526335f7fc35b524459f9dddb66876762073cc27' "$RESULT"
+          grep -q 'Gate-5 v0 is closed' "$RESULT"
 
   windows-powershell-smoke:
     runs-on: windows-latest
