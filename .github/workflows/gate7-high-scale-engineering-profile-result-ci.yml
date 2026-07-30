@@ -1,0 +1,42 @@
+name: Gate7 high-scale engineering profile result qualification
+
+on:
+  push:
+    branches:
+      - agent/gate7-high-scale-engineering-profile-result-v0
+  pull_request:
+    paths:
+      - 'experiments/population_compute_scaling_v0/gate7_high_scale_execution_engineering_profile_result.md'
+      - '.github/workflows/gate7-high-scale-engineering-profile-result-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  result-record:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify immutable engineering result record
+        shell: bash
+        run: |
+          record=experiments/population_compute_scaling_v0/gate7_high_scale_execution_engineering_profile_result.md
+          test -f "$record"
+          grep -F '534a58d26d19f82bd108563f5328212759b59d9a' "$record"
+          grep -F 'RESOURCE_FRONTIER_REACHED' "$record"
+          grep -F 'N131072' "$record"
+          grep -F '13.70 GiB' "$record"
+          grep -F 'bd9dbe78af2ad165fb6bd53823c5d8d956d201df04f1b26b5f965b56b84f7098' "$record"
+          grep -F 'a9900daec78495e9635d3d506132f4f183f801e18c7aca02f4eb5e86660632dc' "$record"
+          grep -F 'High-scale Gate-7 science remains closed.' "$record"
+
+      - name: Verify result branch adds no scientific execution
+        shell: bash
+        run: |
+          test ! -f ai_hypothesis/population_compute/gate7_high_scale_routing_bandwidth.py
+          test ! -f ai_hypothesis/population_compute/run_gate7_high_scale_routing_bandwidth.py
+          test ! -f scripts/run_gate7_high_scale_routing_bandwidth.ps1
+          test ! -f experiments/population_compute_scaling_v0/gate7_high_scale_routing_bandwidth_result.md
