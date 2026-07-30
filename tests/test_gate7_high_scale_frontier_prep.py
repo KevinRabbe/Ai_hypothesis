@@ -2,11 +2,15 @@ from __future__ import annotations
 
 import inspect
 import unittest
+from unittest.mock import patch
 
 import torch
 
+from ai_hypothesis.population_compute import gate7_high_scale_frontier_prep as frontier_module
 from ai_hypothesis.population_compute.gate7_high_scale_frontier_prep import (
+    GATE7_HIGH_SCALE_FRONTIER_MAX_RECURRENT_ROWS,
     build_gate7_high_scale_immutable_frontier,
+    gate7_high_scale_frontier_chunk_ranges,
     validate_gate7_high_scale_public_hints,
 )
 from ai_hypothesis.population_compute.gate7_scale_neutral_model_prep import (
@@ -84,6 +88,55 @@ class Gate7HighScaleFrontierPreparationTests(unittest.TestCase):
                 atol=1e-6,
             )
 
+    def test_fixed_chunk_ranges_are_contiguous_and_bounded(self) -> None:
+        self.assertEqual(GATE7_HIGH_SCALE_FRONTIER_MAX_RECURRENT_ROWS, 1_048_576)
+        self.assertEqual(gate7_high_scale_frontier_chunk_ranges(7), ((0, 7),))
+        with patch.object(frontier_module, "GATE7_HIGH_SCALE_FRONTIER_MAX_RECURRENT_ROWS", 3):
+            self.assertEqual(
+                gate7_high_scale_frontier_chunk_ranges(8),
+                ((0, 3), (3, 6), (6, 8)),
+            )
+        with self.assertRaisesRegex(ValueError, "positive"):
+            gate7_high_scale_frontier_chunk_ranges(0)
+
+    def test_recurrent_row_chunking_preserves_complete_frontier(self) -> None:
+        torch.manual_seed(456)
+        model = Gate7ScaleNeutralScorer()
+        with patch.object(
+            frontier_module,
+            "GATE7_HIGH_SCALE_FRONTIER_MAX_RECURRENT_ROWS",
+            1_000_000,
+        ):
+            single_chunk = build_gate7_high_scale_immutable_frontier(
+                model,
+                population=1024,
+                noisy_hints_by_world=self._hints(),
+                device="cpu",
+            )
+        with patch.object(
+            frontier_module,
+            "GATE7_HIGH_SCALE_FRONTIER_MAX_RECURRENT_ROWS",
+            7,
+        ):
+            many_chunks = build_gate7_high_scale_immutable_frontier(
+                model,
+                population=1024,
+                noisy_hints_by_world=self._hints(),
+                device="cpu",
+            )
+        torch.testing.assert_close(
+            many_chunks.states,
+            single_chunk.states,
+            rtol=0.0,
+            atol=1e-6,
+        )
+        torch.testing.assert_close(
+            many_chunks.scores,
+            single_chunk.scores,
+            rtol=0.0,
+            atol=1e-6,
+        )
+
     def test_terminal_hint_is_reserved_for_stage_b(self) -> None:
         torch.manual_seed(321)
         model = Gate7ScaleNeutralScorer()
@@ -138,11 +191,11 @@ class Gate7HighScaleFrontierPreparationTests(unittest.TestCase):
             self.assertNotIn(forbidden, source)
         self.assertNotIn("Candidate", source)
         self.assertNotIn("hidden", source)
+        self.assertIn("index_copy_", source)
+        self.assertIn("gate7_high_scale_frontier_chunk_ranges", source)
 
     def test_frontier_module_contains_no_scientific_execution_surface(self) -> None:
-        import ai_hypothesis.population_compute.gate7_high_scale_frontier_prep as module
-
-        source = inspect.getsource(module)
+        source = inspect.getsource(frontier_module)
         self.assertNotIn("generate_gate7_high_scale_world", source)
         self.assertNotIn("torch.load", source)
         self.assertNotIn("hidden_path", source)
