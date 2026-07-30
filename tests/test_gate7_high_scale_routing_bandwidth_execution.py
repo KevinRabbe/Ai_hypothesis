@@ -149,7 +149,10 @@ class Gate7HighScaleRoutingBandwidthExecutionTests(unittest.TestCase):
     def test_independent_auditor_duplicates_classifier_and_does_not_import_execution(self) -> None:
         self.assertEqual(audit.POPULATIONS, execution.GATE7_HIGH_SCALE_POPULATIONS)
         self.assertEqual(audit.K_LADDER, execution.GATE7_HIGH_SCALE_K_LADDER)
-        self.assertEqual(audit.CHECKPOINTS, execution.GATE7_HIGH_SCALE_CHECKPOINTS)
+        self.assertEqual(
+            {index: {"sha256": row["sha256"], "fingerprint": row["fingerprint"]} for index, row in audit.CHECKPOINTS.items()},
+            execution.GATE7_HIGH_SCALE_CHECKPOINTS,
+        )
         passing = {
             16: {
                 **{f"c{checkpoint}_k16_score_vs_hash": 0.01 for checkpoint in (0, 1, 2)},
