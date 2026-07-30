@@ -1,0 +1,94 @@
+name: Gate7 routing-bandwidth continuation result protocol qualification
+
+on:
+  push:
+    branches:
+      - agent/gate7-high-scale-routing-bandwidth-continuation-result-protocol-v0
+  pull_request:
+    paths:
+      - 'ai_hypothesis/population_compute/gate7_high_scale_routing_bandwidth_continuation_result_protocol.py'
+      - 'experiments/population_compute_scaling_v0/gate7_high_scale_routing_bandwidth_continuation_result_protocol_v0.md'
+      - 'tests/test_gate7_high_scale_routing_bandwidth_continuation_result_protocol.py'
+      - '.github/workflows/gate7-high-scale-routing-bandwidth-continuation-result-protocol-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  result-protocol:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Compile data-blind result protocol
+        run: |
+          python -m compileall -q ai_hypothesis/population_compute/gate7_high_scale_routing_bandwidth_continuation_result_protocol.py
+
+      - name: Run result-protocol regressions
+        run: |
+          python -m unittest tests/test_gate7_high_scale_routing_bandwidth_continuation_result_protocol.py
+
+      - name: Verify exact evidence bindings and reporting surface
+        run: |
+          python - <<'PY'
+          import importlib.util
+          import pathlib
+          import sys
+
+          path = pathlib.Path('ai_hypothesis/population_compute/gate7_high_scale_routing_bandwidth_continuation_result_protocol.py')
+          spec = importlib.util.spec_from_file_location('gate7_continuation_result_protocol_ci', path)
+          assert spec is not None and spec.loader is not None
+          protocol = importlib.util.module_from_spec(spec)
+          sys.modules[spec.name] = protocol
+          spec.loader.exec_module(protocol)
+
+          assert protocol.GATE7_CONTINUATION_RESULT_PROTOCOL_FROZEN is True
+          assert protocol.GATE7_CONTINUATION_RESULT_RECORD_OPENED is False
+          assert protocol.GATE7_SECOND_CONTINUATION_OPENED is False
+          assert protocol.GATE7_CONTINUATION_EXECUTION_HEAD == '19ee6b4e228c56b32a11b11b1c61b35bf640e2c8'
+          assert protocol.GATE7_CONTINUATION_PROTOCOL_HEAD == '4f05f8b1f9a33aed712edbf28691b927d2e220d3'
+          assert protocol.GATE7_CONFIRMATION_RESULT_HEAD == 'ae8bd8544a03e48f4f397d2ca5ae933d9247e430'
+          assert protocol.GATE7_CONTINUATION_POPULATIONS == (16384, 32768, 65536, 131072)
+          assert protocol.GATE7_CONTINUATION_K_LADDER == (16, 32, 64, 128, 256, 512)
+          surface = protocol.required_reporting_surface()
+          assert surface['must_report_every_exposed_k'] is True
+          assert surface['must_report_every_checkpoint'] is True
+          assert surface['must_report_complete_passing_k_set'] is True
+          assert surface['allow_asymptotic_scaling_law_fit'] is False
+          assert surface['allow_pooling_64_world_screen_with_512_world_evidence'] is False
+          assert surface['allow_post_result_rescue_k'] is False
+          assert surface['allow_second_continuation'] is False
+          PY
+
+      - name: Verify frozen next-question hierarchy
+        shell: bash
+        run: |
+          module=ai_hypothesis/population_compute/gate7_high_scale_routing_bandwidth_continuation_result_protocol.py
+          grep -F 'G7_NEXT_QUESTION_RESOURCE_ENGINEERING' "$module"
+          grep -F 'G7_NEXT_QUESTION_GLOBAL_SIGNAL_OR_REPRESENTATION' "$module"
+          grep -F 'G7_NEXT_QUESTION_ROUTING_MECHANISM_OR_BUDGET' "$module"
+          grep -F 'G7_NEXT_QUESTION_COORDINATION_EFFICIENCY' "$module"
+          grep -F 'if campaign.campaign_outcome == GATE7_CAMPAIGN_RESOURCE_FRONTIER:' "$module"
+          grep -F 'if any(not tier.reference_viable for tier in campaign.tiers):' "$module"
+          grep -F 'if any(not tier.passing_k for tier in campaign.tiers):' "$module"
+
+      - name: Prove protocol cannot access evidence or open execution
+        shell: bash
+        run: |
+          module=ai_hypothesis/population_compute/gate7_high_scale_routing_bandwidth_continuation_result_protocol.py
+          ! grep --line-number '^import torch' "$module"
+          ! grep --line-number '^from torch' "$module"
+          ! grep --line-number '^import json' "$module"
+          ! grep --line-number '^from pathlib' "$module"
+          ! grep --line-number 'torch.load' "$module"
+          ! grep --line-number 'json.load' "$module"
+          ! grep --line-number 'read_text' "$module"
+          ! grep --line-number 'generate_gate7' "$module"
+          ! grep --line-number 'load_verified' "$module"
+          ! grep --line-number 'run_gate7' "$module"

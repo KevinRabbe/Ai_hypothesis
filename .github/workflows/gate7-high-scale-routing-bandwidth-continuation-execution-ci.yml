@@ -6,7 +6,13 @@ on:
       - agent/gate7-high-scale-routing-bandwidth-continuation-execution-v0
   pull_request:
     paths:
-      - 'ai_hypothesis/population_compute/gate7_high_scale_routing_bandwidth_continuation*.py'
+      - 'ai_hypothesis/population_compute/gate7_high_scale_routing_bandwidth_continuation.py'
+      - 'ai_hypothesis/population_compute/gate7_high_scale_routing_bandwidth_continuation_worlds.py'
+      - 'ai_hypothesis/population_compute/gate7_high_scale_routing_bandwidth_continuation_conditions.py'
+      - 'ai_hypothesis/population_compute/gate7_high_scale_routing_bandwidth_continuation_statistics.py'
+      - 'ai_hypothesis/population_compute/gate7_high_scale_routing_bandwidth_continuation_campaign.py'
+      - 'ai_hypothesis/population_compute/gate7_high_scale_routing_bandwidth_continuation_audit_spec.py'
+      - 'ai_hypothesis/population_compute/gate7_high_scale_routing_bandwidth_continuation_audit_tier.py'
       - 'ai_hypothesis/population_compute/run_gate7_high_scale_routing_bandwidth_continuation.py'
       - 'ai_hypothesis/population_compute/analyze_gate7_high_scale_routing_bandwidth_continuation.py'
       - 'scripts/run_gate7_high_scale_routing_bandwidth_continuation.ps1'
@@ -102,6 +108,7 @@ jobs:
           done
 
   windows-wrapper-smoke:
+    if: github.event_name != 'pull_request' || github.head_ref == 'agent/gate7-high-scale-routing-bandwidth-continuation-execution-v0'
     runs-on: windows-latest
     timeout-minutes: 10
     steps:
