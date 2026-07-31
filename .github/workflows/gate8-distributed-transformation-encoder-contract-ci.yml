@@ -134,4 +134,5 @@ jobs:
       - name: Prove CI opens no scientific-test or model path
         run: |
           workflow=.github/workflows/gate8-distributed-transformation-encoder-contract-ci.yml
-          ! grep --line-number -E "split='test'|from_pretrained|AutoTokenizer|AutoModel|huggingface|model\.safetensors" "$workflow"
+          sanitized="$(grep -v 'grep' "$workflow")"
+          ! printf '%s\n' "$sanitized" | grep -E "split='test'|from_pretrained|AutoTokenizer|AutoModel|huggingface|model\.safetensors"
