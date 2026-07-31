@@ -1,0 +1,145 @@
+name: Gate8 organism training protocol qualification
+
+on:
+  push:
+    branches:
+      - agent/gate8-organism-training-protocol-v0
+  pull_request:
+    paths:
+      - 'ai_hypothesis/population_compute/gate8_organism_training_protocol.py'
+      - 'tests/test_gate8_organism_training_protocol.py'
+      - 'experiments/population_compute_scaling_v0/gate8_organism_training_protocol_v0.md'
+      - '.github/workflows/gate8-organism-training-protocol-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  organism-training-protocol:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Compile frozen training protocol
+        run: |
+          python -m compileall -q \
+            ai_hypothesis/population_compute/gate8_organism_training_protocol.py
+
+      - name: Run message schedule selection and admission regressions
+        run: |
+          python -m unittest tests/test_gate8_organism_training_protocol.py
+
+      - name: Verify exact frozen schedule and optimizer contract
+        run: |
+          python - <<'PY'
+          import importlib.util
+          import pathlib
+          import sys
+
+          path = pathlib.Path(
+              'ai_hypothesis/population_compute/gate8_organism_training_protocol.py'
+          )
+          name = 'gate8_training_protocol_ci_contract'
+          spec = importlib.util.spec_from_file_location(name, path)
+          assert spec is not None and spec.loader is not None
+          module = importlib.util.module_from_spec(spec)
+          sys.modules[name] = module
+          spec.loader.exec_module(module)
+          plan = module.gate8_organism_training_protocol_plan()
+
+          assert plan['runtime_head'] == '1a2be148411bc71ba35fda12b035b724f06ec166'
+          assert plan['learned_parameter_count'] == 19_649
+          assert plan['training_seeds'] == [0, 1, 2]
+          assert plan['training_worlds_per_seed'] == 262_144
+          assert plan['world_batch_size'] == 256
+          assert plan['optimizer_steps'] == 1_024
+          assert plan['training_conditions'] == [
+              [32, 4], [64, 4], [64, 8], [128, 4], [128, 8], [128, 16]
+          ]
+          assert list(plan['condition_world_counts'].values()) == [
+              43_691, 43_691, 43_691, 43_691, 43_690, 43_690
+          ]
+          assert plan['validation_namespace'] == 'validation'
+          assert plan['validation_world_indices'] == [0, 511]
+          assert plan['checkpoint_steps'] == [256, 512, 768, 1_024]
+          assert plan['optimizer'] == 'adamw'
+          assert plan['learning_rate'] == 3.0e-3
+          assert plan['minimum_learning_rate'] == 3.0e-5
+          assert plan['warmup_steps'] == 64
+          assert plan['parameter_dtype'] == 'float32'
+          assert plan['autocast_enabled'] is False
+          assert plan['tf32_enabled'] is False
+          assert plan['deterministic_algorithms'] is True
+          assert plan['execution_admitted'] is False
+          assert plan['training_admitted'] is False
+          assert plan['checkpoint_write_admitted'] is False
+          assert plan['scientific_test_worlds_admitted'] is False
+          assert plan['reference_model_admitted'] is False
+          PY
+
+      - name: Prove full 256-code transition support
+        run: |
+          python - <<'PY'
+          import importlib.util
+          import pathlib
+          import sys
+
+          def load(path, name):
+              spec = importlib.util.spec_from_file_location(name, pathlib.Path(path))
+              assert spec is not None and spec.loader is not None
+              module = importlib.util.module_from_spec(spec)
+              sys.modules[name] = module
+              spec.loader.exec_module(module)
+              return module
+
+          protocol = load(
+              'ai_hypothesis/population_compute/gate8_organism_training_protocol.py',
+              'gate8_training_protocol_ci_codes',
+          )
+          worlds = load(
+              'ai_hypothesis/population_compute/gate8_distributed_transformation_worlds.py',
+              'gate8_training_protocol_ci_worlds',
+          )
+          for transform in worlds.GATE8_TRANSFORM_PERMUTATIONS:
+              outputs = set()
+              for code in range(256):
+                  _carrier, symbol = protocol.gate8_decode_message_code(code)
+                  outputs.add(
+                      protocol.gate8_target_message_code(
+                          inbox_code=code,
+                          output_symbol=transform[symbol],
+                          source_is_root=False,
+                          root_symbol=0,
+                      )
+                  )
+              assert outputs == set(range(256))
+          PY
+
+      - name: Verify protocol remains execution closed
+        run: |
+          module=ai_hypothesis/population_compute/gate8_organism_training_protocol.py
+          ! grep --line-number -E '^import torch|^from torch|generate_gate8_world|torch\.optim|optimizer\.step|backward\(|torch\.save|AutoModel|AutoTokenizer|from_pretrained|snapshot_download|model\.safetensors' "$module"
+          for split in train validation test demonstration; do
+            ! grep --line-number -F "split=\"$split\"" "$module"
+            ! grep --line-number -F "split='$split'" "$module"
+          done
+
+      - name: Prove exact four-file protocol-only slice
+        run: |
+          changed="$(git diff --name-only 1a2be148411bc71ba35fda12b035b724f06ec166...HEAD | sort)"
+          expected="$(printf '%s\n' \
+            '.github/workflows/gate8-organism-training-protocol-ci.yml' \
+            'ai_hypothesis/population_compute/gate8_organism_training_protocol.py' \
+            'experiments/population_compute_scaling_v0/gate8_organism_training_protocol_v0.md' \
+            'tests/test_gate8_organism_training_protocol.py' | sort)"
+          test "$changed" = "$expected"
