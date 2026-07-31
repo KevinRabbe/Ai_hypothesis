@@ -1,0 +1,109 @@
+name: Gate8 distributed-transformation world contract qualification
+
+on:
+  push:
+    branches:
+      - agent/gate8-distributed-transformation-world-contract-v0
+  pull_request:
+    paths:
+      - 'ai_hypothesis/population_compute/gate8_distributed_transformation_worlds.py'
+      - 'experiments/population_compute_scaling_v0/gate8_distributed_transformation_world_contract_v0.md'
+      - 'tests/test_gate8_distributed_transformation_world_contract.py'
+      - '.github/workflows/gate8-distributed-transformation-world-contract-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  world-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Compile generator and oracle contract
+        run: |
+          python -m compileall -q \
+            ai_hypothesis/population_compute/gate8_distributed_transformation_worlds.py
+
+      - name: Run world, oracle, namespace, and leakage regressions
+        run: |
+          python -m unittest tests/test_gate8_distributed_transformation_world_contract.py
+
+      - name: Generate the exact 21-condition contract matrix
+        run: |
+          python - <<'PY'
+          import importlib.util
+          import pathlib
+          import sys
+
+          path = pathlib.Path(
+              'ai_hypothesis/population_compute/'
+              'gate8_distributed_transformation_worlds.py'
+          )
+          name = 'gate8_world_contract_ci_module'
+          spec = importlib.util.spec_from_file_location(name, path)
+          assert spec is not None and spec.loader is not None
+          module = importlib.util.module_from_spec(spec)
+          sys.modules[name] = module
+          spec.loader.exec_module(module)
+
+          assert len(module.GATE8_VALID_CONDITIONS) == 21
+          for population, depth in module.GATE8_VALID_CONDITIONS:
+              generated = module.generate_gate8_world(
+                  split='contract',
+                  seed=0,
+                  world_index=0,
+                  population=population,
+                  depth=depth,
+              )
+              generated.validate()
+              assert len(generated.public.workers) == population
+              assert len(generated.truth.relevant_worker_indices) == depth
+              assert depth / population <= 1 / 8
+          PY
+
+      - name: Verify exact protocol and correction bindings
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          text = Path(
+              'ai_hypothesis/population_compute/'
+              'gate8_distributed_transformation_worlds.py'
+          ).read_text(encoding='utf-8')
+          assert 'e73541115e8ddd122f336463dc1a9ffdbf82df46' in text
+          assert '124065691d257d483a37be4200452f1f7ca50063' in text
+          assert 'GATE8_WORLD_GENERATOR_AND_SYMBOLIC_ORACLE_ADMITTED_EXECUTION_CLOSED' in text
+          PY
+
+      - name: Prove exact four-file world-contract slice
+        run: |
+          changed="$(git diff --name-only 124065691d257d483a37be4200452f1f7ca50063...HEAD | sort)"
+          expected="$(printf '%s\n' \
+            '.github/workflows/gate8-distributed-transformation-world-contract-ci.yml' \
+            'ai_hypothesis/population_compute/gate8_distributed_transformation_worlds.py' \
+            'experiments/population_compute_scaling_v0/gate8_distributed_transformation_world_contract_v0.md' \
+            'tests/test_gate8_distributed_transformation_world_contract.py' | sort)"
+          test "$changed" = "$expected"
+
+      - name: Verify model training encoder and baseline remain closed
+        run: |
+          module=ai_hypothesis/population_compute/gate8_distributed_transformation_worlds.py
+          ! grep --line-number -E '^import torch|^from torch|^import numpy|^from numpy' "$module"
+          ! grep --line-number -E 'AutoModel|AutoTokenizer|optimizer|backward\(|torch\.load|cuda|prompt_template|encode_gate8' "$module"
+
+      - name: Prove CI accepts only contract worlds
+        run: |
+          workflow=.github/workflows/gate8-distributed-transformation-world-contract-ci.yml
+          grep -F "split='contract'" "$workflow"
+          ! grep --line-number -E "split='(train|validation|test|demonstration)'" "$workflow"
