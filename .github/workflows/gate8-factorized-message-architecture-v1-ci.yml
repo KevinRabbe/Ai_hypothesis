@@ -1,0 +1,116 @@
+name: Gate8 factorized message architecture v1 qualification
+
+on:
+  pull_request:
+    branches:
+      - agent/gate8-seed0-causal-diagnostic-result-v0
+    paths:
+      - ".github/workflows/gate8-factorized-message-architecture-v1-ci.yml"
+      - "ai_hypothesis/population_compute/gate8_factorized_organism_architecture.py"
+      - "tests/test_gate8_factorized_organism_architecture.py"
+      - "experiments/population_compute_scaling_v0/gate8_factorized_message_architecture_contract_v1.md"
+
+permissions:
+  contents: read
+
+jobs:
+  architecture-contract:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install CPU Torch
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
+
+      - name: Compile architecture contract
+        run: |
+          python -m py_compile \
+            ai_hypothesis/population_compute/gate8_factorized_organism_architecture.py \
+            tests/test_gate8_factorized_organism_architecture.py
+
+      - name: Run factorized architecture regressions
+        run: |
+          python -m unittest tests/test_gate8_factorized_organism_architecture.py -v
+
+      - name: Verify exact static ledger and closed boundaries
+        run: |
+          python - <<'PY'
+          import importlib.util
+          import pathlib
+          import sys
+
+          path = pathlib.Path(
+              "ai_hypothesis/population_compute/gate8_factorized_organism_architecture.py"
+          )
+          spec = importlib.util.spec_from_file_location("g8_v1_ci_arch", path)
+          assert spec is not None and spec.loader is not None
+          module = importlib.util.module_from_spec(spec)
+          sys.modules[spec.name] = module
+          spec.loader.exec_module(module)
+
+          model = module.Gate8V1SharedWorkerCore()
+          assert sum(parameter.numel() for parameter in model.parameters()) == 19_649
+          assert len(dict(model.named_parameters())) == 12
+          assert sum(module.gate8_v1_architecture_parameter_ledger().values()) == 19_649
+          assert module.GATE8_V1_WORKER_STATE_WIDTH == 65
+          assert module.GATE8_V1_WORKER_INPUT_WIDTH == 21
+          assert module.GATE8_V1_CARRIER_FEATURE_WIDTH == 7
+          assert module.GATE8_V1_SYMBOL_FEATURE_WIDTH == 11
+          assert module.GATE8_V1_TRANSFORM_FEATURE_WIDTH == 3
+
+          plan = module.gate8_v1_architecture_plan()
+          assert plan["base_result_head"] == "ad54c8daa7617d54e15932da76da08212d0d1444"
+          assert plan["padding_parameters"] == 0
+          assert plan["root_symbol_in_initial_message"] is True
+          assert plan["factorized_message_heads"] is True
+          assert plan["terminal_answer_is_symbol_head"] is True
+          assert plan["deterministic_delivery_required_by_future_runtime"] is True
+          assert plan["root_symbol_feature"] is False
+          assert plan["role_feature"] is False
+          assert plan["runtime_flag_feature"] is False
+          assert plan["monolithic_message_head"] is False
+          assert plan["duplicate_answer_head"] is False
+          assert plan["activity_head"] is False
+          assert plan["graph_scheduler_admitted"] is False
+          assert plan["training_admitted"] is False
+          assert plan["checkpoint_admitted"] is False
+          assert plan["scientific_test_worlds_admitted"] is False
+          assert plan["reference_model_admitted"] is False
+
+          source = path.read_text(encoding="utf-8")
+          for forbidden in (
+              "generate_gate8_world(",
+              "snapshot_download(",
+              "AutoTokenizer.from_pretrained",
+              "AutoModel.from_pretrained",
+              "torch.optim",
+              "optimizer.step",
+          ):
+              assert forbidden not in source
+
+          print("Gate8 v1 factorized architecture contract verified")
+          PY
+
+      - name: Prove exact four-file architecture slice
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          git diff --name-only "$BASE_SHA" "$HEAD_SHA" | sort > /tmp/actual-files.txt
+          cat > /tmp/expected-files.txt <<'EOF'
+          .github/workflows/gate8-factorized-message-architecture-v1-ci.yml
+          ai_hypothesis/population_compute/gate8_factorized_organism_architecture.py
+          experiments/population_compute_scaling_v0/gate8_factorized_message_architecture_contract_v1.md
+          tests/test_gate8_factorized_organism_architecture.py
+          EOF
+          diff -u /tmp/expected-files.txt /tmp/actual-files.txt
