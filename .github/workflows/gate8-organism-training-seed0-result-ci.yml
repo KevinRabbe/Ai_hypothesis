@@ -1,0 +1,127 @@
+name: Gate8 organism training seed0 result qualification
+
+on:
+  pull_request:
+    branches:
+      - agent/gate8-organism-training-execution-v0
+    paths:
+      - '.github/workflows/gate8-organism-training-seed0-result-ci.yml'
+      - 'experiments/population_compute_scaling_v0/gate8_organism_training_seed0_result_v0.md'
+      - 'experiments/population_compute_scaling_v0/results/gate8-organism-training-seed0-result-evidence-v0.json'
+      - 'experiments/population_compute_scaling_v0/results/gate8-organism-training-seed0-source-manifest-v0.sha256'
+
+permissions:
+  contents: read
+
+jobs:
+  seed0-result:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Verify immutable result evidence
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          evidence_path = Path('experiments/population_compute_scaling_v0/results/gate8-organism-training-seed0-result-evidence-v0.json')
+          evidence = json.loads(evidence_path.read_text(encoding='utf-8'))
+
+          assert evidence['version'] == 'gate8-organism-training-seed0-result-evidence-v0'
+          assert evidence['scientific_status'] == 'G8_TRAINING_CHECKPOINT_NOT_ADMITTED'
+          assert evidence['seed'] == 0
+          assert evidence['source_head'] == '6c68b51741a30229b1be23d522d0009507c806d5'
+          assert evidence['architecture_head'] == '2afdcc9f13f138e97c7b3821cc2a5a77bd87cf0c'
+          assert evidence['runtime_head'] == '1a2be148411bc71ba35fda12b035b724f06ec166'
+          assert evidence['protocol_head'] == '869791e5b44089f9c79447b8ae212ce830f8496a'
+          assert evidence['learned_parameter_count'] == 19649
+          assert evidence['training_worlds'] == 262144
+          assert evidence['optimizer_steps'] == 1024
+          assert evidence['selected_step'] == 1024
+          assert evidence['selected_admitted'] is False
+          assert evidence['result_json_sha256'] == '5f477022ac45a80d8b05b112b3485e4112519ddef78e0bb23990a090e0cc92e2'
+          assert evidence['selected_checkpoint_sha256'] == '4aca6bfde7fa82cd2c1fec3613c4cc59303788616f352e8d419c90662d7b9a1b'
+          assert evidence['source_manifest_sha256'] == 'bb814b9ebb5116f0a13ff2ce130c5ad8e32ed4bd80453ddc167143b6cbf0bb8d'
+
+          metrics = evidence['selected_metrics']
+          assert metrics['message_accuracy'] == 0.9167085535386029
+          assert metrics['answer_accuracy'] == 0.6418421128216911
+          assert metrics['activity_accuracy'] == 0.9941442153033089
+          assert metrics['mean_target_accuracy'] == 0.4036458333333333
+          assert metrics['minimum_target_accuracy'] == 0.19921875
+          assert metrics['inbox_code_coverage'] == 256
+          assert metrics['target_code_coverage'] == 256
+
+          assert [
+              (row['population'], row['depth'])
+              for row in evidence['condition_metrics']
+          ] == [(32, 4), (64, 4), (64, 8), (128, 4), (128, 8), (128, 16)]
+
+          checkpoint = evidence['checkpoint_contract']
+          assert checkpoint['state_dict_tensor_count'] == 15
+          assert checkpoint['observed_parameter_count'] == 19649
+          assert checkpoint['weights_only_load_succeeded'] is True
+
+          diagnostic = evidence['posthoc_local_transition_diagnostic']
+          assert diagnostic['scientific_admission_input'] is False
+          assert diagnostic['worlds_generated'] is False
+          assert diagnostic['scientific_test_data_used'] is False
+          assert diagnostic['nonroot_target_incoming']['message_carrier_accuracy'] > 0.99
+          assert diagnostic['nonroot_target_incoming']['message_symbol_accuracy'] < 0.90
+          assert diagnostic['nonroot_target_incoming']['answer_head_accuracy'] < diagnostic['nonroot_target_incoming']['message_symbol_accuracy']
+
+          closed = evidence['closed_boundaries']
+          assert closed == {
+              'scientific_test_worlds_generated': False,
+              'reference_tokenizer_loaded': False,
+              'reference_model_weights_loaded': False,
+              'reference_inference_performed': False,
+          }
+          PY
+
+      - name: Verify reproduced source manifest identities
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('experiments/population_compute_scaling_v0/results/gate8-organism-training-seed0-source-manifest-v0.sha256')
+          rows = {}
+          for line in path.read_text(encoding='utf-8').splitlines():
+              digest, relative = line.split('  ', 1)
+              assert len(digest) == 64
+              assert relative not in rows
+              rows[relative] = digest
+
+          assert rows == {
+              'training/checkpoints/step-0512.pt': '0350dba403809e99465ccb7c3227add9f3b213302e02e2684e9f1a420d0e5752',
+              'training/checkpoints/step-0256.pt': '1b0f69eb57e0251f38671a22931977761b37d301dcfc2fc3572e986d5c053e1c',
+              'training/checkpoints/step-1024.pt': '4aca6bfde7fa82cd2c1fec3613c4cc59303788616f352e8d419c90662d7b9a1b',
+              'training/selected-checkpoint.pt': '4aca6bfde7fa82cd2c1fec3613c4cc59303788616f352e8d419c90662d7b9a1b',
+              'training/gate8-organism-training-result.json': '5f477022ac45a80d8b05b112b3485e4112519ddef78e0bb23990a090e0cc92e2',
+              'git-head.txt': '78af302bdc1346079d2d2091c18c795f4e7373ea8a30d54a8195108c40949482',
+              'run-config.json': 'ccedff7cc3fc96b194fbbcb45afc46e2510c9c2e158866430c2430e652a89d85',
+              'training/checkpoints/step-0768.pt': 'f43ca6751a6b44e3d452fd0d04243be692e2ff1c81079bba48791101bff2fd54',
+          }
+          PY
+
+      - name: Verify result-only four-file slice
+        run: |
+          changed="$(git diff --name-only 6c68b51741a30229b1be23d522d0009507c806d5...HEAD | sort)"
+          expected="$(printf '%s\n' \
+            '.github/workflows/gate8-organism-training-seed0-result-ci.yml' \
+            'experiments/population_compute_scaling_v0/gate8_organism_training_seed0_result_v0.md' \
+            'experiments/population_compute_scaling_v0/results/gate8-organism-training-seed0-result-evidence-v0.json' \
+            'experiments/population_compute_scaling_v0/results/gate8-organism-training-seed0-source-manifest-v0.sha256' | sort)"
+          test "$changed" = "$expected"
+
+      - name: Verify no execution path opened
+        run: |
+          files="experiments/population_compute_scaling_v0/gate8_organism_training_seed0_result_v0.md experiments/population_compute_scaling_v0/results/gate8-organism-training-seed0-result-evidence-v0.json"
+          ! grep --line-number -E 'torch\.optim|optimizer\.step|backward\(|generate_gate8_world|AutoModel|from_pretrained|snapshot_download' $files
