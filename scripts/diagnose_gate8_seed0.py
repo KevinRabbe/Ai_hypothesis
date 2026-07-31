@@ -412,7 +412,7 @@ def _checkpoint_payload(
 ) -> dict[str, Any]:
     return {
         "experiment_version": "gate8-seed0-causal-diagnostic-execution-v0",
-        "diagnostic_protocol_head": diagnostic_protocol.GATE8_SEED0_RESULT_HEAD,
+        "diagnostic_protocol_head": "0fa9ec48c31b36c90d58da827139457fd812b98c",
         "source_checkpoint_sha256": diagnostic_protocol.GATE8_SEED0_CHECKPOINT_SHA256,
         "seed": 0,
         "probe": probe,
