@@ -1,0 +1,738 @@
+{
+  "architecture_head": "2afdcc9f13f138e97c7b3821cc2a5a77bd87cf0c",
+  "baseline_local": {
+    "activity_accuracy": 0.9941442153033089,
+    "activity_loss": 0.02678063980248921,
+    "answer_accuracy": 0.6418421128216911,
+    "answer_loss": 1.1530111616148668,
+    "edge_count": 278528,
+    "inbox_code_coverage": 256,
+    "message_accuracy": 0.9167085535386029,
+    "message_loss": 0.636160700198482,
+    "target_code_coverage": 256,
+    "validation_loss": 1.7918499257935976
+  },
+  "baseline_reproduced": true,
+  "baseline_root_invariance": {
+    "activity": 0.9951171875,
+    "answer": 0.77587890625,
+    "message": 0.88427734375
+  },
+  "diagnostic_performed": true,
+  "diagnostic_protocol_head": "0fa9ec48c31b36c90d58da827139457fd812b98c",
+  "diagnostic_status": "G8_SEED0_CAUSAL_DIAGNOSTIC_COMPLETE",
+  "environment": {
+    "cublas_workspace_config": ":4096:8",
+    "cuda_runtime": "13.0",
+    "cudnn": 91200,
+    "deterministic_algorithms": true,
+    "device_capability": [
+      8,
+      9
+    ],
+    "device_name": "NVIDIA GeForce RTX 4060 Ti",
+    "device_total_memory": 17175150592,
+    "huggingface_hub": "0.36.2",
+    "platform": "Windows-10-10.0.26200-SP0",
+    "python": "3.11.9",
+    "pythonhashseed": "0",
+    "tf32_cudnn": false,
+    "tf32_matmul": false,
+    "tokenizers": "0.22.2",
+    "torch": "2.9.1+cu130",
+    "transformers": "4.57.6"
+  },
+  "experiment_version": "gate8-seed0-causal-diagnostic-execution-v0",
+  "findings": {
+    "activity_gate_material": false,
+    "answer_head_material": true,
+    "continued_optimization_effective": false,
+    "core_interference_persists": true,
+    "frozen_core_linearly_sufficient": false
+  },
+  "full_resume": {
+    "checkpoints": [
+      {
+        "details": {
+          "local": {
+            "activity_accuracy": 0.9945247874540442,
+            "activity_loss": 0.02631337388747317,
+            "answer_accuracy": 0.6503475413602942,
+            "answer_loss": 1.1251269578933716,
+            "edge_count": 278528,
+            "inbox_code_coverage": 256,
+            "message_accuracy": 0.9236809225643382,
+            "message_loss": 0.600970646037775,
+            "target_code_coverage": 256,
+            "validation_loss": 1.728728941319894
+          },
+          "metrics": {
+            "activity_accuracy": 0.9945247874540442,
+            "answer_accuracy": 0.6503475413602942,
+            "answer_root_invariance": 0.7802734375,
+            "mean_target_accuracy": 0.4251302083333333,
+            "message_accuracy": 0.9236809225643382,
+            "message_root_invariance": 0.888671875,
+            "minimum_target_accuracy": 0.224609375,
+            "probe": "full_resume",
+            "step": 128
+          },
+          "root_invariance": {
+            "activity_invariant_cases": 2038,
+            "activity_root_invariance": 0.9951171875,
+            "answer_invariant_cases": 1598,
+            "answer_root_invariance": 0.7802734375,
+            "cases": 2048,
+            "message_invariant_cases": 1820,
+            "message_root_invariance": 0.888671875
+          },
+          "runtime": {
+            "condition_details": [
+              {
+                "communicated_bits": 90576,
+                "delivered_messages": 11322,
+                "depth": 4,
+                "population": 32,
+                "recurrent_updates": 11391,
+                "target_accuracy": 0.54296875,
+                "target_correct": 278,
+                "target_reached": 490,
+                "worlds": 512
+              },
+              {
+                "communicated_bits": 149520,
+                "delivered_messages": 18690,
+                "depth": 4,
+                "population": 64,
+                "recurrent_updates": 18792,
+                "target_accuracy": 0.521484375,
+                "target_correct": 267,
+                "target_reached": 493,
+                "worlds": 512
+              },
+              {
+                "communicated_bits": 214336,
+                "delivered_messages": 26792,
+                "depth": 8,
+                "population": 64,
+                "recurrent_updates": 26939,
+                "target_accuracy": 0.375,
+                "target_correct": 192,
+                "target_reached": 489,
+                "worlds": 512
+              },
+              {
+                "communicated_bits": 229840,
+                "delivered_messages": 28730,
+                "depth": 4,
+                "population": 128,
+                "recurrent_updates": 28868,
+                "target_accuracy": 0.55859375,
+                "target_correct": 286,
+                "target_reached": 501,
+                "worlds": 512
+              },
+              {
+                "communicated_bits": 385256,
+                "delivered_messages": 48157,
+                "depth": 8,
+                "population": 128,
+                "recurrent_updates": 48458,
+                "target_accuracy": 0.328125,
+                "target_correct": 168,
+                "target_reached": 483,
+                "worlds": 512
+              },
+              {
+                "communicated_bits": 465088,
+                "delivered_messages": 58136,
+                "depth": 16,
+                "population": 128,
+                "recurrent_updates": 58460,
+                "target_accuracy": 0.224609375,
+                "target_correct": 115,
+                "target_reached": 471,
+                "worlds": 512
+              }
+            ],
+            "metrics": {
+              "condition_target_accuracies": [
+                0.54296875,
+                0.521484375,
+                0.375,
+                0.55859375,
+                0.328125,
+                0.224609375
+              ],
+              "mean_target_accuracy": 0.4251302083333333,
+              "minimum_target_accuracy": 0.224609375,
+              "probe": "baseline"
+            }
+          }
+        },
+        "path": "checkpoints/step-0128.pt",
+        "sha256": "90e4079e5d5b150ae9d4b9162de91093123a3a5b0374291f483d8a84a93162d1",
+        "step": 128
+      },
+      {
+        "details": {
+          "local": {
+            "activity_accuracy": 0.9949197208180147,
+            "activity_loss": 0.026267959325409988,
+            "answer_accuracy": 0.6595423081341911,
+            "answer_loss": 1.1053545229575212,
+            "edge_count": 278528,
+            "inbox_code_coverage": 256,
+            "message_accuracy": 0.9305635340073529,
+            "message_loss": 0.5754689710105166,
+            "target_code_coverage": 256,
+            "validation_loss": 1.683450289900579
+          },
+          "metrics": {
+            "activity_accuracy": 0.9949197208180147,
+            "answer_accuracy": 0.6595423081341911,
+            "answer_root_invariance": 0.78759765625,
+            "mean_target_accuracy": 0.4449869791666667,
+            "message_accuracy": 0.9305635340073529,
+            "message_root_invariance": 0.8935546875,
+            "minimum_target_accuracy": 0.244140625,
+            "probe": "full_resume",
+            "step": 256
+          },
+          "root_invariance": {
+            "activity_invariant_cases": 2039,
+            "activity_root_invariance": 0.99560546875,
+            "answer_invariant_cases": 1613,
+            "answer_root_invariance": 0.78759765625,
+            "cases": 2048,
+            "message_invariant_cases": 1830,
+            "message_root_invariance": 0.8935546875
+          },
+          "runtime": {
+            "condition_details": [
+              {
+                "communicated_bits": 90656,
+                "delivered_messages": 11332,
+                "depth": 4,
+                "population": 32,
+                "recurrent_updates": 11395,
+                "target_accuracy": 0.5546875,
+                "target_correct": 284,
+                "target_reached": 490,
+                "worlds": 512
+              },
+              {
+                "communicated_bits": 149712,
+                "delivered_messages": 18714,
+                "depth": 4,
+                "population": 64,
+                "recurrent_updates": 18802,
+                "target_accuracy": 0.53125,
+                "target_correct": 272,
+                "target_reached": 493,
+                "worlds": 512
+              },
+              {
+                "communicated_bits": 214760,
+                "delivered_messages": 26845,
+                "depth": 8,
+                "population": 64,
+                "recurrent_updates": 26983,
+                "target_accuracy": 0.400390625,
+                "target_correct": 205,
+                "target_reached": 491,
+                "worlds": 512
+              },
+              {
+                "communicated_bits": 230120,
+                "delivered_messages": 28765,
+                "depth": 4,
+                "population": 128,
+                "recurrent_updates": 28890,
+                "target_accuracy": 0.576171875,
+                "target_correct": 295,
+                "target_reached": 501,
+                "worlds": 512
+              },
+              {
+                "communicated_bits": 385304,
+                "delivered_messages": 48163,
+                "depth": 8,
+                "population": 128,
+                "recurrent_updates": 48451,
+                "target_accuracy": 0.36328125,
+                "target_correct": 186,
+                "target_reached": 480,
+                "worlds": 512
+              },
+              {
+                "communicated_bits": 463048,
+                "delivered_messages": 57881,
+                "depth": 16,
+                "population": 128,
+                "recurrent_updates": 58196,
+                "target_accuracy": 0.244140625,
+                "target_correct": 125,
+                "target_reached": 470,
+                "worlds": 512
+              }
+            ],
+            "metrics": {
+              "condition_target_accuracies": [
+                0.5546875,
+                0.53125,
+                0.400390625,
+                0.576171875,
+                0.36328125,
+                0.244140625
+              ],
+              "mean_target_accuracy": 0.4449869791666667,
+              "minimum_target_accuracy": 0.244140625,
+              "probe": "baseline"
+            }
+          }
+        },
+        "path": "checkpoints/step-0256.pt",
+        "sha256": "7f602f7ff7867870e8ffedc9d5920eb3421e01ccedcfed71f290245115094269",
+        "step": 256
+      },
+      {
+        "details": {
+          "local": {
+            "activity_accuracy": 0.9949304917279411,
+            "activity_loss": 0.026145396822625223,
+            "answer_accuracy": 0.6626299689797794,
+            "answer_loss": 1.0951876640319824,
+            "edge_count": 278528,
+            "inbox_code_coverage": 256,
+            "message_accuracy": 0.9350047392003676,
+            "message_loss": 0.5621458817930782,
+            "target_code_coverage": 256,
+            "validation_loss": 1.659948085507323
+          },
+          "metrics": {
+            "activity_accuracy": 0.9949304917279411,
+            "answer_accuracy": 0.6626299689797794,
+            "answer_root_invariance": 0.78857421875,
+            "mean_target_accuracy": 0.4534505208333333,
+            "message_accuracy": 0.9350047392003676,
+            "message_root_invariance": 0.8955078125,
+            "minimum_target_accuracy": 0.24609375,
+            "probe": "full_resume",
+            "step": 384
+          },
+          "root_invariance": {
+            "activity_invariant_cases": 2040,
+            "activity_root_invariance": 0.99609375,
+            "answer_invariant_cases": 1615,
+            "answer_root_invariance": 0.78857421875,
+            "cases": 2048,
+            "message_invariant_cases": 1834,
+            "message_root_invariance": 0.8955078125
+          },
+          "runtime": {
+            "condition_details": [
+              {
+                "communicated_bits": 90392,
+                "delivered_messages": 11299,
+                "depth": 4,
+                "population": 32,
+                "recurrent_updates": 11371,
+                "target_accuracy": 0.568359375,
+                "target_correct": 291,
+                "target_reached": 488,
+                "worlds": 512
+              },
+              {
+                "communicated_bits": 149080,
+                "delivered_messages": 18635,
+                "depth": 4,
+                "population": 64,
+                "recurrent_updates": 18738,
+                "target_accuracy": 0.52734375,
+                "target_correct": 270,
+                "target_reached": 489,
+                "worlds": 512
+              },
+              {
+                "communicated_bits": 214296,
+                "delivered_messages": 26787,
+                "depth": 8,
+                "population": 64,
+                "recurrent_updates": 26917,
+                "target_accuracy": 0.421875,
+                "target_correct": 216,
+                "target_reached": 491,
+                "worlds": 512
+              },
+              {
+                "communicated_bits": 229560,
+                "delivered_messages": 28695,
+                "depth": 4,
+                "population": 128,
+                "recurrent_updates": 28837,
+                "target_accuracy": 0.578125,
+                "target_correct": 296,
+                "target_reached": 499,
+                "worlds": 512
+              },
+              {
+                "communicated_bits": 384328,
+                "delivered_messages": 48041,
+                "depth": 8,
+                "population": 128,
+                "recurrent_updates": 48341,
+                "target_accuracy": 0.37890625,
+                "target_correct": 194,
+                "target_reached": 478,
+                "worlds": 512
+              },
+              {
+                "communicated_bits": 463160,
+                "delivered_messages": 57895,
+                "depth": 16,
+                "population": 128,
+                "recurrent_updates": 58210,
+                "target_accuracy": 0.24609375,
+                "target_correct": 126,
+                "target_reached": 472,
+                "worlds": 512
+              }
+            ],
+            "metrics": {
+              "condition_target_accuracies": [
+                0.568359375,
+                0.52734375,
+                0.421875,
+                0.578125,
+                0.37890625,
+                0.24609375
+              ],
+              "mean_target_accuracy": 0.4534505208333333,
+              "minimum_target_accuracy": 0.24609375,
+              "probe": "baseline"
+            }
+          }
+        },
+        "path": "checkpoints/step-0384.pt",
+        "sha256": "1609e5942f4d1151beb85069cf613c898154bacad507a4e09478a1b6763db0f4",
+        "step": 384
+      },
+      {
+        "details": {
+          "local": {
+            "activity_accuracy": 0.9949987074908089,
+            "activity_loss": 0.026090626823989785,
+            "answer_accuracy": 0.6638039981617647,
+            "answer_loss": 1.0911540494245642,
+            "edge_count": 278528,
+            "inbox_code_coverage": 256,
+            "message_accuracy": 0.9360495174632353,
+            "message_loss": 0.5572785463403253,
+            "target_code_coverage": 256,
+            "validation_loss": 1.6510416584472882
+          },
+          "metrics": {
+            "activity_accuracy": 0.9949987074908089,
+            "answer_accuracy": 0.6638039981617647,
+            "answer_root_invariance": 0.78955078125,
+            "mean_target_accuracy": 0.4527994791666667,
+            "message_accuracy": 0.9360495174632353,
+            "message_root_invariance": 0.89697265625,
+            "minimum_target_accuracy": 0.25,
+            "probe": "full_resume",
+            "step": 512
+          },
+          "root_invariance": {
+            "activity_invariant_cases": 2041,
+            "activity_root_invariance": 0.99658203125,
+            "answer_invariant_cases": 1617,
+            "answer_root_invariance": 0.78955078125,
+            "cases": 2048,
+            "message_invariant_cases": 1837,
+            "message_root_invariance": 0.89697265625
+          },
+          "runtime": {
+            "condition_details": [
+              {
+                "communicated_bits": 90392,
+                "delivered_messages": 11299,
+                "depth": 4,
+                "population": 32,
+                "recurrent_updates": 11371,
+                "target_accuracy": 0.564453125,
+                "target_correct": 289,
+                "target_reached": 488,
+                "worlds": 512
+              },
+              {
+                "communicated_bits": 149080,
+                "delivered_messages": 18635,
+                "depth": 4,
+                "population": 64,
+                "recurrent_updates": 18738,
+                "target_accuracy": 0.525390625,
+                "target_correct": 269,
+                "target_reached": 489,
+                "worlds": 512
+              },
+              {
+                "communicated_bits": 214296,
+                "delivered_messages": 26787,
+                "depth": 8,
+                "population": 64,
+                "recurrent_updates": 26917,
+                "target_accuracy": 0.423828125,
+                "target_correct": 217,
+                "target_reached": 491,
+                "worlds": 512
+              },
+              {
+                "communicated_bits": 229560,
+                "delivered_messages": 28695,
+                "depth": 4,
+                "population": 128,
+                "recurrent_updates": 28837,
+                "target_accuracy": 0.580078125,
+                "target_correct": 297,
+                "target_reached": 499,
+                "worlds": 512
+              },
+              {
+                "communicated_bits": 384432,
+                "delivered_messages": 48054,
+                "depth": 8,
+                "population": 128,
+                "recurrent_updates": 48351,
+                "target_accuracy": 0.373046875,
+                "target_correct": 191,
+                "target_reached": 478,
+                "worlds": 512
+              },
+              {
+                "communicated_bits": 463128,
+                "delivered_messages": 57891,
+                "depth": 16,
+                "population": 128,
+                "recurrent_updates": 58203,
+                "target_accuracy": 0.25,
+                "target_correct": 128,
+                "target_reached": 472,
+                "worlds": 512
+              }
+            ],
+            "metrics": {
+              "condition_target_accuracies": [
+                0.564453125,
+                0.525390625,
+                0.423828125,
+                0.580078125,
+                0.373046875,
+                0.25
+              ],
+              "mean_target_accuracy": 0.4527994791666667,
+              "minimum_target_accuracy": 0.25,
+              "probe": "baseline"
+            }
+          }
+        },
+        "path": "checkpoints/step-0512.pt",
+        "sha256": "0db9f10adaa78bcb6718185b7ddfe5a251b84a71ad7fb89902002012920b975c",
+        "step": 512
+      }
+    ],
+    "final_metrics": {
+      "activity_accuracy": 0.9949987074908089,
+      "answer_accuracy": 0.6638039981617647,
+      "answer_root_invariance": 0.78955078125,
+      "mean_target_accuracy": 0.4527994791666667,
+      "message_accuracy": 0.9360495174632353,
+      "message_root_invariance": 0.89697265625,
+      "minimum_target_accuracy": 0.25,
+      "probe": "full_resume",
+      "step": 512
+    },
+    "probe": "full_resume",
+    "steps": 512,
+    "telemetry": [],
+    "trainable_parameter_count": 19649,
+    "world_end_exclusive": 458752,
+    "world_start": 327680
+  },
+  "head_only": {
+    "checkpoints": [
+      {
+        "details": {
+          "metrics": {
+            "activity_accuracy": 0.9951279584099265,
+            "answer_accuracy": 0.6441650390625,
+            "answer_root_invariance": 0.7734375,
+            "mean_target_accuracy": 0.4248046875,
+            "message_accuracy": 0.9279964671415442,
+            "message_root_invariance": 0.88671875,
+            "minimum_target_accuracy": 0.2421875,
+            "probe": "head_only",
+            "step": 64
+          }
+        },
+        "path": "checkpoints/step-0064.pt",
+        "sha256": "c45924f5fbf7565c1847ba325395cdd8d431107331d113e64609095fd65fc547",
+        "step": 64
+      },
+      {
+        "details": {
+          "metrics": {
+            "activity_accuracy": 0.9957275390625,
+            "answer_accuracy": 0.6449620863970589,
+            "answer_root_invariance": 0.77734375,
+            "mean_target_accuracy": 0.4443359375,
+            "message_accuracy": 0.9379703297334558,
+            "message_root_invariance": 0.88916015625,
+            "minimum_target_accuracy": 0.255859375,
+            "probe": "head_only",
+            "step": 128
+          }
+        },
+        "path": "checkpoints/step-0128.pt",
+        "sha256": "12f4693d53e361ab051183fe5bf7aa8a71c2a81cfb0f0e949c048a13e88e4e53",
+        "step": 128
+      },
+      {
+        "details": {
+          "metrics": {
+            "activity_accuracy": 0.9961117015165442,
+            "answer_accuracy": 0.6467213350183824,
+            "answer_root_invariance": 0.77197265625,
+            "mean_target_accuracy": 0.4641927083333333,
+            "message_accuracy": 0.9469353170955882,
+            "message_root_invariance": 0.8984375,
+            "minimum_target_accuracy": 0.27734375,
+            "probe": "head_only",
+            "step": 192
+          }
+        },
+        "path": "checkpoints/step-0192.pt",
+        "sha256": "1e75fa1c8885ff3a04dd9940bfa84b7e5d69c4cd047d12f8af5a58f6e6c5c1bb",
+        "step": 192
+      },
+      {
+        "details": {
+          "metrics": {
+            "activity_accuracy": 0.9965784409466911,
+            "answer_accuracy": 0.6477804744944853,
+            "answer_root_invariance": 0.77294921875,
+            "mean_target_accuracy": 0.4876302083333333,
+            "message_accuracy": 0.9549273322610294,
+            "message_root_invariance": 0.9033203125,
+            "minimum_target_accuracy": 0.318359375,
+            "probe": "head_only",
+            "step": 256
+          }
+        },
+        "path": "checkpoints/step-0256.pt",
+        "sha256": "c0e014b1f9daec46a73f1895f20d51258a4f5f2e284232680737c3aac4765e29",
+        "step": 256
+      }
+    ],
+    "final_metrics": {
+      "activity_accuracy": 0.9965784409466911,
+      "answer_accuracy": 0.6477804744944853,
+      "answer_root_invariance": 0.77294921875,
+      "mean_target_accuracy": 0.4876302083333333,
+      "message_accuracy": 0.9549273322610294,
+      "message_root_invariance": 0.9033203125,
+      "minimum_target_accuracy": 0.318359375,
+      "probe": "head_only",
+      "step": 256
+    },
+    "probe": "head_only",
+    "steps": 256,
+    "telemetry": [],
+    "trainable_parameter_count": 9009,
+    "world_end_exclusive": 327680,
+    "world_start": 262144
+  },
+  "learned_parameter_count": 19649,
+  "original_checkpoint_modified": false,
+  "original_non_admission_changed": false,
+  "reference_inference_performed": false,
+  "reference_model_weights_loaded": false,
+  "reference_tokenizer_loaded": false,
+  "runtime_head": "1a2be148411bc71ba35fda12b035b724f06ec166",
+  "runtime_probes": [
+    {
+      "metrics": {
+        "condition_target_accuracies": [
+          0.521484375,
+          0.498046875,
+          0.353515625,
+          0.537109375,
+          0.3125,
+          0.19921875
+        ],
+        "mean_target_accuracy": 0.4036458333333333,
+        "minimum_target_accuracy": 0.19921875,
+        "probe": "baseline"
+      }
+    },
+    {
+      "metrics": {
+        "condition_target_accuracies": [
+          0.541015625,
+          0.515625,
+          0.375,
+          0.544921875,
+          0.333984375,
+          0.21875
+        ],
+        "mean_target_accuracy": 0.4215494791666667,
+        "minimum_target_accuracy": 0.21875,
+        "probe": "forced_active"
+      }
+    },
+    {
+      "metrics": {
+        "condition_target_accuracies": [
+          0.72265625,
+          0.748046875,
+          0.509765625,
+          0.76953125,
+          0.466796875,
+          0.236328125
+        ],
+        "mean_target_accuracy": 0.5755208333333334,
+        "minimum_target_accuracy": 0.236328125,
+        "probe": "message_low4_decode"
+      }
+    },
+    {
+      "metrics": {
+        "condition_target_accuracies": [
+          0.744140625,
+          0.771484375,
+          0.53125,
+          0.783203125,
+          0.5,
+          0.265625
+        ],
+        "mean_target_accuracy": 0.5992838541666666,
+        "minimum_target_accuracy": 0.265625,
+        "probe": "forced_active_message_low4_decode"
+      }
+    }
+  ],
+  "scientific_test_worlds_generated": false,
+  "seed": 0,
+  "seed0_result_head": "70e7e40149f9259d36b0e37ab17fc8c30370201e",
+  "source_artifacts": {
+    "checkpoint_sha256": "4aca6bfde7fa82cd2c1fec3613c4cc59303788616f352e8d419c90662d7b9a1b",
+    "manifest_sha256": "bb814b9ebb5116f0a13ff2ce130c5ad8e32ed4bd80453ddc167143b6cbf0bb8d",
+    "result_sha256": "5f477022ac45a80d8b05b112b3485e4112519ddef78e0bb23990a090e0cc92e2"
+  },
+  "source_head": "01199a848c9daa296bc3f9009e6aebc3a6b0357b",
+  "source_scientific_status": "G8_TRAINING_CHECKPOINT_NOT_ADMITTED",
+  "training_execution_head": "6c68b51741a30229b1be23d522d0009507c806d5",
+  "training_protocol_head": "869791e5b44089f9c79447b8ae212ce830f8496a",
+  "training_seed0_additional_worlds_generated": true,
+  "training_seeds_1_2_performed": false
+}
