@@ -1,0 +1,195 @@
+name: Gate8 exact Gemma weight binding result qualification
+
+on:
+  push:
+    branches:
+      - agent/gate8-gemma-weight-binding-result-v0
+  pull_request:
+    paths:
+      - 'experiments/population_compute_scaling_v0/gate8_gemma_weight_binding_result_v0.md'
+      - 'experiments/population_compute_scaling_v0/gate8_gemma_weight_binding_result_v0/gate8-gemma-weight-binding-result.json'
+      - 'experiments/population_compute_scaling_v0/gate8_gemma_weight_binding_result_v0/manifest.sha256'
+      - '.github/workflows/gate8-gemma-weight-binding-result-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  result:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Verify exact source manifest bytes and external identities
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          import subprocess
+          from pathlib import Path
+
+          root = Path(
+              'experiments/population_compute_scaling_v0/'
+              'gate8_gemma_weight_binding_result_v0'
+          )
+          summary_path = root / 'gate8-gemma-weight-binding-result.json'
+          manifest_path = root / 'manifest.sha256'
+
+          manifest_bytes = subprocess.check_output(
+              ['git', 'show', f'HEAD:{manifest_path.as_posix()}']
+          )
+          assert hashlib.sha256(manifest_bytes).hexdigest() == (
+              '99ae54872115207c1e703a7c63fb66a1f4c145741958e63354bcf074310ae51c'
+          )
+          assert b'\r\n' in manifest_bytes
+          assert manifest_bytes.endswith(b'\r\n')
+
+          payload = json.loads(summary_path.read_text(encoding='utf-8'))
+          assert payload['raw_result_sha256'] == (
+              'c554b66068b04ade24e77bb561fb7fff148fc3fd9a6316e011f710b0f320c10d'
+          )
+          assert payload['source_manifest_sha256'] == (
+              '99ae54872115207c1e703a7c63fb66a1f4c145741958e63354bcf074310ae51c'
+          )
+
+          manifest = {}
+          for line in manifest_bytes.decode('ascii').splitlines():
+              digest, relative = line.split('  ', 1)
+              assert len(digest) == 64
+              assert relative not in manifest
+              manifest[relative] = digest
+
+          assert manifest == {
+              'binding/model-snapshot/config.json': '19cb5d28c97778271ba2b3c3df47bf76bdd6706724777a2318b3522230afe91e',
+              'binding/model-snapshot/model.safetensors': '3d4ef8d71c14db7e448a09ebe891cfb6bf32c57a9b44499ae0d1c098e48516b6',
+              'git-head.txt': '43960a02b70ae93dad8f6d3557ae8846dfb8cc71daba36f21e380e58e1fc65e6',
+              'binding/gate8-gemma-weight-binding.json': 'c554b66068b04ade24e77bb561fb7fff148fc3fd9a6316e011f710b0f320c10d',
+              'run-config.json': 'd443d123c595a230ee7037bd97523980b9e735f5a9cebbbb67f12e561ee59d46',
+              'binding/model-snapshot/generation_config.json': 'fd9324becc53c4be610db39e13a613006f09fd6ef71a95fb6320dc33157490a3',
+          }
+          expected_head_bytes = (
+              '1390c70565204736ab77c725cd6f49e6a5876124\r\n'
+          ).encode('ascii')
+          assert hashlib.sha256(expected_head_bytes).hexdigest() == manifest['git-head.txt']
+          PY
+
+      - name: Verify exact model and protocol binding
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path(
+              'experiments/population_compute_scaling_v0/'
+              'gate8_gemma_weight_binding_result_v0/'
+              'gate8-gemma-weight-binding-result.json'
+          )
+          payload = json.loads(path.read_text(encoding='utf-8'))
+
+          assert payload['experiment_version'] == 'gate8-gemma-weight-binding-v0'
+          assert payload['scientific_status'] == 'GATE8_GEMMA_MODEL_FILE_BINDING_COMPLETE'
+          assert payload['binding_execution_head'] == '1390c70565204736ab77c725cd6f49e6a5876124'
+          assert payload['scientific_protocol_head'] == '6bb89111a47713bea0a23bb1cae662ed5ec56b42'
+          assert payload['reference'] == {
+              'repo_id': 'google/gemma-3-1b-it',
+              'revision': 'dcc83ea841ab6100d6b47a070329e1ba4cf78752',
+          }
+          assert payload['tokenizer_binding'] == {
+              'result_head': 'c7f5260189ef9ac1a1beb73596446316631090c7',
+              'result_sha256': 'c8d6adb733cadbbd251d91d35f9d224e255705dac49ba144655717f9f4ab7b8d',
+              'manifest_sha256': '21de192eb57c0759fbf2236fae2252e5319696b71689ada1471b74a9f1315a88',
+          }
+          assert payload['file_sha256'] == {
+              'config.json': '19cb5d28c97778271ba2b3c3df47bf76bdd6706724777a2318b3522230afe91e',
+              'generation_config.json': 'fd9324becc53c4be610db39e13a613006f09fd6ef71a95fb6320dc33157490a3',
+              'model.safetensors': '3d4ef8d71c14db7e448a09ebe891cfb6bf32c57a9b44499ae0d1c098e48516b6',
+          }
+          assert payload['file_sizes'] == {
+              'config.json': 899,
+              'generation_config.json': 215,
+              'model.safetensors': 1_999_811_208,
+          }
+          PY
+
+      - name: Verify exact Safetensors and model ledgers
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          payload = json.loads(Path(
+              'experiments/population_compute_scaling_v0/'
+              'gate8_gemma_weight_binding_result_v0/'
+              'gate8-gemma-weight-binding-result.json'
+          ).read_text(encoding='utf-8'))
+          model = payload['model_config']
+          safe = payload['safetensors']
+
+          assert model == {
+              'architecture': 'Gemma3ForCausalLM',
+              'hidden_size': 1152,
+              'intermediate_size': 6912,
+              'max_position_embeddings': 32768,
+              'model_type': 'gemma3_text',
+              'num_attention_heads': 4,
+              'num_hidden_layers': 26,
+              'num_key_value_heads': 1,
+              'torch_dtype': 'bfloat16',
+              'vocab_size': 262144,
+          }
+          assert safe == {
+              'data_bytes': 1_999_771_904,
+              'dtype_parameter_counts': {'BF16': 999_885_952},
+              'dtype_storage_bytes': {'BF16': 1_999_771_904},
+              'file_size': 1_999_811_208,
+              'header_bytes': 39_296,
+              'metadata': {'format': 'pt'},
+              'parameter_count': 999_885_952,
+              'storage_bytes': 1_999_771_904,
+              'tensor_count': 340,
+          }
+          assert 8 + safe['header_bytes'] + safe['data_bytes'] == safe['file_size']
+          assert safe['parameter_count'] * 2 == safe['storage_bytes']
+          assert 900_000_000 <= safe['parameter_count'] <= 1_100_000_000
+          PY
+
+      - name: Verify all scientific boundaries remain closed
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          payload = json.loads(Path(
+              'experiments/population_compute_scaling_v0/'
+              'gate8_gemma_weight_binding_result_v0/'
+              'gate8-gemma-weight-binding-result.json'
+          ).read_text(encoding='utf-8'))
+          assert payload['scientific_boundaries'] == {
+              'inference_performed': False,
+              'model_instantiated': False,
+              'scientific_test_worlds_generated': False,
+              'tokenizer_loaded': False,
+              'training_performed': False,
+          }
+          PY
+
+      - name: Prove exact four-file result-only slice
+        run: |
+          changed="$(git diff --name-only 1390c70565204736ab77c725cd6f49e6a5876124...HEAD | sort)"
+          expected="$(printf '%s\n' \
+            '.github/workflows/gate8-gemma-weight-binding-result-ci.yml' \
+            'experiments/population_compute_scaling_v0/gate8_gemma_weight_binding_result_v0.md' \
+            'experiments/population_compute_scaling_v0/gate8_gemma_weight_binding_result_v0/gate8-gemma-weight-binding-result.json' \
+            'experiments/population_compute_scaling_v0/gate8_gemma_weight_binding_result_v0/manifest.sha256' | sort)"
+          test "$changed" = "$expected"
+
+          test -z "$(git diff --name-only 1390c70565204736ab77c725cd6f49e6a5876124...HEAD | grep -Ei '\.(safetensors|bin|pt|pth|gguf)$' || true)"
+          test -z "$(git diff --name-only 1390c70565204736ab77c725cd6f49e6a5876124...HEAD | grep -E '(^|/)(scripts|ai_hypothesis)/' || true)"
