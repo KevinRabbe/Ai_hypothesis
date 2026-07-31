@@ -1,0 +1,178 @@
+name: Gate8 Gemma tokenizer binding result qualification
+
+on:
+  push:
+    branches:
+      - agent/gate8-gemma-tokenizer-binding-result-v0
+  pull_request:
+    paths:
+      - 'experiments/population_compute_scaling_v0/gate8_gemma_tokenizer_binding_result_v0.md'
+      - 'experiments/population_compute_scaling_v0/gate8_gemma_tokenizer_binding_result_v0/gate8-gemma-tokenizer-binding.json'
+      - 'experiments/population_compute_scaling_v0/gate8_gemma_tokenizer_binding_result_v0/manifest.sha256'
+      - '.github/workflows/gate8-gemma-tokenizer-binding-result-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tokenizer-binding-result:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Verify exact source artifact and manifest bytes
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          import subprocess
+
+          root = 'experiments/population_compute_scaling_v0/gate8_gemma_tokenizer_binding_result_v0'
+          result_path = f'{root}/gate8-gemma-tokenizer-binding.json'
+          manifest_path = f'{root}/manifest.sha256'
+
+          def git_blob(path: str) -> bytes:
+              return subprocess.check_output(['git', 'show', f'HEAD:{path}'])
+
+          result_bytes = git_blob(result_path)
+          manifest_bytes = git_blob(manifest_path)
+          assert hashlib.sha256(result_bytes).hexdigest() == (
+              'c8d6adb733cadbbd251d91d35f9d224e255705dac49ba144655717f9f4ab7b8d'
+          )
+          assert hashlib.sha256(manifest_bytes).hexdigest() == (
+              '21de192eb57c0759fbf2236fae2252e5319696b71689ada1471b74a9f1315a88'
+          )
+          PY
+
+      - name: Verify exact tokenizer identity and closed boundaries
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path(
+              'experiments/population_compute_scaling_v0/'
+              'gate8_gemma_tokenizer_binding_result_v0/'
+              'gate8-gemma-tokenizer-binding.json'
+          )
+          payload = json.loads(path.read_text(encoding='utf-8'))
+          binding = payload['tokenizer_binding']
+
+          assert payload['experiment_version'] == 'gate8-gemma-tokenizer-binding-v0'
+          assert payload['scientific_status'] == 'GATE8_GEMMA_TOKENIZER_BINDING_COMPLETE'
+          assert payload['encoder_head'] == '9882256ae0152bc266dc4d96cab3bbeb0c4ef95b'
+          assert binding['repo_id'] == 'google/gemma-3-1b-it'
+          assert binding['revision'] == 'dcc83ea841ab6100d6b47a070329e1ba4cf78752'
+          assert binding['tokenizer_class'] == 'GemmaTokenizerFast'
+          assert binding['transformers_version'] == '4.57.6'
+          assert binding['tokenizers_version'] == '0.22.2'
+          assert binding['huggingface_hub_version'] == '0.36.2'
+          assert binding['chat_template_sha256'] == (
+              '7de1c58e208eda46e9c7f86397df37ec49883aeece39fb961e0a6b24088dd3c4'
+          )
+          assert binding['tokenizer_bound'] is True
+          assert binding['model_bound'] is False
+          assert binding['model_weights_downloaded'] is False
+          assert binding['inference_performed'] is False
+          assert binding['scientific_test_worlds_generated'] is False
+          assert payload['model_binding_performed'] is False
+          assert payload['model_weights_downloaded'] is False
+          assert payload['training_performed'] is False
+          assert payload['inference_performed'] is False
+          assert payload['scientific_test_worlds_generated'] is False
+          PY
+
+      - name: Verify complete frozen condition matrix and budget
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path(
+              'experiments/population_compute_scaling_v0/'
+              'gate8_gemma_tokenizer_binding_result_v0/'
+              'gate8-gemma-tokenizer-binding.json'
+          )
+          binding = json.loads(path.read_text(encoding='utf-8'))['tokenizer_binding']
+          conditions = binding['conditions']
+          expected_pairs = (
+              (32, 4),
+              (64, 4), (64, 8),
+              (128, 4), (128, 8), (128, 16),
+              (256, 4), (256, 8), (256, 16), (256, 32),
+              (512, 4), (512, 8), (512, 16), (512, 32), (512, 64),
+              (1024, 4), (1024, 8), (1024, 16), (1024, 32), (1024, 64), (1024, 128),
+          )
+          assert len(conditions) == 21
+          assert tuple((row['population'], row['depth']) for row in conditions) == expected_pairs
+          assert all(row['input_tokens'] <= 24_576 for row in conditions)
+          assert all(len(row['prompt_sha256']) == 64 for row in conditions)
+          assert len({row['prompt_sha256'] for row in conditions}) == 21
+
+          maximum = max(conditions, key=lambda row: row['input_tokens'])
+          assert maximum == binding['maximum_condition']
+          assert maximum['population'] == 1024
+          assert maximum['depth'] == 64
+          assert maximum['ascii_bytes'] == 10_890
+          assert maximum['input_tokens'] == 9_843
+          assert binding['maximum_input_tokens'] == 9_843
+          assert binding['frozen_input_token_limit'] == 24_576
+          deepest = next(
+              row for row in conditions
+              if row['population'] == 1024 and row['depth'] == 128
+          )
+          assert deepest['ascii_bytes'] == 10_891
+          assert deepest['input_tokens'] == 9_820
+          PY
+
+      - name: Verify tokenizer file hashes and complete manifest identity
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path(
+              'experiments/population_compute_scaling_v0/'
+              'gate8_gemma_tokenizer_binding_result_v0'
+          )
+          binding = json.loads(
+              (root / 'gate8-gemma-tokenizer-binding.json').read_text(encoding='utf-8')
+          )['tokenizer_binding']
+          manifest = (root / 'manifest.sha256').read_text(encoding='ascii')
+          expected_hashes = {
+              'added_tokens.json': '50b2f405ba56a26d4913fd772089992252d7f942123cc0a034d96424221ba946',
+              'config.json': '19cb5d28c97778271ba2b3c3df47bf76bdd6706724777a2318b3522230afe91e',
+              'special_tokens_map.json': '2f7b0adf4fb469770bb1490e3e35df87b1dc578246c5e7e6fc76ecf33213a397',
+              'tokenizer.json': '4667f2089529e8e7657cfb6d1c19910ae71ff5f28aa7ab2ff2763330affad795',
+              'tokenizer.model': '1299c11d7cf632ef3b4e11937501358ada021bbdf7c47638d13c0ee982f2e79c',
+              'tokenizer_config.json': 'bfe25c2735e395407beb78456ea9a6984a1f00d8c16fa04a8b75f2a614cf53e1',
+          }
+          assert binding['tokenizer_file_sha256'] == expected_hashes
+          assert (
+              'c8d6adb733cadbbd251d91d35f9d224e255705dac49ba144655717f9f4ab7b8d  '
+              'binding/gate8-gemma-tokenizer-binding.json'
+          ) in manifest
+          for filename, digest in expected_hashes.items():
+              assert f'{digest}  binding/tokenizer-snapshot/{filename}' in manifest
+          lowered = manifest.lower()
+          for forbidden in ('model.safetensors', 'pytorch_model', '.gguf', '.pth', '.pt'):
+              assert forbidden not in lowered
+          PY
+
+      - name: Prove exact four-file result-only slice
+        run: |
+          changed="$(git diff --name-only d3e817a8b3554ecb335626f4ca966fe702474503...HEAD | sort)"
+          expected="$(printf '%s\n' \
+            '.github/workflows/gate8-gemma-tokenizer-binding-result-ci.yml' \
+            'experiments/population_compute_scaling_v0/gate8_gemma_tokenizer_binding_result_v0.md' \
+            'experiments/population_compute_scaling_v0/gate8_gemma_tokenizer_binding_result_v0/gate8-gemma-tokenizer-binding.json' \
+            'experiments/population_compute_scaling_v0/gate8_gemma_tokenizer_binding_result_v0/manifest.sha256' | sort)"
+          test "$changed" = "$expected"

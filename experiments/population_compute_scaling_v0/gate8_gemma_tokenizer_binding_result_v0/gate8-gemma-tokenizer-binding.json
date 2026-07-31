@@ -1,0 +1,190 @@
+{
+  "encoder_head": "9882256ae0152bc266dc4d96cab3bbeb0c4ef95b",
+  "experiment_version": "gate8-gemma-tokenizer-binding-v0",
+  "inference_performed": false,
+  "model_binding_performed": false,
+  "model_weights_downloaded": false,
+  "scientific_status": "GATE8_GEMMA_TOKENIZER_BINDING_COMPLETE",
+  "scientific_test_worlds_generated": false,
+  "tokenizer_binding": {
+    "chat_template_sha256": "7de1c58e208eda46e9c7f86397df37ec49883aeece39fb961e0a6b24088dd3c4",
+    "conditions": [
+      {
+        "ascii_bytes": 2951,
+        "depth": 4,
+        "input_tokens": 2801,
+        "population": 32,
+        "prompt_sha256": "d88a44768947dc922b3f74b1a995d3b16eb051118a43a4d9640a50d20d4f7293"
+      },
+      {
+        "ascii_bytes": 3207,
+        "depth": 4,
+        "input_tokens": 3057,
+        "population": 64,
+        "prompt_sha256": "807783d7b415697a512bb79b43e5f152ea9c5422a3515c98a741522686a37e0d"
+      },
+      {
+        "ascii_bytes": 3207,
+        "depth": 8,
+        "input_tokens": 3057,
+        "population": 64,
+        "prompt_sha256": "fc3ae5d28bff2d7e461baa4811355970630b7649d0820adaf75d15a368a0fd1b"
+      },
+      {
+        "ascii_bytes": 3720,
+        "depth": 4,
+        "input_tokens": 3570,
+        "population": 128,
+        "prompt_sha256": "85c08241a3b5380c5c4248dc6242e96c883097ff6d01fbaebae99d7eace0d2b5"
+      },
+      {
+        "ascii_bytes": 3720,
+        "depth": 8,
+        "input_tokens": 3570,
+        "population": 128,
+        "prompt_sha256": "779e5f172ce22bf6eb33c92ce2ba20a965027512d06ef736f7c64a0a21207a09"
+      },
+      {
+        "ascii_bytes": 3721,
+        "depth": 16,
+        "input_tokens": 3571,
+        "population": 128,
+        "prompt_sha256": "83961da1c4610409de1a033fb72001440634c3a40efe125dd9998bb3abd636c1"
+      },
+      {
+        "ascii_bytes": 4744,
+        "depth": 4,
+        "input_tokens": 4594,
+        "population": 256,
+        "prompt_sha256": "70cd69335b56c8cd289d5903c1367e25a6c8ba4e08e7dc2ce5b203b468187432"
+      },
+      {
+        "ascii_bytes": 4744,
+        "depth": 8,
+        "input_tokens": 4594,
+        "population": 256,
+        "prompt_sha256": "0dec9751406dd03f59240fef8266d1bf8ffbf7a99056c02e6e601e2fda100781"
+      },
+      {
+        "ascii_bytes": 4745,
+        "depth": 16,
+        "input_tokens": 4595,
+        "population": 256,
+        "prompt_sha256": "21e41bcae373e62feeb11f96fdb3e62c7695afab547cff9d2e9c12650d16694b"
+      },
+      {
+        "ascii_bytes": 4745,
+        "depth": 32,
+        "input_tokens": 4595,
+        "population": 256,
+        "prompt_sha256": "70c535e3a65511ecb6affa1fdb359afedbeaa041f82026ac91411c258d125734"
+      },
+      {
+        "ascii_bytes": 6792,
+        "depth": 4,
+        "input_tokens": 6439,
+        "population": 512,
+        "prompt_sha256": "65bb12c9bc35a4a06645ac5ba9cd2aeaa2ddf8efaf10a54241c33571c864a659"
+      },
+      {
+        "ascii_bytes": 6792,
+        "depth": 8,
+        "input_tokens": 6420,
+        "population": 512,
+        "prompt_sha256": "d46cf8f05115bd72f7d705ee73f9c2c26c5fd21210758c2cdc1e533fd41f290f"
+      },
+      {
+        "ascii_bytes": 6793,
+        "depth": 16,
+        "input_tokens": 6443,
+        "population": 512,
+        "prompt_sha256": "389bcba6981bc34a582fba8a86332368ece4b785bc3df918fc734620ebab32f2"
+      },
+      {
+        "ascii_bytes": 6793,
+        "depth": 32,
+        "input_tokens": 6412,
+        "population": 512,
+        "prompt_sha256": "9819d0848ec0a88f4074fae680db1f1b52b6cdcdb69d78bee6323b5b349e386d"
+      },
+      {
+        "ascii_bytes": 6793,
+        "depth": 64,
+        "input_tokens": 6428,
+        "population": 512,
+        "prompt_sha256": "069e49cbcdbd96d318bdec5313ef93ccc43342c611aeaa1caedbaf30f56ff345"
+      },
+      {
+        "ascii_bytes": 10889,
+        "depth": 4,
+        "input_tokens": 9789,
+        "population": 1024,
+        "prompt_sha256": "2761ee84ccc34cd8b78e3c20f8fdb06ed7c9919d5a93b8601f8f4315fbe29b6c"
+      },
+      {
+        "ascii_bytes": 10889,
+        "depth": 8,
+        "input_tokens": 9796,
+        "population": 1024,
+        "prompt_sha256": "12d7ff1dd73e49df6d71674508fed07682d2b27c546000b708713d338a762cf3"
+      },
+      {
+        "ascii_bytes": 10890,
+        "depth": 16,
+        "input_tokens": 9811,
+        "population": 1024,
+        "prompt_sha256": "ea0f9ffd310a89c4f6d90d78c403375fb4d50ed928881d87db92538960245c98"
+      },
+      {
+        "ascii_bytes": 10890,
+        "depth": 32,
+        "input_tokens": 9781,
+        "population": 1024,
+        "prompt_sha256": "dd63c9c5187e6b0892d06d661cb35feeeb108242e0a60865b4637e6572022ed1"
+      },
+      {
+        "ascii_bytes": 10890,
+        "depth": 64,
+        "input_tokens": 9843,
+        "population": 1024,
+        "prompt_sha256": "a99144f8232c1684ca9d1b0b412953c1d6e56fc3e3384d8d28d72e1e83968b19"
+      },
+      {
+        "ascii_bytes": 10891,
+        "depth": 128,
+        "input_tokens": 9820,
+        "population": 1024,
+        "prompt_sha256": "af3d3287efa16d83a9724816f5b9d856eb620cf06e86fb6ea3ad526cb71f2e09"
+      }
+    ],
+    "frozen_input_token_limit": 24576,
+    "huggingface_hub_version": "0.36.2",
+    "inference_performed": false,
+    "maximum_condition": {
+      "ascii_bytes": 10890,
+      "depth": 64,
+      "input_tokens": 9843,
+      "population": 1024,
+      "prompt_sha256": "a99144f8232c1684ca9d1b0b412953c1d6e56fc3e3384d8d28d72e1e83968b19"
+    },
+    "maximum_input_tokens": 9843,
+    "model_bound": false,
+    "model_weights_downloaded": false,
+    "repo_id": "google/gemma-3-1b-it",
+    "revision": "dcc83ea841ab6100d6b47a070329e1ba4cf78752",
+    "scientific_test_worlds_generated": false,
+    "tokenizer_bound": true,
+    "tokenizer_class": "GemmaTokenizerFast",
+    "tokenizer_file_sha256": {
+      "added_tokens.json": "50b2f405ba56a26d4913fd772089992252d7f942123cc0a034d96424221ba946",
+      "config.json": "19cb5d28c97778271ba2b3c3df47bf76bdd6706724777a2318b3522230afe91e",
+      "special_tokens_map.json": "2f7b0adf4fb469770bb1490e3e35df87b1dc578246c5e7e6fc76ecf33213a397",
+      "tokenizer.json": "4667f2089529e8e7657cfb6d1c19910ae71ff5f28aa7ab2ff2763330affad795",
+      "tokenizer.model": "1299c11d7cf632ef3b4e11937501358ada021bbdf7c47638d13c0ee982f2e79c",
+      "tokenizer_config.json": "bfe25c2735e395407beb78456ea9a6984a1f00d8c16fa04a8b75f2a614cf53e1"
+    },
+    "tokenizers_version": "0.22.2",
+    "transformers_version": "4.57.6"
+  },
+  "training_performed": false
+}
