@@ -1,0 +1,88 @@
+name: Gate8 seed0 causal diagnostic protocol qualification
+
+on:
+  pull_request:
+    branches:
+      - agent/gate8-organism-training-seed0-result-v0
+    paths:
+      - ai_hypothesis/population_compute/gate8_seed0_causal_diagnostic_protocol.py
+      - tests/test_gate8_seed0_causal_diagnostic_protocol.py
+      - experiments/population_compute_scaling_v0/gate8_seed0_causal_diagnostic_protocol_v0.md
+      - .github/workflows/gate8-seed0-causal-diagnostic-protocol-ci.yml
+
+permissions:
+  contents: read
+
+jobs:
+  seed0-causal-diagnostic-protocol:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Compile diagnostic protocol
+        run: |
+          python -m py_compile \
+            ai_hypothesis/population_compute/gate8_seed0_causal_diagnostic_protocol.py \
+            tests/test_gate8_seed0_causal_diagnostic_protocol.py
+
+      - name: Run diagnostic protocol regressions
+        run: python -m unittest tests/test_gate8_seed0_causal_diagnostic_protocol.py -v
+
+      - name: Verify exact checkpoint schedule and exposure boundaries
+        run: |
+          python - <<'PY'
+          import importlib.util
+          import pathlib
+          import sys
+
+          path = pathlib.Path("ai_hypothesis/population_compute/gate8_seed0_causal_diagnostic_protocol.py")
+          spec = importlib.util.spec_from_file_location("g8_diag_protocol_ci", path)
+          assert spec is not None and spec.loader is not None
+          module = importlib.util.module_from_spec(spec)
+          sys.modules[spec.name] = module
+          spec.loader.exec_module(module)
+
+          assert module.GATE8_SEED0_RESULT_HEAD == "70e7e40149f9259d36b0e37ab17fc8c30370201e"
+          assert module.GATE8_SEED0_CHECKPOINT_SHA256 == "4aca6bfde7fa82cd2c1fec3613c4cc59303788616f352e8d419c90662d7b9a1b"
+          assert module.GATE8_SEED0_RESULT_SHA256 == "5f477022ac45a80d8b05b112b3485e4112519ddef78e0bb23990a090e0cc92e2"
+          assert module.GATE8_LEARNED_PARAMETER_COUNT == 19_649
+          assert module.GATE8_RUNTIME_PROBES == (
+              "baseline",
+              "forced_active",
+              "message_low4_decode",
+              "forced_active_message_low4_decode",
+          )
+          assert (module.GATE8_HEAD_ONLY_WORLD_START, module.GATE8_HEAD_ONLY_WORLD_END_EXCLUSIVE) == (262_144, 327_680)
+          assert (module.GATE8_FULL_RESUME_WORLD_START, module.GATE8_FULL_RESUME_WORLD_END_EXCLUSIVE) == (327_680, 458_752)
+          plan = module.gate8_seed0_diagnostic_protocol_plan()
+          assert plan["execution_admitted"] is False
+          assert plan["scientific_test_worlds_admitted"] is False
+          assert plan["seeds_1_2_admitted"] is False
+          assert plan["reference_model_admitted"] is False
+          print("Gate8 seed0 causal diagnostic protocol contract verified")
+          PY
+
+      - name: Verify protocol remains execution closed
+        run: |
+          ! grep -E '(^|[[:space:]])import torch|from torch|torch\.load|torch\.save|generate_gate8_world|split=.test.|AutoTokenizer|AutoModel' \
+            ai_hypothesis/population_compute/gate8_seed0_causal_diagnostic_protocol.py
+
+      - name: Prove exact four-file protocol-only slice
+        run: |
+          git diff --name-only 70e7e40149f9259d36b0e37ab17fc8c30370201e HEAD | sort > /tmp/actual.txt
+          cat > /tmp/expected.txt <<'EOF'
+          .github/workflows/gate8-seed0-causal-diagnostic-protocol-ci.yml
+          ai_hypothesis/population_compute/gate8_seed0_causal_diagnostic_protocol.py
+          experiments/population_compute_scaling_v0/gate8_seed0_causal_diagnostic_protocol_v0.md
+          tests/test_gate8_seed0_causal_diagnostic_protocol.py
+          EOF
+          sort -o /tmp/expected.txt /tmp/expected.txt
+          diff -u /tmp/expected.txt /tmp/actual.txt
