@@ -174,6 +174,26 @@ class Gate8Seed0CausalDiagnosticExecutionTests(unittest.TestCase):
                 probe="baseline",
             )
 
+    def test_checkpoint_payload_binds_exact_protocol_head(self):
+        payload = RUNNER._checkpoint_payload(
+            model=self._controlled_model(),
+            probe="head_only",
+            step=64,
+            trainable_parameter_count=9_009,
+            diagnostic_protocol=PROTOCOL,
+        )
+        self.assertEqual(
+            payload["diagnostic_protocol_head"],
+            "0fa9ec48c31b36c90d58da827139457fd812b98c",
+        )
+        self.assertEqual(
+            payload["source_checkpoint_sha256"],
+            PROTOCOL.GATE8_SEED0_CHECKPOINT_SHA256,
+        )
+        self.assertEqual(payload["learned_parameter_count"], 19_649)
+        self.assertEqual(payload["trainable_parameter_count"], 9_009)
+        self.assertEqual(len(payload["state_dict"]), 15)
+
     def test_full_resume_learning_rate_has_exact_endpoints(self):
         self.assertEqual(
             RUNNER._full_resume_learning_rate(step=1, diagnostic_protocol=PROTOCOL),
