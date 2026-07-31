@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Execute one frozen Gate-8 v1 factorized organism training seed on CUDA."""
+"""Execute the frozen Gate-8 v1 factorized organism seed-0 run on CUDA."""
 
 from __future__ import annotations
 
@@ -310,8 +310,10 @@ def train_gate8_v1_organism(
     output_root: pathlib.Path,
     device_name: str,
 ) -> int:
-    if seed not in (0, 1, 2):
-        raise ValueError("Gate8 v1 training seed must be 0, 1 or 2")
+    if seed != 0:
+        raise ValueError(
+            "Gate8 v1 training execution currently admits seed 0 only"
+        )
     os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
     import torch
 
@@ -624,9 +626,11 @@ def train_gate8_v1_organism(
         "reference_tokenizer_loaded": False,
         "reference_model_weights_loaded": False,
         "reference_inference_performed": False,
-        "seeds_1_and_2_executed": False if seed == 0 else None,
+        "seeds_1_and_2_executed": False,
     }
-    result_path = output_root / "gate8-factorized-organism-training-result.json"
+    result_path = output_root / (
+        "gate8-factorized-organism-training-result.json"
+    )
     _write_json(result_path, result)
     print(
         json.dumps(
@@ -648,7 +652,7 @@ def train_gate8_v1_organism(
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--seed", type=int, required=True, choices=(0, 1, 2))
+    parser.add_argument("--seed", type=int, required=True, choices=(0,))
     parser.add_argument("--output-root", type=pathlib.Path, required=True)
     parser.add_argument("--device", default="cuda", choices=("cuda",))
     args = parser.parse_args()
