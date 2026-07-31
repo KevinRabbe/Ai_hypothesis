@@ -1,0 +1,86 @@
+{
+  "record_version": "gate8-seed0-causal-diagnostic-result-summary-v0",
+  "source_execution_head": "01199a848c9daa296bc3f9009e6aebc3a6b0357b",
+  "diagnostic_protocol_head": "0fa9ec48c31b36c90d58da827139457fd812b98c",
+  "seed0_training_result_head": "70e7e40149f9259d36b0e37ab17fc8c30370201e",
+  "diagnostic_status": "G8_SEED0_CAUSAL_DIAGNOSTIC_COMPLETE",
+  "source_result_sha256": "386ee8252bcb9ff79a161f6753bac81e215f0b0c4f86324113cc9489cc4c1c0c",
+  "source_manifest_sha256": "0544d62ca5c4c53c56c2090a1ea8b59a0c3e2e5c54968429e4783b7d5b461f25",
+  "source_checkpoint_sha256": "4aca6bfde7fa82cd2c1fec3613c4cc59303788616f352e8d419c90662d7b9a1b",
+  "learned_parameter_count": 19649,
+  "seed": 0,
+  "baseline_reproduced": true,
+  "runtime_probes": {
+    "baseline": {
+      "condition_target_accuracies": [0.521484375, 0.498046875, 0.353515625, 0.537109375, 0.3125, 0.19921875],
+      "mean_target_accuracy": 0.4036458333333333,
+      "minimum_target_accuracy": 0.19921875
+    },
+    "forced_active": {
+      "condition_target_accuracies": [0.541015625, 0.515625, 0.375, 0.544921875, 0.333984375, 0.21875],
+      "mean_target_accuracy": 0.4215494791666667,
+      "minimum_target_accuracy": 0.21875
+    },
+    "message_low4_decode": {
+      "condition_target_accuracies": [0.72265625, 0.748046875, 0.509765625, 0.76953125, 0.466796875, 0.236328125],
+      "mean_target_accuracy": 0.5755208333333334,
+      "minimum_target_accuracy": 0.236328125
+    },
+    "forced_active_message_low4_decode": {
+      "condition_target_accuracies": [0.744140625, 0.771484375, 0.53125, 0.783203125, 0.5, 0.265625],
+      "mean_target_accuracy": 0.5992838541666666,
+      "minimum_target_accuracy": 0.265625
+    }
+  },
+  "head_only_final": {
+    "step": 256,
+    "trainable_parameter_count": 9009,
+    "checkpoint_sha256": "c0e014b1f9daec46a73f1895f20d51258a4f5f2e284232680737c3aac4765e29",
+    "message_accuracy": 0.9549273322610294,
+    "answer_accuracy": 0.6477804744944853,
+    "activity_accuracy": 0.9965784409466911,
+    "mean_target_accuracy": 0.4876302083333333,
+    "minimum_target_accuracy": 0.318359375,
+    "message_root_invariance": 0.9033203125,
+    "answer_root_invariance": 0.77294921875
+  },
+  "full_resume_step_256": {
+    "step": 256,
+    "trainable_parameter_count": 19649,
+    "checkpoint_sha256": "7f602f7ff7867870e8ffedc9d5920eb3421e01ccedcfed71f290245115094269",
+    "message_accuracy": 0.9305635340073529,
+    "answer_accuracy": 0.6595423081341911,
+    "activity_accuracy": 0.9949197208180147,
+    "mean_target_accuracy": 0.4449869791666667,
+    "minimum_target_accuracy": 0.244140625
+  },
+  "full_resume_final": {
+    "step": 512,
+    "trainable_parameter_count": 19649,
+    "checkpoint_sha256": "0db9f10adaa78bcb6718185b7ddfe5a251b84a71ad7fb89902002012920b975c",
+    "message_accuracy": 0.9360495174632353,
+    "answer_accuracy": 0.6638039981617647,
+    "activity_accuracy": 0.9949987074908089,
+    "mean_target_accuracy": 0.4527994791666667,
+    "minimum_target_accuracy": 0.25,
+    "message_root_invariance": 0.89697265625,
+    "answer_root_invariance": 0.78955078125
+  },
+  "findings": {
+    "activity_gate_material": false,
+    "answer_head_material": true,
+    "continued_optimization_effective": false,
+    "core_interference_persists": true,
+    "frozen_core_linearly_sufficient": false
+  },
+  "boundaries": {
+    "training_seeds_1_2_performed": false,
+    "scientific_test_worlds_generated": false,
+    "reference_tokenizer_loaded": false,
+    "reference_model_weights_loaded": false,
+    "reference_inference_performed": false,
+    "original_checkpoint_modified": false,
+    "original_non_admission_changed": false
+  },
+  "external_evidence_note": "The complete raw result JSON and .pt checkpoints remain external artifacts bound by the SHA-256 values above; this repository record intentionally stores only the decisive immutable summary and exact source manifest."
+}
