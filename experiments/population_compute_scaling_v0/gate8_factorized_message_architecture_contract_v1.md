@@ -115,7 +115,7 @@ The transform embedding requires only eight distinguishable learned vectors; thr
 | symbol embedding `16 × 11` | 176 |
 | transform embedding `8 × 3` | 24 |
 | one shared learned initial hidden state | 65 |
-| GRU input weights `3 × 65 × 21` | 6,372 |
+| GRU input weights `3 × 65 × 21` | 4,095 |
 | GRU recurrent weights `3 × 65 × 65` | 12,675 |
 | GRU biases `2 × 3 × 65` | 390 |
 | carrier head `65 × 16 + 16` | 1,056 |
