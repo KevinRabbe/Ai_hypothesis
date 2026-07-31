@@ -9,6 +9,7 @@ import importlib.util
 import json
 import os
 import pathlib
+import shutil
 import sys
 from typing import Any
 
@@ -84,6 +85,10 @@ def bind_gate8_gemma_weights(*, output_root: pathlib.Path) -> int:
             f"downloaded {filename} bytes={downloaded.stat().st_size}",
             flush=True,
         )
+
+    transient_cache = snapshot_root / ".cache"
+    if transient_cache.exists():
+        shutil.rmtree(transient_cache)
 
     file_hashes, file_sizes = binding.validate_gate8_gemma_model_snapshot(
         snapshot_root
