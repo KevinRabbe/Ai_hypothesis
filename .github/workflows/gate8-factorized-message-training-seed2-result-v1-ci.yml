@@ -1,0 +1,140 @@
+name: Gate8 factorized message seed2 result v1 qualification
+
+on:
+  push:
+    branches:
+      - agent/gate8-factorized-message-training-seed2-result-v1
+  pull_request:
+    paths:
+      - 'experiments/population_compute_scaling_v0/gate8_factorized_message_training_seed2_result_v1.json'
+      - 'experiments/population_compute_scaling_v0/gate8_factorized_message_training_seed2_result_v1.md'
+      - 'experiments/population_compute_scaling_v0/gate8_factorized_message_training_seed2_manifest_v1.sha256'
+      - '.github/workflows/gate8-factorized-message-training-seed2-result-v1-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  result-record:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Verify immutable seed2 result summary
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          import pathlib
+
+          root = pathlib.Path('experiments/population_compute_scaling_v0')
+          summary_path = root / 'gate8_factorized_message_training_seed2_result_v1.json'
+          manifest_path = root / 'gate8_factorized_message_training_seed2_manifest_v1.sha256'
+          data = json.loads(summary_path.read_text(encoding='utf-8'))
+
+          assert data['scientific_status'] == 'G8_V1_TRAINING_CHECKPOINT_ADMITTED'
+          assert data['source_head'] == '31a8d115eb14d876997fb361b02258fbe3a30506'
+          assert data['qualified_seed0_result_head'] == 'f259620f7d3beab2f886c76271c753e9ebf96dc9'
+          assert data['qualified_seed1_result_head'] == '66532cb72c2bb0703e7af395ef51bbbef31d9b3b'
+          assert data['protocol_head'] == 'a33dc123d090268a531d112251ea3ab53cb50062'
+          assert data['runtime_head'] == '333d88ac4fc52f1651741fba224e0b4605feedd3'
+          assert data['architecture_head'] == 'c3ab64008c816fa1eb6f9d6f8f0a1a99ed195ec8'
+          assert data['seed'] == 2
+          assert data['raw_result_sha256'] == 'cc9dad3bd05982ff5390a8f23bff3bfe8227c5a4c4c457e6578426b186bb6df2'
+          assert data['selected_checkpoint_sha256'] == 'e1e35b3864354e8f3398497a897b6a759dfa3454a33d866de63784a323f461e4'
+          assert data['source_manifest_sha256'] == '2df3483f63e6c31e06a51fde57e57eb773bb183d3cf71a405407748645c89ef0'
+          assert data['selected_step'] == 1024
+          assert data['learned_parameter_count'] == 19649
+          assert data['checkpoint_tensor_count'] == 12
+          assert sum(row['parameters'] for row in data['checkpoint_tensor_ledger']) == 19649
+
+          training = data['training']
+          assert training['worlds'] == 262144
+          assert training['optimizer_steps'] == 1024
+          assert training['telemetry_rows'] == 1024
+          assert training['world_batch_size'] == 256
+          assert training['total_supervised_edges'] == 23767648
+          assert training['checkpoint_steps'] == [256, 512, 768, 1024]
+          assert training['coverage'] == {
+              'inbox_codes': 256,
+              'target_carriers': 16,
+              'target_codes': 256,
+              'target_symbols': 16,
+          }
+
+          validation = data['validation']
+          assert validation['world_index_start'] == 512
+          assert validation['world_index_end_inclusive'] == 1023
+          assert validation['worlds_per_condition'] == 512
+          assert validation['disjoint_from_v0_indices_0_through_511'] is True
+          assert validation['conditions'] == [[32,4],[64,4],[64,8],[128,4],[128,8],[128,16]]
+
+          candidates = data['candidates']
+          assert [row['step'] for row in candidates] == [256, 512, 768, 1024]
+          assert [row['admitted'] for row in candidates] == [False, True, True, True]
+          assert candidates[0]['minimum_target_accuracy'] == 0.9296875
+          assert candidates[0]['exact_message_accuracy'] == 0.9988834156709558
+          for row in candidates[1:]:
+              assert row['mean_target_accuracy'] == 1.0
+              assert row['minimum_target_accuracy'] == 1.0
+              assert row['exact_message_accuracy'] == 1.0
+              assert row['carrier_accuracy'] == 1.0
+              assert row['symbol_accuracy'] == 1.0
+          assert candidates[3]['validation_loss'] < candidates[2]['validation_loss'] < candidates[1]['validation_loss']
+          assert data['selected_metrics']['step'] == 1024
+          assert data['selected_metrics']['admitted'] is True
+          assert all(row['target_accuracy'] == 1.0 for row in data['selected_metrics']['conditions'])
+
+          closed = data['closed_boundaries']
+          assert closed == {
+              'reference_inference_performed': False,
+              'reference_model_weights_loaded': False,
+              'reference_tokenizer_loaded': False,
+              'scientific_test_worlds_generated': False,
+              'seed_0_rerun': False,
+              'seed_1_rerun': False,
+          }
+          assert data['raw_replication_flag']['field'] == 'seeds_1_and_2_executed'
+          assert data['raw_replication_flag']['value'] is True
+          assert 'actual executed seed is identified by seed=2' in data['raw_replication_flag']['interpretation']
+          assert data['replication_set'] == {
+              'all_training_seeds_completed': True,
+              'qualified_seed0': True,
+              'qualified_seed1': True,
+              'seed2_current_result': True,
+              'seeds': [0, 1, 2],
+          }
+          assert all(data['artifact_inspection'].values())
+
+          manifest_bytes = manifest_path.read_bytes()
+          assert hashlib.sha256(manifest_bytes).hexdigest() == data['source_manifest_sha256']
+          manifest_text = manifest_bytes.decode('ascii')
+          assert manifest_text.count('\r\n') == 8
+          assert 'cc9dad3bd05982ff5390a8f23bff3bfe8227c5a4c4c457e6578426b186bb6df2  training/gate8-factorized-organism-training-result.json' in manifest_text
+          assert manifest_text.count('e1e35b3864354e8f3398497a897b6a759dfa3454a33d866de63784a323f461e4') == 2
+          assert 'cf1476036dc8da9fceb64836a63c366f4fb68d4d0ca7fd9de0a0d33aa99fc001  git-head.txt' in manifest_text
+          PY
+
+      - name: Verify result-only closed boundary
+        run: |
+          files='experiments/population_compute_scaling_v0/gate8_factorized_message_training_seed2_result_v1.json experiments/population_compute_scaling_v0/gate8_factorized_message_training_seed2_result_v1.md experiments/population_compute_scaling_v0/gate8_factorized_message_training_seed2_manifest_v1.sha256'
+          ! find experiments/population_compute_scaling_v0 -maxdepth 1 -name '*seed2*result*v1*.pt' -print -quit | grep .
+          ! grep --line-number -E 'generate_gate8_world\(|torch\.optim|optimizer\.step\(|backward\(|torch\.save\(|AutoModel|AutoTokenizer|from_pretrained|snapshot_download|model\.safetensors' $files
+
+      - name: Prove exact four-file seed2 result slice
+        run: |
+          changed="$(git diff --name-only 31a8d115eb14d876997fb361b02258fbe3a30506...HEAD | sort)"
+          expected="$(printf '%s\n' \
+            '.github/workflows/gate8-factorized-message-training-seed2-result-v1-ci.yml' \
+            'experiments/population_compute_scaling_v0/gate8_factorized_message_training_seed2_manifest_v1.sha256' \
+            'experiments/population_compute_scaling_v0/gate8_factorized_message_training_seed2_result_v1.json' \
+            'experiments/population_compute_scaling_v0/gate8_factorized_message_training_seed2_result_v1.md' | sort)"
+          test "$changed" = "$expected"
