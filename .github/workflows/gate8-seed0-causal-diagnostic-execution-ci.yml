@@ -84,7 +84,19 @@ jobs:
           grep -F 'def diagnose_gate8_seed0' scripts/diagnose_gate8_seed0.py
           grep -F 'weights_only=True' scripts/diagnose_gate8_seed0.py
           grep -F 'G8_SEED0_CAUSAL_DIAGNOSTIC_COMPLETE' scripts/diagnose_gate8_seed0.py
-          ! grep -F 'python scripts/diagnose_gate8_seed0.py' .github/workflows/gate8-seed0-causal-diagnostic-execution-ci.yml
+          python - <<'PY'
+          from pathlib import Path
+
+          workflow = Path(
+              ".github/workflows/gate8-seed0-causal-diagnostic-execution-ci.yml"
+          ).read_text(encoding="utf-8")
+          forbidden = "python scripts/diagnose_gate8_seed0.py"
+          for line in workflow.splitlines():
+              stripped = line.strip()
+              if stripped == forbidden or stripped.startswith(forbidden + " "):
+                  raise SystemExit("full Gate8 diagnostic runner is invoked by CI")
+          print("Full Gate8 diagnostic runner remains CI-closed")
+          PY
 
       - name: Verify scientific-test and reference paths remain absent
         run: |
