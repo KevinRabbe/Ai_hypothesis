@@ -1,0 +1,129 @@
+name: Gate8 seed0 causal diagnostic result qualification
+
+on:
+  pull_request:
+    branches:
+      - agent/gate8-seed0-causal-diagnostic-execution-v0
+    paths:
+      - ".github/workflows/gate8-seed0-causal-diagnostic-result-ci.yml"
+      - "experiments/population_compute_scaling_v0/gate8_seed0_causal_diagnostic_result_summary_v0.json"
+      - "experiments/population_compute_scaling_v0/gate8_seed0_causal_diagnostic_manifest_v0.sha256"
+      - "experiments/population_compute_scaling_v0/gate8_seed0_causal_diagnostic_result_v0.md"
+
+permissions:
+  contents: read
+
+jobs:
+  result-contract:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify immutable result evidence
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          root = Path("experiments/population_compute_scaling_v0")
+          summary_path = root / "gate8_seed0_causal_diagnostic_result_summary_v0.json"
+          manifest_path = root / "gate8_seed0_causal_diagnostic_manifest_v0.sha256"
+          record_path = root / "gate8_seed0_causal_diagnostic_result_v0.md"
+
+          summary = json.loads(summary_path.read_text(encoding="utf-8"))
+          manifest_bytes = manifest_path.read_bytes()
+          manifest_hash = hashlib.sha256(manifest_bytes).hexdigest()
+          assert manifest_hash == "0544d62ca5c4c53c56c2090a1ea8b59a0c3e2e5c54968429e4783b7d5b461f25"
+
+          assert summary["record_version"] == "gate8-seed0-causal-diagnostic-result-summary-v0"
+          assert summary["source_execution_head"] == "01199a848c9daa296bc3f9009e6aebc3a6b0357b"
+          assert summary["diagnostic_protocol_head"] == "0fa9ec48c31b36c90d58da827139457fd812b98c"
+          assert summary["seed0_training_result_head"] == "70e7e40149f9259d36b0e37ab17fc8c30370201e"
+          assert summary["diagnostic_status"] == "G8_SEED0_CAUSAL_DIAGNOSTIC_COMPLETE"
+          assert summary["source_result_sha256"] == "386ee8252bcb9ff79a161f6753bac81e215f0b0c4f86324113cc9489cc4c1c0c"
+          assert summary["source_manifest_sha256"] == manifest_hash
+          assert summary["source_checkpoint_sha256"] == "4aca6bfde7fa82cd2c1fec3613c4cc59303788616f352e8d419c90662d7b9a1b"
+          assert summary["learned_parameter_count"] == 19_649
+          assert summary["seed"] == 0
+          assert summary["baseline_reproduced"] is True
+
+          expected_findings = {
+              "activity_gate_material": False,
+              "answer_head_material": True,
+              "continued_optimization_effective": False,
+              "core_interference_persists": True,
+              "frozen_core_linearly_sufficient": False,
+          }
+          assert summary["findings"] == expected_findings
+          assert all(value is False for value in summary["boundaries"].values())
+
+          probes = summary["runtime_probes"]
+          assert probes["baseline"]["mean_target_accuracy"] == 0.4036458333333333
+          assert probes["forced_active"]["mean_target_accuracy"] == 0.4215494791666667
+          assert probes["message_low4_decode"]["mean_target_accuracy"] == 0.5755208333333334
+          assert probes["forced_active_message_low4_decode"]["mean_target_accuracy"] == 0.5992838541666666
+          assert len(probes) == 4
+          assert all(len(row["condition_target_accuracies"]) == 6 for row in probes.values())
+
+          head = summary["head_only_final"]
+          full256 = summary["full_resume_step_256"]
+          full512 = summary["full_resume_final"]
+          assert head["checkpoint_sha256"] == "c0e014b1f9daec46a73f1895f20d51258a4f5f2e284232680737c3aac4765e29"
+          assert head["trainable_parameter_count"] == 9_009
+          assert full256["checkpoint_sha256"] == "7f602f7ff7867870e8ffedc9d5920eb3421e01ccedcfed71f290245115094269"
+          assert full256["trainable_parameter_count"] == 19_649
+          assert full512["checkpoint_sha256"] == "0db9f10adaa78bcb6718185b7ddfe5a251b84a71ad7fb89902002012920b975c"
+          assert full512["trainable_parameter_count"] == 19_649
+          assert head["mean_target_accuracy"] > full512["mean_target_accuracy"]
+
+          manifest = {}
+          for line in manifest_bytes.decode("utf-8").splitlines():
+              digest, relative = line.split("  ", 1)
+              assert len(digest) == 64
+              manifest[relative] = digest
+          assert len(manifest) == 15
+          assert manifest["diagnostic/gate8-seed0-causal-diagnostic-result.json"] == summary["source_result_sha256"]
+          assert manifest["diagnostic/head-only/checkpoints/step-0256.pt"] == head["checkpoint_sha256"]
+          assert manifest["diagnostic/full-resume/checkpoints/step-0256.pt"] == full256["checkpoint_sha256"]
+          assert manifest["diagnostic/full-resume/checkpoints/step-0512.pt"] == full512["checkpoint_sha256"]
+
+          record = record_path.read_text(encoding="utf-8")
+          for required in (
+              "G8_SEED0_CAUSAL_DIAGNOSTIC_COMPLETE",
+              summary["source_result_sha256"],
+              summary["source_manifest_sha256"],
+              "answer_head_material             = true",
+              "continued_optimization_effective = false",
+              "Do not run seeds 1 and 2",
+          ):
+              assert required in record
+
+          print("Gate8 seed0 causal diagnostic result evidence verified")
+          PY
+
+      - name: Prove exact result-only slice
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          git diff --name-only "$BASE_SHA" "$HEAD_SHA" | sort > /tmp/actual-files.txt
+          cat > /tmp/expected-files.txt <<'EOF'
+          .github/workflows/gate8-seed0-causal-diagnostic-result-ci.yml
+          experiments/population_compute_scaling_v0/gate8_seed0_causal_diagnostic_manifest_v0.sha256
+          experiments/population_compute_scaling_v0/gate8_seed0_causal_diagnostic_result_summary_v0.json
+          experiments/population_compute_scaling_v0/gate8_seed0_causal_diagnostic_result_v0.md
+          EOF
+          diff -u /tmp/expected-files.txt /tmp/actual-files.txt
+
+      - name: Prove execution boundaries remain closed
+        run: |
+          changed="$(git diff --name-only '${{ github.event.pull_request.base.sha }}' '${{ github.event.pull_request.head.sha }}')"
+          ! printf '%s\n' "$changed" | grep -E '(^|/)(scripts|ai_hypothesis|tests)/'
+          ! printf '%s\n' "$changed" | grep -E '\.pt$'
+          ! grep -R -E 'generate_gate8_world|torch\.load|snapshot_download|AutoModel|AutoTokenizer' \
+              experiments/population_compute_scaling_v0/gate8_seed0_causal_diagnostic_result_summary_v0.json \
+              experiments/population_compute_scaling_v0/gate8_seed0_causal_diagnostic_result_v0.md
