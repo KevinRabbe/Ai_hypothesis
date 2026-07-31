@@ -1,0 +1,177 @@
+name: Gate8 factorized message training execution v1 qualification
+
+on:
+  pull_request:
+    branches:
+      - agent/gate8-factorized-message-training-protocol-v1
+    paths:
+      - ".github/workflows/gate8-factorized-message-training-execution-v1-ci.yml"
+      - "ai_hypothesis/population_compute/gate8_factorized_organism_training.py"
+      - "ai_hypothesis/population_compute/gate8_factorized_organism_development_runtime.py"
+      - "scripts/train_gate8_factorized_organism.py"
+      - "scripts/train_gate8_factorized_organism.ps1"
+      - "tests/test_gate8_factorized_organism_training_execution.py"
+      - "experiments/population_compute_scaling_v0/gate8_factorized_message_training_execution_v1.md"
+
+permissions:
+  contents: read
+
+jobs:
+  training-execution-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: .
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install CPU Torch
+        run: |
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
+
+      - name: Compile v1 training execution modules
+        run: |
+          python -m py_compile \
+            ai_hypothesis/population_compute/gate8_factorized_organism_training.py \
+            ai_hypothesis/population_compute/gate8_factorized_organism_development_runtime.py \
+            scripts/train_gate8_factorized_organism.py \
+            tests/test_gate8_factorized_organism_training_execution.py
+
+      - name: Run contract-only execution regressions
+        run: |
+          python -m unittest tests/test_gate8_factorized_organism_training_execution.py -v
+
+      - name: Verify exact source bindings and closed boundaries
+        run: |
+          python - <<'PY'
+          import importlib.util
+          import pathlib
+          import sys
+
+          def load(path: str, name: str):
+              spec = importlib.util.spec_from_file_location(name, pathlib.Path(path))
+              assert spec is not None and spec.loader is not None
+              module = importlib.util.module_from_spec(spec)
+              sys.modules[name] = module
+              spec.loader.exec_module(module)
+              return module
+
+          training = load(
+              "ai_hypothesis/population_compute/gate8_factorized_organism_training.py",
+              "gate8_v1_training_execution_ci_mechanics",
+          )
+          development = load(
+              "ai_hypothesis/population_compute/gate8_factorized_organism_development_runtime.py",
+              "gate8_v1_training_execution_ci_development",
+          )
+          assert training.GATE8_V1_TRAINING_EXECUTION_PROTOCOL_HEAD == (
+              "a33dc123d090268a531d112251ea3ab53cb50062"
+          )
+          assert development.GATE8_V1_DEVELOPMENT_RUNTIME_PROTOCOL_HEAD == (
+              "a33dc123d090268a531d112251ea3ab53cb50062"
+          )
+          assert development.GATE8_V1_DEVELOPMENT_RUNTIME_QUALIFIED_RUNTIME_HEAD == (
+              "333d88ac4fc52f1651741fba224e0b4605feedd3"
+          )
+          assert training.GATE8_V1_TRAINING_ALLOWED_SPLITS == (
+              "contract", "train", "validation"
+          )
+          assert development.GATE8_V1_DEVELOPMENT_ALLOWED_SPLITS == (
+              "contract", "train", "validation"
+          )
+          mechanics = training.gate8_v1_training_mechanics_plan()
+          runtime = development.gate8_v1_development_runtime_plan()
+          assert mechanics["truth_field_read"] is False
+          assert mechanics["activity_target"] is False
+          assert mechanics["answer_target"] is False
+          assert mechanics["joint_256_way_target"] is False
+          assert runtime["truth_read"] is False
+          assert runtime["deterministic_delivery"] is True
+          assert runtime["answer_equals_message_low_nibble"] is True
+          PY
+
+      - name: Verify full CUDA runner is frozen but never invoked by CI
+        run: |
+          runner=scripts/train_gate8_factorized_organism.py
+          grep -F 'GATE8_V1_OPTIMIZER_STEPS + 1' "$runner"
+          grep -F 'split="train"' "$runner"
+          grep -F 'split="validation"' "$runner"
+          grep -F 'tuple(range(512, 1_024))' "$runner"
+          grep -F 'torch.optim.AdamW' "$runner"
+          grep -F 'clip_grad_norm_' "$runner"
+          grep -F 'GATE8_V1_CHECKPOINT_STEPS' "$runner"
+          grep -F 'select_gate8_v1_checkpoint' "$runner"
+          grep -F 'classify_gate8_v1_training' "$runner"
+          grep -F 'if seed != 0' "$runner"
+          grep -F 'choices=(0,)' "$runner"
+          ! grep --line-number -F 'split="test"' "$runner"
+          ! grep --line-number -F 'split="demonstration"' "$runner"
+          ! grep --line-number -E 'AutoModel|AutoTokenizer|from_pretrained|snapshot_download|model\.safetensors' "$runner"
+
+      - name: Verify mechanics and development runtime cannot inspect truth or generate worlds
+        run: |
+          files='ai_hypothesis/population_compute/gate8_factorized_organism_training.py ai_hypothesis/population_compute/gate8_factorized_organism_development_runtime.py'
+          ! grep --line-number -E '\.truth|generate_gate8_world|AutoModel|AutoTokenizer|from_pretrained|snapshot_download|model\.safetensors' $files
+          ! grep --line-number -F 'split="test"' $files
+          ! grep --line-number -F 'split="demonstration"' $files
+
+      - name: Prove exact seven-file execution slice
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          git diff --name-only "$BASE_SHA" "$HEAD_SHA" | sort > /tmp/actual-files.txt
+          cat > /tmp/expected-files.txt <<'EOF'
+          .github/workflows/gate8-factorized-message-training-execution-v1-ci.yml
+          ai_hypothesis/population_compute/gate8_factorized_organism_development_runtime.py
+          ai_hypothesis/population_compute/gate8_factorized_organism_training.py
+          experiments/population_compute_scaling_v0/gate8_factorized_message_training_execution_v1.md
+          scripts/train_gate8_factorized_organism.ps1
+          scripts/train_gate8_factorized_organism.py
+          tests/test_gate8_factorized_organism_training_execution.py
+          EOF
+          diff -u /tmp/expected-files.txt /tmp/actual-files.txt
+
+  windows-wrapper-smoke:
+    if: github.head_ref == 'agent/gate8-factorized-message-training-execution-v1'
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Smoke wrapper before Torch CUDA worlds optimizer or checkpoints
+        shell: pwsh
+        env:
+          GATE8_V1_TRAINING_WRAPPER_SMOKE: "1"
+        run: |
+          $output = Join-Path $env:RUNNER_TEMP 'gate8-v1-training-smoke'
+          if (Test-Path -LiteralPath $output) {
+              Remove-Item -LiteralPath $output -Recurse -Force
+          }
+          .\scripts\train_gate8_factorized_organism.ps1 -Seed 0 -OutputRoot $output
+          if (Test-Path -LiteralPath (Join-Path $output 'training')) {
+              throw 'Gate8 v1 wrapper smoke crossed the training boundary.'
+          }
+          $configPath = Join-Path $output 'run-config.json'
+          if (-not (Test-Path -LiteralPath $configPath -PathType Leaf)) {
+              throw 'Gate8 v1 wrapper smoke did not preserve run provenance.'
+          }
+          $config = Get-Content -Raw $configPath | ConvertFrom-Json
+          if ($config.seed -ne 0 -or $config.seed0_only -ne $true) {
+              throw 'Gate8 v1 wrapper smoke crossed the seed-0 boundary.'
+          }
+          if (
+              $config.validation_world_index_start -ne 512 -or
+              $config.validation_world_index_end_inclusive -ne 1023
+          ) {
+              throw 'Gate8 v1 wrapper smoke validation provenance drifted.'
+          }
