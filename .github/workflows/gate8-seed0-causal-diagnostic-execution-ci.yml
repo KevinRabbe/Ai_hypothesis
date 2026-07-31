@@ -1,0 +1,121 @@
+name: Gate8 seed0 causal diagnostic execution qualification
+
+on:
+  pull_request:
+    branches:
+      - agent/gate8-seed0-causal-diagnostic-protocol-v0
+    paths:
+      - ai_hypothesis/population_compute/gate8_seed0_causal_diagnostic_runtime.py
+      - scripts/diagnose_gate8_seed0.py
+      - scripts/diagnose_gate8_seed0.ps1
+      - tests/test_gate8_seed0_causal_diagnostic_execution.py
+      - experiments/population_compute_scaling_v0/gate8_seed0_causal_diagnostic_execution_v0.md
+      - .github/workflows/gate8-seed0-causal-diagnostic-execution-ci.yml
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostic-execution-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install CPU Torch
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
+
+      - name: Compile diagnostic execution modules
+        run: |
+          python -m py_compile \
+            ai_hypothesis/population_compute/gate8_seed0_causal_diagnostic_runtime.py \
+            scripts/diagnose_gate8_seed0.py \
+            tests/test_gate8_seed0_causal_diagnostic_execution.py
+
+      - name: Run contract-only diagnostic regressions
+        run: python -m unittest tests/test_gate8_seed0_causal_diagnostic_execution.py -v
+
+      - name: Verify exact protocol source and schedule bindings
+        run: |
+          python - <<'PY'
+          import importlib.util
+          import pathlib
+          import sys
+
+          def load(path, name):
+              spec = importlib.util.spec_from_file_location(name, pathlib.Path(path))
+              assert spec is not None and spec.loader is not None
+              module = importlib.util.module_from_spec(spec)
+              sys.modules[name] = module
+              spec.loader.exec_module(module)
+              return module
+
+          protocol = load(
+              "ai_hypothesis/population_compute/gate8_seed0_causal_diagnostic_protocol.py",
+              "g8_diag_exec_ci_protocol",
+          )
+          runtime = load(
+              "ai_hypothesis/population_compute/gate8_seed0_causal_diagnostic_runtime.py",
+              "g8_diag_exec_ci_runtime",
+          )
+          runner = load("scripts/diagnose_gate8_seed0.py", "g8_diag_exec_ci_runner")
+
+          assert runtime.GATE8_SEED0_DIAGNOSTIC_PROTOCOL_HEAD == "0fa9ec48c31b36c90d58da827139457fd812b98c"
+          assert protocol.GATE8_SEED0_CHECKPOINT_SHA256 == "4aca6bfde7fa82cd2c1fec3613c4cc59303788616f352e8d419c90662d7b9a1b"
+          assert protocol.GATE8_HEAD_ONLY_CHECKPOINT_STEPS == (64, 128, 192, 256)
+          assert protocol.GATE8_FULL_RESUME_CHECKPOINT_STEPS == (128, 256, 384, 512)
+          assert protocol.GATE8_HEAD_ONLY_WORLD_END_EXCLUSIVE == protocol.GATE8_FULL_RESUME_WORLD_START
+          assert runner._full_resume_learning_rate(step=1, diagnostic_protocol=protocol) == 3.0e-4
+          assert runner._full_resume_learning_rate(step=512, diagnostic_protocol=protocol) == 3.0e-5
+          print("Gate8 seed0 diagnostic execution bindings verified")
+          PY
+
+      - name: Verify full runner is frozen but never invoked by CI
+        run: |
+          grep -F 'def diagnose_gate8_seed0' scripts/diagnose_gate8_seed0.py
+          grep -F 'weights_only=True' scripts/diagnose_gate8_seed0.py
+          grep -F 'G8_SEED0_CAUSAL_DIAGNOSTIC_COMPLETE' scripts/diagnose_gate8_seed0.py
+          ! grep -F 'python scripts/diagnose_gate8_seed0.py' .github/workflows/gate8-seed0-causal-diagnostic-execution-ci.yml
+
+      - name: Verify scientific-test and reference paths remain absent
+        run: |
+          ! grep -E 'generate_gate8_world\([^)]*split=["'"']test|AutoTokenizer|AutoModel|snapshot_download|from_pretrained' \
+            ai_hypothesis/population_compute/gate8_seed0_causal_diagnostic_runtime.py \
+            scripts/diagnose_gate8_seed0.py \
+            tests/test_gate8_seed0_causal_diagnostic_execution.py
+
+      - name: Prove exact six-file execution slice
+        run: |
+          git diff --name-only 0fa9ec48c31b36c90d58da827139457fd812b98c HEAD | sort > /tmp/actual.txt
+          cat > /tmp/expected.txt <<'EOF'
+          .github/workflows/gate8-seed0-causal-diagnostic-execution-ci.yml
+          ai_hypothesis/population_compute/gate8_seed0_causal_diagnostic_runtime.py
+          experiments/population_compute_scaling_v0/gate8_seed0_causal_diagnostic_execution_v0.md
+          scripts/diagnose_gate8_seed0.ps1
+          scripts/diagnose_gate8_seed0.py
+          tests/test_gate8_seed0_causal_diagnostic_execution.py
+          EOF
+          sort -o /tmp/expected.txt /tmp/expected.txt
+          diff -u /tmp/expected.txt /tmp/actual.txt
+
+  windows-wrapper-smoke:
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Smoke wrapper before artifacts Torch CUDA worlds optimizer or checkpoints
+        shell: pwsh
+        run: |
+          $env:GATE8_SEED0_DIAGNOSTIC_WRAPPER_SMOKE = "1"
+          .\scripts\diagnose_gate8_seed0.ps1 `
+              -OutputRoot "$env:RUNNER_TEMP\gate8-seed0-diagnostic-wrapper-smoke"
