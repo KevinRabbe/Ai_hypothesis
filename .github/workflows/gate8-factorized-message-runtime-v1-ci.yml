@@ -1,0 +1,172 @@
+name: Gate8 factorized message runtime v1 qualification
+
+on:
+  pull_request:
+    branches:
+      - agent/gate8-factorized-message-architecture-contract-v1
+    paths:
+      - ".github/workflows/gate8-factorized-message-runtime-v1-ci.yml"
+      - "ai_hypothesis/population_compute/gate8_factorized_organism_runtime.py"
+      - "tests/test_gate8_factorized_organism_runtime.py"
+      - "experiments/population_compute_scaling_v0/gate8_factorized_message_runtime_contract_v1.md"
+
+permissions:
+  contents: read
+
+jobs:
+  runtime-contract:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install CPU Torch
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
+
+      - name: Compile v1 runtime contract
+        run: |
+          python -m py_compile \
+            ai_hypothesis/population_compute/gate8_factorized_organism_runtime.py \
+            tests/test_gate8_factorized_organism_runtime.py
+
+      - name: Run contract-only v1 runtime regressions
+        run: |
+          python -m unittest tests/test_gate8_factorized_organism_runtime.py -v
+
+      - name: Probe the maximum contract condition
+        run: |
+          python - <<'PY'
+          import importlib.util
+          import pathlib
+          import sys
+          import torch
+
+          def load(path, name):
+              spec = importlib.util.spec_from_file_location(name, pathlib.Path(path))
+              assert spec is not None and spec.loader is not None
+              module = importlib.util.module_from_spec(spec)
+              sys.modules[name] = module
+              spec.loader.exec_module(module)
+              return module
+
+          worlds = load(
+              "ai_hypothesis/population_compute/gate8_distributed_transformation_worlds.py",
+              "g8_v1_runtime_ci_worlds",
+          )
+          architecture = load(
+              "ai_hypothesis/population_compute/gate8_factorized_organism_architecture.py",
+              "g8_v1_runtime_ci_architecture",
+          )
+          runtime = load(
+              "ai_hypothesis/population_compute/gate8_factorized_organism_runtime.py",
+              "g8_v1_runtime_ci_runtime",
+          )
+
+          model = architecture.Gate8V1SharedWorkerCore()
+          with torch.no_grad():
+              for parameter in model.parameters():
+                  parameter.zero_()
+              model.carrier_head.bias[15] = 1.0
+              model.symbol_head.bias[6] = 1.0
+          model.eval()
+
+          generated = worlds.generate_gate8_world(
+              split="contract",
+              seed=0,
+              world_index=7,
+              population=1_024,
+              depth=128,
+          )
+          result = runtime.run_gate8_v1_contract_runtime(
+              model=model,
+              world=generated.public,
+          )
+          assert result.target_reached is True
+          assert result.rounds_executed == 128
+          assert result.predicted_symbol == 6
+          assert result.target_message_code == 246
+          assert result.emitted_messages == result.recurrent_updates
+          assert result.delivered_messages == result.recurrent_updates
+          assert result.communicated_bits == result.recurrent_updates * 8
+          assert 128 <= result.recurrent_updates <= 1_024
+          print(
+              "Gate8 v1 maximum contract probe:",
+              {
+                  "rounds": result.rounds_executed,
+                  "updates": result.recurrent_updates,
+                  "messages": result.delivered_messages,
+                  "bits": result.communicated_bits,
+              },
+          )
+          PY
+
+      - name: Verify exact source bindings and closed boundaries
+        run: |
+          python - <<'PY'
+          import importlib.util
+          import pathlib
+          import sys
+
+          path = pathlib.Path(
+              "ai_hypothesis/population_compute/gate8_factorized_organism_runtime.py"
+          )
+          spec = importlib.util.spec_from_file_location("g8_v1_runtime_ci", path)
+          assert spec is not None and spec.loader is not None
+          module = importlib.util.module_from_spec(spec)
+          sys.modules[spec.name] = module
+          spec.loader.exec_module(module)
+
+          plan = module.gate8_v1_runtime_plan()
+          assert plan["architecture_head"] == "c3ab64008c816fa1eb6f9d6f8f0a1a99ed195ec8"
+          assert plan["learned_parameter_count"] == 19_649
+          assert plan["admitted_split"] == "contract"
+          assert plan["root_seed"] == "carrier_zero_plus_public_root_symbol"
+          assert plan["synchronous_delivery"] is True
+          assert plan["deterministic_delivery_for_scheduled_workers"] is True
+          assert plan["one_emission_per_recurrent_update"] is True
+          assert plan["terminal_answer_equals_message_low_nibble"] is True
+          assert plan["activity_gate"] is False
+          assert plan["reads_world_truth"] is False
+          assert plan["training_admitted"] is False
+          assert plan["checkpoint_loading_admitted"] is False
+          assert plan["scientific_test_worlds_admitted"] is False
+          assert plan["reference_model_admitted"] is False
+
+          source = path.read_text(encoding="utf-8")
+          for forbidden in (
+              ".truth",
+              "gate8_exact_symbolic_oracle",
+              "apply_gate8_transform",
+              "torch.optim",
+              "optimizer.step",
+              "torch.load(",
+              "snapshot_download(",
+              "AutoModel.from_pretrained",
+              "AutoTokenizer.from_pretrained",
+          ):
+              assert forbidden not in source
+          print("Gate8 v1 runtime source and boundary bindings verified")
+          PY
+
+      - name: Prove exact four-file runtime slice
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          git diff --name-only "$BASE_SHA" "$HEAD_SHA" | sort > /tmp/actual-files.txt
+          cat > /tmp/expected-files.txt <<'EOF'
+          .github/workflows/gate8-factorized-message-runtime-v1-ci.yml
+          ai_hypothesis/population_compute/gate8_factorized_organism_runtime.py
+          experiments/population_compute_scaling_v0/gate8_factorized_message_runtime_contract_v1.md
+          tests/test_gate8_factorized_organism_runtime.py
+          EOF
+          diff -u /tmp/expected-files.txt /tmp/actual-files.txt
