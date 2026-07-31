@@ -41,9 +41,20 @@ jobs:
       - name: Verify exact closed plan
         run: |
           python - <<'PY'
-          from ai_hypothesis.population_compute import (
-              gate8_v1_scientific_evaluation_protocol as protocol,
+          import importlib.util
+          import pathlib
+          import sys
+
+          path = pathlib.Path(
+              'ai_hypothesis/population_compute/'
+              'gate8_v1_scientific_evaluation_protocol.py'
           )
+          name = 'gate8_v1_scientific_evaluation_protocol_ci_module'
+          spec = importlib.util.spec_from_file_location(name, path)
+          assert spec is not None and spec.loader is not None
+          protocol = importlib.util.module_from_spec(spec)
+          sys.modules[name] = protocol
+          spec.loader.exec_module(protocol)
 
           plan = protocol.gate8_v1_scientific_evaluation_plan()
           assert plan['base_result_head'] == '4f3159e5ba7abde6045543fd85e691f8f75ef7c4'
