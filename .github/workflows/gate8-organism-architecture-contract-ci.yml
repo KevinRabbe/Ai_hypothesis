@@ -1,0 +1,123 @@
+name: Gate8 organism architecture contract qualification
+
+on:
+  push:
+    branches:
+      - agent/gate8-organism-architecture-contract-v0
+  pull_request:
+    paths:
+      - 'ai_hypothesis/population_compute/gate8_organism_architecture.py'
+      - 'tests/test_gate8_organism_architecture_contract.py'
+      - 'experiments/population_compute_scaling_v0/gate8_organism_architecture_contract_v0.md'
+      - '.github/workflows/gate8-organism-architecture-contract-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  organism-architecture-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install CPU Torch
+        run: |
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
+
+      - name: Compile architecture contract
+        run: |
+          python -m compileall -q \
+            ai_hypothesis/population_compute/gate8_organism_architecture.py
+
+      - name: Run architecture and parameter regressions
+        run: |
+          python -m unittest tests/test_gate8_organism_architecture_contract.py
+
+      - name: Prove exact learned-parameter ledger
+        run: |
+          python - <<'PY'
+          import importlib.util
+          import pathlib
+          import sys
+
+          path = pathlib.Path(
+              'ai_hypothesis/population_compute/gate8_organism_architecture.py'
+          )
+          name = 'gate8_organism_architecture_ci_contract'
+          spec = importlib.util.spec_from_file_location(name, path)
+          assert spec is not None and spec.loader is not None
+          module = importlib.util.module_from_spec(spec)
+          sys.modules[name] = module
+          spec.loader.exec_module(module)
+
+          model = module.Gate8SharedWorkerCore()
+          ledger = module.gate8_architecture_parameter_ledger()
+          observed = module.gate8_observed_parameter_ledger(model)
+          assert sum(ledger.values()) == 19_649
+          assert sum(observed.values()) == 19_649
+          assert module.GATE8_MESSAGE_CODEBOOK_SIZE == 256
+          assert module.GATE8_MESSAGE_BITS == 8
+          assert module.GATE8_WORKER_STATE_WIDTH == 32
+          assert module.GATE8_WORKER_INPUT_WIDTH == 40
+          print({'parameter_count': 19_649, 'ledger': ledger})
+          PY
+
+      - name: Verify exact qualified result binding and closed stages
+        run: |
+          python - <<'PY'
+          import importlib.util
+          import pathlib
+          import sys
+
+          path = pathlib.Path(
+              'ai_hypothesis/population_compute/gate8_organism_architecture.py'
+          )
+          name = 'gate8_organism_architecture_ci_plan'
+          spec = importlib.util.spec_from_file_location(name, path)
+          assert spec is not None and spec.loader is not None
+          module = importlib.util.module_from_spec(spec)
+          sys.modules[name] = module
+          spec.loader.exec_module(module)
+          plan = module.gate8_organism_architecture_plan()
+          assert plan['base_result_head'] == 'c7f5260189ef9ac1a1beb73596446316631090c7'
+          assert plan['learned_parameter_count'] == 19_649
+          assert plan['shared_across_workers'] is True
+          assert plan['shared_across_populations'] is True
+          assert plan['shared_across_rounds'] is True
+          assert plan['runtime_topology_state_learned'] is False
+          assert plan['node_identity_parameters'] is False
+          assert plan['worker_identity_parameters'] is False
+          assert plan['population_specific_parameters'] is False
+          assert plan['depth_specific_parameters'] is False
+          assert plan['graph_scheduler_admitted'] is False
+          assert plan['training_admitted'] is False
+          assert plan['checkpoint_admitted'] is False
+          assert plan['scientific_test_worlds_admitted'] is False
+          assert plan['reference_model_admitted'] is False
+          PY
+
+      - name: Verify no training data scheduler or reference-model surface
+        run: |
+          module=ai_hypothesis/population_compute/gate8_organism_architecture.py
+          ! grep --line-number -E 'torch\.optim|optimizer\.step|backward\(|DataLoader|generate_gate8_world|AutoModel|AutoTokenizer|from_pretrained|snapshot_download|model\.safetensors|checkpoint\.pt' "$module"
+          ! grep --line-number -E 'node_embedding|worker_embedding|population_embedding|depth_embedding|round_embedding' "$module"
+
+      - name: Prove exact four-file architecture-only slice
+        run: |
+          changed="$(git diff --name-only c7f5260189ef9ac1a1beb73596446316631090c7...HEAD | sort)"
+          expected="$(printf '%s\n' \
+            '.github/workflows/gate8-organism-architecture-contract-ci.yml' \
+            'ai_hypothesis/population_compute/gate8_organism_architecture.py' \
+            'experiments/population_compute_scaling_v0/gate8_organism_architecture_contract_v0.md' \
+            'tests/test_gate8_organism_architecture_contract.py' | sort)"
+          test "$changed" = "$expected"
