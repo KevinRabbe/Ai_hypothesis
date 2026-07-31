@@ -1,0 +1,192 @@
+{
+  "architecture_head": "c3ab64008c816fa1eb6f9d6f8f0a1a99ed195ec8",
+  "artifact_inspection": {
+    "all_candidate_validation_ranges_exact_512_through_1023": true,
+    "candidate_order_exact": true,
+    "checkpoint_loaded_with_weights_only": true,
+    "manifest_byte_hash_verified": true,
+    "result_json_parsed": true,
+    "selection_rule_reproduced": true,
+    "telemetry_steps_contiguous_1_through_1024": true,
+    "training_world_ranges_contiguous_0_through_262143": true
+  },
+  "candidates": [
+    {
+      "admitted": false,
+      "carrier_accuracy": 1.0,
+      "checkpoint_sha256": "37f6081ecaf6109c2d3d120a44c52d87df4af3bb0cb4ea104488e3ab5fc75769",
+      "exact_message_accuracy": 0.9842134363511029,
+      "mean_target_accuracy": 0.8821614583333334,
+      "minimum_target_accuracy": 0.625,
+      "step": 256,
+      "symbol_accuracy": 0.9842134363511029,
+      "validation_loss": 0.3495128288289861
+    },
+    {
+      "admitted": true,
+      "carrier_accuracy": 1.0,
+      "checkpoint_sha256": "bfb5f46a88365a9a842435cbacd7c8ecf2caa7dfc0942539ecc772a0c7c0dc76",
+      "exact_message_accuracy": 1.0,
+      "mean_target_accuracy": 1.0,
+      "minimum_target_accuracy": 1.0,
+      "step": 512,
+      "symbol_accuracy": 1.0,
+      "validation_loss": 0.0007687583550197066
+    },
+    {
+      "admitted": true,
+      "carrier_accuracy": 1.0,
+      "checkpoint_sha256": "9f1e8ec8771a712a4dd7f0f6bd33e6b7bef697bcb7ec522c15eefb5187c36921",
+      "exact_message_accuracy": 1.0,
+      "mean_target_accuracy": 1.0,
+      "minimum_target_accuracy": 1.0,
+      "step": 768,
+      "symbol_accuracy": 1.0,
+      "validation_loss": 2.2247149378445637e-05
+    },
+    {
+      "admitted": true,
+      "carrier_accuracy": 1.0,
+      "checkpoint_sha256": "cbcae487dd7f4c695e1d6a83a61926cd43f5ccf6add1a7469c16a15697d22d07",
+      "exact_message_accuracy": 1.0,
+      "mean_target_accuracy": 1.0,
+      "minimum_target_accuracy": 1.0,
+      "step": 1024,
+      "symbol_accuracy": 1.0,
+      "validation_loss": 9.889396276421662e-06
+    }
+  ],
+  "checkpoint_tensor_count": 12,
+  "checkpoint_tensor_ledger": [
+    {
+      "name": "initial_hidden_state",
+      "parameters": 65,
+      "shape": [65]
+    },
+    {
+      "name": "carrier_embedding.weight",
+      "parameters": 112,
+      "shape": [16, 7]
+    },
+    {
+      "name": "symbol_embedding.weight",
+      "parameters": 176,
+      "shape": [16, 11]
+    },
+    {
+      "name": "transform_embedding.weight",
+      "parameters": 24,
+      "shape": [8, 3]
+    },
+    {
+      "name": "worker_update.weight_ih",
+      "parameters": 4095,
+      "shape": [195, 21]
+    },
+    {
+      "name": "worker_update.weight_hh",
+      "parameters": 12675,
+      "shape": [195, 65]
+    },
+    {
+      "name": "worker_update.bias_ih",
+      "parameters": 195,
+      "shape": [195]
+    },
+    {
+      "name": "worker_update.bias_hh",
+      "parameters": 195,
+      "shape": [195]
+    },
+    {
+      "name": "carrier_head.weight",
+      "parameters": 1040,
+      "shape": [16, 65]
+    },
+    {
+      "name": "carrier_head.bias",
+      "parameters": 16,
+      "shape": [16]
+    },
+    {
+      "name": "symbol_head.weight",
+      "parameters": 1040,
+      "shape": [16, 65]
+    },
+    {
+      "name": "symbol_head.bias",
+      "parameters": 16,
+      "shape": [16]
+    }
+  ],
+  "closed_boundaries": {
+    "reference_inference_performed": false,
+    "reference_model_weights_loaded": false,
+    "reference_tokenizer_loaded": false,
+    "scientific_test_worlds_generated": false,
+    "seed_0_rerun": false,
+    "seed_2_executed": false
+  },
+  "experiment_version": "gate8-factorized-message-training-execution-v1",
+  "learned_parameter_count": 19649,
+  "protocol_head": "a33dc123d090268a531d112251ea3ab53cb50062",
+  "qualified_seed0_result_head": "f259620f7d3beab2f886c76271c753e9ebf96dc9",
+  "raw_replication_flag": {
+    "field": "seeds_1_and_2_executed",
+    "interpretation": "replication execution path used; actual executed seed is identified by seed=1",
+    "value": true
+  },
+  "raw_result_sha256": "873cacdb5965b29c59a14d74fc0df7a32c036f35aeeda2cdd4cb5ac3640a7e8e",
+  "replication_execution_version": "gate8-factorized-message-training-replication-execution-v1",
+  "runtime_head": "333d88ac4fc52f1651741fba224e0b4605feedd3",
+  "scientific_status": "G8_V1_TRAINING_CHECKPOINT_ADMITTED",
+  "seed": 1,
+  "selected_checkpoint_sha256": "cbcae487dd7f4c695e1d6a83a61926cd43f5ccf6add1a7469c16a15697d22d07",
+  "selected_metrics": {
+    "admitted": true,
+    "carrier_accuracy": 1.0,
+    "conditions": [
+      {"depth": 4, "population": 32, "target_accuracy": 1.0},
+      {"depth": 4, "population": 64, "target_accuracy": 1.0},
+      {"depth": 8, "population": 64, "target_accuracy": 1.0},
+      {"depth": 4, "population": 128, "target_accuracy": 1.0},
+      {"depth": 8, "population": 128, "target_accuracy": 1.0},
+      {"depth": 16, "population": 128, "target_accuracy": 1.0}
+    ],
+    "exact_message_accuracy": 1.0,
+    "inbox_code_coverage": 256,
+    "mean_target_accuracy": 1.0,
+    "minimum_target_accuracy": 1.0,
+    "step": 1024,
+    "symbol_accuracy": 1.0,
+    "target_carrier_coverage": 16,
+    "target_code_coverage": 256,
+    "target_symbol_coverage": 16,
+    "validation_loss": 9.889396276421662e-06
+  },
+  "selected_step": 1024,
+  "source_head": "31a8d115eb14d876997fb361b02258fbe3a30506",
+  "source_manifest_sha256": "22a22993ebe3aff46997fd83605aed25170db6abca631e5c109d8bcc33446133",
+  "training": {
+    "checkpoint_steps": [256, 512, 768, 1024],
+    "coverage": {
+      "inbox_codes": 256,
+      "target_carriers": 16,
+      "target_codes": 256,
+      "target_symbols": 16
+    },
+    "optimizer_steps": 1024,
+    "telemetry_rows": 1024,
+    "total_supervised_edges": 23767648,
+    "world_batch_size": 256,
+    "worlds": 262144
+  },
+  "validation": {
+    "conditions": [[32, 4], [64, 4], [64, 8], [128, 4], [128, 8], [128, 16]],
+    "disjoint_from_v0_indices_0_through_511": true,
+    "namespace": "validation",
+    "world_index_end_inclusive": 1023,
+    "world_index_start": 512,
+    "worlds_per_condition": 512
+  }
+}
