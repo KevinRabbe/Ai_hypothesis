@@ -1,0 +1,124 @@
+name: Gate8 v1 Gemma reference execution qualification
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/gate8-v1-gemma-reference-execution-ci.yml"
+      - "ai_hypothesis/population_compute/gate8_v1_gemma_reference_execution.py"
+      - "experiments/population_compute_scaling_v0/gate8_v1_gemma_reference_execution_v0.md"
+      - "scripts/run_gate8_v1_gemma_reference.py"
+      - "scripts/run_gate8_v1_gemma_reference.ps1"
+      - "tests/test_gate8_v1_gemma_reference_execution.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Compile contract, runner and regressions
+        run: |
+          python -m py_compile \
+            ai_hypothesis/population_compute/gate8_v1_gemma_reference_execution.py \
+            scripts/run_gate8_v1_gemma_reference.py \
+            tests/test_gate8_v1_gemma_reference_execution.py
+
+      - name: Run contract-only reference regressions
+        run: python -m unittest tests/test_gate8_v1_gemma_reference_execution.py -v
+
+      - name: Verify exact closed execution plan
+        run: |
+          python - <<'PY'
+          import importlib.util
+          import pathlib
+          import sys
+
+          path = pathlib.Path("ai_hypothesis/population_compute/gate8_v1_gemma_reference_execution.py")
+          spec = importlib.util.spec_from_file_location("g8_reference_plan", path)
+          module = importlib.util.module_from_spec(spec)
+          sys.modules[spec.name] = module
+          spec.loader.exec_module(module)
+          plan = module.gate8_v1_gemma_reference_execution_plan()
+          assert plan["population_result_head"] == "14636d219781381853f81036b96c691b7e6997ee"
+          assert plan["reference_rows"] == 10752
+          assert plan["condition_count"] == 21
+          assert plan["reference_max_input_tokens"] == 24576
+          assert plan["reference_max_new_tokens"] == 64
+          assert plan["reference_batch_size"] == 1
+          assert plan["prompt_index_completed_before_model_load"] is True
+          assert plan["transactional_resume"] is True
+          assert plan["training_admitted"] is False
+          assert plan["population_execution_admitted"] is False
+          assert plan["joint_reference_comparison_admitted"] is False
+          assert plan["final_classifier_admitted"] is False
+          print(plan)
+          PY
+
+      - name: Keep CI outside test and model boundaries
+        run: |
+          python - <<'PY'
+          import pathlib
+          workflow = pathlib.Path(".github/workflows/gate8-v1-gemma-reference-execution-ci.yml").read_text()
+          forbidden = (
+              "run_gate8_v1_gemma_reference.py" + " --",
+              "from_" + "pretrained(",
+              "generate_gate8_" + "world(",
+              "model" + ".safetensors",
+              "HF_" + "TOKEN",
+          )
+          for token in forbidden:
+              assert token not in workflow, token
+          runner = pathlib.Path("scripts/run_gate8_v1_gemma_reference.py").read_text()
+          assert "classify_gate8_v1_reference_comparison" not in runner
+          assert "run_gate8_v1_scientific_population" not in runner
+          assert "optimizer" not in runner.lower()
+          PY
+
+      - name: Prove exact six-file execution slice
+        run: |
+          python - <<'PY'
+          import subprocess
+          expected = {
+              ".github/workflows/gate8-v1-gemma-reference-execution-ci.yml",
+              "ai_hypothesis/population_compute/gate8_v1_gemma_reference_execution.py",
+              "experiments/population_compute_scaling_v0/gate8_v1_gemma_reference_execution_v0.md",
+              "scripts/run_gate8_v1_gemma_reference.py",
+              "scripts/run_gate8_v1_gemma_reference.ps1",
+              "tests/test_gate8_v1_gemma_reference_execution.py",
+          }
+          changed = set(subprocess.check_output(
+              ["git", "diff", "--name-only", "14636d219781381853f81036b96c691b7e6997ee", "HEAD"],
+              text=True,
+          ).splitlines())
+          assert changed == expected, (changed, expected)
+          PY
+
+  windows-wrapper-smoke:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Smoke wrapper before packages, snapshots, worlds, model or inference
+        shell: pwsh
+        env:
+          GATE8_V1_GEMMA_REFERENCE_WRAPPER_SMOKE: "1"
+        run: |
+          .\scripts\run_gate8_v1_gemma_reference.ps1 `
+            -TokenizerSnapshot "Z:\not-accessed-tokenizer" `
+            -ModelSnapshot "Z:\not-accessed-model" `
+            -OutputRoot "$env:RUNNER_TEMP\not-created-gate8-reference"
+          if (Test-Path "$env:RUNNER_TEMP\not-created-gate8-reference") {
+            throw "Wrapper smoke created an output directory."
+          }
