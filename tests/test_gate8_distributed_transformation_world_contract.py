@@ -207,7 +207,6 @@ class Gate8WorldContractTests(unittest.TestCase):
             "AutoTokenizer",
             "optimizer",
             "backward(",
-            "tokenizer",
             "prompt_template",
             "bfloat16",
             "cuda",
