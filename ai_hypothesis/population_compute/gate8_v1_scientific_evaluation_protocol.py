@@ -7,12 +7,33 @@ tokenizer/model loader, inference path, or result artifact reader.
 
 from __future__ import annotations
 
+import importlib.util
+import pathlib
+import sys
 from dataclasses import asdict, dataclass
 from typing import Any
 
-from ai_hypothesis.population_compute import (
-    gate8_distributed_transformation_capability_protocol as capability,
+
+_CAPABILITY_PATH = pathlib.Path(__file__).with_name(
+    "gate8_distributed_transformation_capability_protocol.py"
 )
+
+
+def _load_capability_protocol():
+    name = "gate8_v1_scientific_evaluation_capability_dependency"
+    existing = sys.modules.get(name)
+    if existing is not None:
+        return existing
+    spec = importlib.util.spec_from_file_location(name, _CAPABILITY_PATH)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("could not load the frozen Gate8 capability protocol")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+capability = _load_capability_protocol()
 
 
 GATE8_V1_SCIENTIFIC_EVALUATION_VERSION = (
