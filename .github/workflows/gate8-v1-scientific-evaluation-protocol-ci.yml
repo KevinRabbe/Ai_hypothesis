@@ -1,0 +1,119 @@
+name: Gate8 v1 three-seed scientific evaluation protocol qualification
+
+on:
+  push:
+    branches:
+      - agent/gate8-v1-three-seed-scientific-evaluation-protocol-v0
+  pull_request:
+    paths:
+      - 'ai_hypothesis/population_compute/gate8_v1_scientific_evaluation_protocol.py'
+      - 'tests/test_gate8_v1_scientific_evaluation_protocol.py'
+      - 'experiments/population_compute_scaling_v0/gate8_v1_scientific_evaluation_protocol_v0.md'
+      - '.github/workflows/gate8-v1-scientific-evaluation-protocol-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  protocol:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Compile protocol and regressions
+        run: |
+          python -m py_compile \
+            ai_hypothesis/population_compute/gate8_v1_scientific_evaluation_protocol.py \
+            tests/test_gate8_v1_scientific_evaluation_protocol.py
+
+      - name: Run protocol regressions
+        run: |
+          python -m unittest tests/test_gate8_v1_scientific_evaluation_protocol.py
+
+      - name: Verify exact closed plan
+        run: |
+          python - <<'PY'
+          import importlib.util
+          import pathlib
+          import sys
+
+          path = pathlib.Path(
+              'ai_hypothesis/population_compute/'
+              'gate8_v1_scientific_evaluation_protocol.py'
+          )
+          name = 'gate8_v1_scientific_evaluation_protocol_ci_module'
+          spec = importlib.util.spec_from_file_location(name, path)
+          assert spec is not None and spec.loader is not None
+          protocol = importlib.util.module_from_spec(spec)
+          sys.modules[name] = protocol
+          spec.loader.exec_module(protocol)
+
+          plan = protocol.gate8_v1_scientific_evaluation_plan()
+          assert plan['base_result_head'] == '4f3159e5ba7abde6045543fd85e691f8f75ef7c4'
+          assert plan['checkpoint_seeds'] == [0, 1, 2]
+          assert plan['condition_count'] == 21
+          assert plan['test_split'] == 'test'
+          assert plan['test_seed'] == 0
+          assert plan['test_world_index_start'] == 0
+          assert plan['test_world_index_end_inclusive'] == 511
+          assert plan['test_worlds_per_condition'] == 512
+          assert plan['bootstrap_samples'] == 20_000
+          assert plan['bootstrap_confidence'] == 0.95
+          assert plan['bootstrap_unit'] == (
+              'world_index_shared_across_all_three_checkpoint_seeds'
+          )
+          assert plan['condition_aggregation'] == (
+              'equal_checkpoint_seed_weight_then_equal_world_weight'
+          )
+          assert plan['reference_pooling'] == 'equal_weight_across_21_conditions'
+          assert plan['reference_model_id'] == 'google/gemma-3-1b-it'
+          assert plan['reference_revision'] == (
+              'dcc83ea841ab6100d6b47a070329e1ba4cf78752'
+          )
+          assert [row['selected_checkpoint_sha256'] for row in plan['checkpoint_bindings']] == [
+              '3005369a4830c12baee8ffa7fedc1bed0f1888784e1043bd88f4afd2b7cddde9',
+              'cbcae487dd7f4c695e1d6a83a61926cd43f5ccf6add1a7469c16a15697d22d07',
+              'e1e35b3864354e8f3398497a897b6a759dfa3454a33d866de63784a323f461e4',
+          ]
+          for field in (
+              'execution_admitted',
+              'checkpoint_loading_admitted',
+              'scientific_test_generation_admitted',
+              'reference_weight_binding_admitted',
+              'reference_inference_admitted',
+              'training_admitted',
+              'test_answers_exposed',
+          ):
+              assert plan[field] is False
+          PY
+
+      - name: Verify no execution or exposure surface
+        run: |
+          module='ai_hypothesis/population_compute/gate8_v1_scientific_evaluation_protocol.py'
+          ! grep --line-number -E \
+            '(^|[^A-Za-z])import torch|torch\.|generate_gate8_world\(|from_pretrained\(|torch\.load\(|open\(|read_text\(|json\.load|numpy|transformers' \
+            "$module"
+          ! find . -path './.git' -prune -o \
+            \( -name '*.pt' -o -name '*.safetensors' -o -name '*.bin' \) \
+            -print | grep .
+          ! grep --line-number -E \
+            '"(execution_admitted|checkpoint_loading_admitted|scientific_test_generation_admitted|reference_weight_binding_admitted|reference_inference_admitted|training_admitted)": True' \
+            "$module"
+
+      - name: Prove exact four-file protocol slice
+        run: |
+          changed="$(git diff --name-only 4f3159e5ba7abde6045543fd85e691f8f75ef7c4...HEAD | sort)"
+          expected="$(printf '%s\n' \
+            '.github/workflows/gate8-v1-scientific-evaluation-protocol-ci.yml' \
+            'ai_hypothesis/population_compute/gate8_v1_scientific_evaluation_protocol.py' \
+            'experiments/population_compute_scaling_v0/gate8_v1_scientific_evaluation_protocol_v0.md' \
+            'tests/test_gate8_v1_scientific_evaluation_protocol.py' | sort)"
+          test "$changed" = "$expected"
