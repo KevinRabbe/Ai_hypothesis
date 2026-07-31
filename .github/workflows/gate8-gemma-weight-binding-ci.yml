@@ -1,0 +1,172 @@
+name: Gate8 exact Gemma weight binding qualification
+
+on:
+  push:
+    branches:
+      - agent/gate8-gemma-weight-binding-execution-v0
+  pull_request:
+    paths:
+      - 'ai_hypothesis/population_compute/gate8_gemma_weight_binding.py'
+      - 'scripts/bind_gate8_gemma_weights.py'
+      - 'scripts/bind_gate8_gemma_weights.ps1'
+      - 'tests/test_gate8_gemma_weight_binding.py'
+      - 'experiments/population_compute_scaling_v0/gate8_gemma_weight_binding_v0.md'
+      - '.github/workflows/gate8-gemma-weight-binding-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Compile contract, runner and regressions
+        run: |
+          python -m py_compile \
+            ai_hypothesis/population_compute/gate8_gemma_weight_binding.py \
+            scripts/bind_gate8_gemma_weights.py \
+            tests/test_gate8_gemma_weight_binding.py
+
+      - name: Run standard-library binding regressions
+        run: |
+          python -m unittest tests/test_gate8_gemma_weight_binding.py
+
+      - name: Verify exact closed binding plan
+        run: |
+          python - <<'PY'
+          import importlib.util
+          import pathlib
+          import sys
+
+          path = pathlib.Path(
+              'ai_hypothesis/population_compute/'
+              'gate8_gemma_weight_binding.py'
+          )
+          name = 'gate8_gemma_weight_binding_ci_module'
+          spec = importlib.util.spec_from_file_location(name, path)
+          assert spec is not None and spec.loader is not None
+          binding = importlib.util.module_from_spec(spec)
+          sys.modules[name] = binding
+          spec.loader.exec_module(binding)
+
+          plan = binding.gate8_gemma_weight_binding_plan()
+          assert plan['scientific_protocol_head'] == (
+              '6bb89111a47713bea0a23bb1cae662ed5ec56b42'
+          )
+          assert plan['tokenizer_result_head'] == (
+              'c7f5260189ef9ac1a1beb73596446316631090c7'
+          )
+          assert plan['repo_id'] == 'google/gemma-3-1b-it'
+          assert plan['revision'] == (
+              'dcc83ea841ab6100d6b47a070329e1ba4cf78752'
+          )
+          assert plan['required_model_files'] == [
+              'config.json',
+              'generation_config.json',
+              'model.safetensors',
+          ]
+          assert plan['qualified_config_sha256'] == (
+              '19cb5d28c97778271ba2b3c3df47bf76bdd6706724777a2318b3522230afe91e'
+          )
+          assert plan['required_weight_dtype'] == 'BF16'
+          assert plan['parameter_count_minimum'] == 900_000_000
+          assert plan['parameter_count_maximum'] == 1_100_000_000
+          assert plan['model_file_binding_admitted'] is True
+          assert plan['model_file_download_admitted'] is True
+          for field in (
+              'model_instantiation_admitted',
+              'tokenizer_loading_admitted',
+              'training_admitted',
+              'inference_admitted',
+              'scientific_test_worlds_admitted',
+          ):
+              assert plan[field] is False
+          PY
+
+      - name: Verify download-and-hash-only source boundary
+        run: |
+          contract='ai_hypothesis/population_compute/gate8_gemma_weight_binding.py'
+          runner='scripts/bind_gate8_gemma_weights.py'
+          wrapper='scripts/bind_gate8_gemma_weights.ps1'
+          tests='tests/test_gate8_gemma_weight_binding.py'
+
+          ! grep --line-number -E \
+            '(^|[^A-Za-z])import torch|torch\.|transformers|AutoModel|AutoTokenizer|from_pretrained\(|generate_gate8_world\(|model\.generate\(' \
+            "$contract" "$runner"
+          grep --line-number 'hf_hub_download' "$runner"
+          grep --line-number 'GATE8_GEMMA_REQUIRED_MODEL_FILES' "$runner"
+          ! grep --line-number 'snapshot_download' "$runner"
+          grep --line-number 'GATE8_GEMMA_WEIGHT_BINDING_WRAPPER_SMOKE' "$wrapper"
+          grep --line-number 'HuggingFaceLicenseAndAccessAttested' "$wrapper"
+          ! find . -path './.git' -prune -o \
+            \( -name '*.safetensors' -o -name '*.bin' -o -name '*.pt' \
+               -o -name '*.pth' -o -name '*.gguf' \) -print | grep .
+          ! grep --line-number -E \
+            '"(model_instantiation_admitted|tokenizer_loading_admitted|training_admitted|inference_admitted|scientific_test_worlds_admitted)": True' \
+            "$contract"
+          ! grep --line-number -E \
+            'model_instantiated": True|tokenizer_loaded": True|training_performed": True|inference_performed": True|scientific_test_worlds_generated": True' \
+            "$contract" "$runner"
+
+      - name: Prove exact six-file binding slice
+        run: |
+          changed="$(git diff --name-only 6bb89111a47713bea0a23bb1cae662ed5ec56b42...HEAD | sort)"
+          expected="$(printf '%s\n' \
+            '.github/workflows/gate8-gemma-weight-binding-ci.yml' \
+            'ai_hypothesis/population_compute/gate8_gemma_weight_binding.py' \
+            'experiments/population_compute_scaling_v0/gate8_gemma_weight_binding_v0.md' \
+            'scripts/bind_gate8_gemma_weights.ps1' \
+            'scripts/bind_gate8_gemma_weights.py' \
+            'tests/test_gate8_gemma_weight_binding.py' | sort)"
+          test "$changed" = "$expected"
+
+  windows-wrapper-smoke:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Smoke wrapper before package, network or model access
+        shell: pwsh
+        run: |
+          $env:GATE8_GEMMA_WEIGHT_BINDING_WRAPPER_SMOKE = "1"
+          $env:GITHUB_HEAD_REF = "agent/gate8-gemma-weight-binding-execution-v0"
+          $output = Join-Path $env:RUNNER_TEMP "gate8-gemma-weight-binding-wrapper-smoke"
+          .\scripts\bind_gate8_gemma_weights.ps1 `
+            -HuggingFaceLicenseAndAccessAttested `
+            -OutputRoot $output
+          if (-not (Test-Path -LiteralPath (Join-Path $output "git-head.txt") -PathType Leaf)) {
+              throw "wrapper smoke did not record git-head.txt"
+          }
+          if (-not (Test-Path -LiteralPath (Join-Path $output "run-config.json") -PathType Leaf)) {
+              throw "wrapper smoke did not record run-config.json"
+          }
+          if (Test-Path -LiteralPath (Join-Path $output "binding")) {
+              throw "wrapper smoke crossed into binding output"
+          }
+          $config = Get-Content -Raw (Join-Path $output "run-config.json") | ConvertFrom-Json
+          if ($config.repo_id -ne "google/gemma-3-1b-it") {
+              throw "wrapper smoke changed repository identity"
+          }
+          if ($config.revision -ne "dcc83ea841ab6100d6b47a070329e1ba4cf78752") {
+              throw "wrapper smoke changed revision"
+          }
+          if ($config.model_instantiated -ne $false -or $config.inference_performed -ne $false) {
+              throw "wrapper smoke crossed a forbidden boundary"
+          }
