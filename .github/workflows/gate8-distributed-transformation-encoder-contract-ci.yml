@@ -1,0 +1,137 @@
+name: Gate8 distributed-transformation encoder contract qualification
+
+on:
+  push:
+    branches:
+      - agent/gate8-distributed-transformation-encoder-contract-v0
+  pull_request:
+    paths:
+      - 'ai_hypothesis/population_compute/gate8_distributed_transformation_encoder.py'
+      - 'experiments/population_compute_scaling_v0/gate8_distributed_transformation_encoder_contract_v0.md'
+      - 'tests/test_gate8_distributed_transformation_encoder_contract.py'
+      - '.github/workflows/gate8-distributed-transformation-encoder-contract-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  encoder-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Compile canonical encoder contract
+        run: |
+          python -m compileall -q \
+            ai_hypothesis/population_compute/gate8_distributed_transformation_encoder.py
+
+      - name: Run encoder, demonstration, parser, and budget regressions
+        run: |
+          python -m unittest tests/test_gate8_distributed_transformation_encoder_contract.py
+
+      - name: Measure the complete 21-condition ASCII envelope
+        run: |
+          python - <<'PY'
+          import importlib.util
+          import pathlib
+          import sys
+
+          def load(path, name):
+              spec = importlib.util.spec_from_file_location(name, pathlib.Path(path))
+              assert spec is not None and spec.loader is not None
+              module = importlib.util.module_from_spec(spec)
+              sys.modules[name] = module
+              spec.loader.exec_module(module)
+              return module
+
+          worlds = load(
+              'ai_hypothesis/population_compute/gate8_distributed_transformation_worlds.py',
+              'gate8_encoder_ci_worlds',
+          )
+          encoder = load(
+              'ai_hypothesis/population_compute/gate8_distributed_transformation_encoder.py',
+              'gate8_encoder_ci_contract',
+          )
+          demonstrations = tuple(
+              worlds.generate_gate8_world(
+                  split='demonstration',
+                  seed=0,
+                  world_index=index,
+                  population=32,
+                  depth=4,
+              )
+              for index in range(8)
+          )
+          sizes = []
+          for population, depth in worlds.GATE8_VALID_CONDITIONS:
+              target = worlds.generate_gate8_world(
+                  split='contract',
+                  seed=0,
+                  world_index=0,
+                  population=population,
+                  depth=depth,
+              )
+              prompt = encoder.encode_gate8_reference_prompt(
+                  target.public,
+                  demonstrations,
+              )
+              report = encoder.validate_gate8_reference_prompt_budget(prompt)
+              sizes.append((report.ascii_bytes, population, depth))
+          largest = max(sizes)
+          print({
+              'max_ascii_bytes': largest[0],
+              'population': largest[1],
+              'depth': largest[2],
+              'content_limit': encoder.GATE8_REFERENCE_CONTENT_ASCII_BYTE_LIMIT,
+              'tokenizer_bound': False,
+          })
+          assert largest[1:] == (1024, 128)
+          assert largest[0] < 12_000
+          assert largest[0] <= encoder.GATE8_REFERENCE_CONTENT_ASCII_BYTE_LIMIT
+          PY
+
+      - name: Verify exact world-contract binding and pre-tokenizer status
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          text = Path(
+              'ai_hypothesis/population_compute/'
+              'gate8_distributed_transformation_encoder.py'
+          ).read_text(encoding='utf-8')
+          assert '722c646eacfd05c51fb9d1e8887fe1620d53672c' in text
+          assert 'exact_tokenizer_bound_proven=False' in text
+          assert '"tokenizer_bound": False' in text
+          assert '"model_bound": False' in text
+          PY
+
+      - name: Prove exact four-file encoder-contract slice
+        run: |
+          changed="$(git diff --name-only 722c646eacfd05c51fb9d1e8887fe1620d53672c...HEAD | sort)"
+          expected="$(printf '%s\n' \
+            '.github/workflows/gate8-distributed-transformation-encoder-contract-ci.yml' \
+            'ai_hypothesis/population_compute/gate8_distributed_transformation_encoder.py' \
+            'experiments/population_compute_scaling_v0/gate8_distributed_transformation_encoder_contract_v0.md' \
+            'tests/test_gate8_distributed_transformation_encoder_contract.py' | sort)"
+          test "$changed" = "$expected"
+
+      - name: Verify tokenizer model training and inference remain closed
+        run: |
+          module=ai_hypothesis/population_compute/gate8_distributed_transformation_encoder.py
+          ! grep --line-number -E '^import torch|^from torch|^import numpy|^from numpy|^import transformers|^from transformers' "$module"
+          ! grep --line-number -E 'AutoTokenizer|AutoModel|from_pretrained|optimizer|backward\(|\.generate\(|torch\.load|cuda|bfloat16' "$module"
+
+      - name: Prove CI opens no scientific-test or model path
+        run: |
+          workflow=.github/workflows/gate8-distributed-transformation-encoder-contract-ci.yml
+          ! grep --line-number -E "split='test'|from_pretrained|AutoTokenizer|AutoModel|huggingface|model\.safetensors" "$workflow"
