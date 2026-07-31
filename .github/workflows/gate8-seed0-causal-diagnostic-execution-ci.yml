@@ -88,7 +88,13 @@ jobs:
 
       - name: Verify scientific-test and reference paths remain absent
         run: |
-          ! grep -E 'generate_gate8_world\([^)]*split=["'"']test|AutoTokenizer|AutoModel|snapshot_download|from_pretrained' \
+          ! grep -F 'split="test"' \
+            ai_hypothesis/population_compute/gate8_seed0_causal_diagnostic_runtime.py \
+            scripts/diagnose_gate8_seed0.py
+          ! grep -F "split='test'" \
+            ai_hypothesis/population_compute/gate8_seed0_causal_diagnostic_runtime.py \
+            scripts/diagnose_gate8_seed0.py
+          ! grep -E 'AutoTokenizer|AutoModel|snapshot_download|from_pretrained' \
             ai_hypothesis/population_compute/gate8_seed0_causal_diagnostic_runtime.py \
             scripts/diagnose_gate8_seed0.py \
             tests/test_gate8_seed0_causal_diagnostic_execution.py
