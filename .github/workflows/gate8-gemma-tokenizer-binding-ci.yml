@@ -72,6 +72,7 @@ jobs:
               'tokenizer.model',
               'tokenizer_config.json',
           )
+          assert 'model.safetensors' in module.GATE8_GEMMA_FORBIDDEN_MODEL_FILENAMES
           PY
 
       - name: Verify filtered immutable download and tokenizer-only execution
@@ -85,11 +86,12 @@ jobs:
           grep -F 'split="contract"' "$runner"
           grep -F 'split="demonstration"' "$runner"
           ! grep --line-number 'split="test"' "$runner"
+          ! grep --line-number 'model.safetensors' "$runner"
 
       - name: Verify model training and inference remain impossible
         run: |
           files='ai_hypothesis/population_compute/gate8_gemma_tokenizer_binding.py scripts/bind_gate8_gemma_tokenizer.py'
-          ! grep --line-number -E 'AutoModel|ForCausalLM|model\.generate|optimizer|backward\(|training_step|torch\.load|model\.safetensors' $files
+          ! grep --line-number -E 'AutoModel|ForCausalLM|model\.generate|optimizer|backward\(|training_step|torch\.load' $files
           grep -F '"model_bound": False' scripts/bind_gate8_gemma_tokenizer.py
           grep -F '"model_weights_downloaded": False' scripts/bind_gate8_gemma_tokenizer.py
           grep -F '"inference_performed": False' scripts/bind_gate8_gemma_tokenizer.py
