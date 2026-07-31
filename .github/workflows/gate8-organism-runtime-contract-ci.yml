@@ -145,7 +145,10 @@ jobs:
         run: |
           module=ai_hypothesis/population_compute/gate8_organism_runtime.py
           ! grep --line-number -E 'apply_gate8_transform|gate8_exact_symbolic_oracle|generate_gate8_world|torch\.optim|optimizer\.step|backward\(|DataLoader|AutoModel|AutoTokenizer|from_pretrained|snapshot_download|model\.safetensors|checkpoint\.pt' "$module"
-          ! grep --line-number -E 'split=["'"'](train|validation|test|demonstration)["'"']' "$module"
+          for split in train validation test demonstration; do
+            ! grep --line-number -F "split=\"$split\"" "$module"
+            ! grep --line-number -F "split='$split'" "$module"
+          done
 
       - name: Prove exact four-file runtime-only slice
         run: |
