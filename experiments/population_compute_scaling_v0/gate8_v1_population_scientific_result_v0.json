@@ -1,0 +1,95 @@
+{
+  "architecture_head": "c3ab64008c816fa1eb6f9d6f8f0a1a99ed195ec8",
+  "bootstrap": {
+    "algorithm": "numpy-pcg64-empirical-multinomial-world-index-equivalent-v0",
+    "confidence": 0.95,
+    "quantile_method": "linear",
+    "samples": 20000,
+    "unit": "world_index_shared_across_all_three_checkpoint_seeds"
+  },
+  "causal_ablations": [
+    {
+      "depth": 64,
+      "full_accuracy": 1.0,
+      "full_minus_no_communication_ci": [1.0, 1.0],
+      "full_minus_shuffled_worker_ci": [0.91015625, 0.955078125],
+      "no_communication_accuracy": 0.0,
+      "population": 512,
+      "shuffled_worker_accuracy": 0.06640625
+    },
+    {
+      "depth": 128,
+      "full_accuracy": 1.0,
+      "full_minus_no_communication_ci": [1.0, 1.0],
+      "full_minus_shuffled_worker_ci": [0.919921875, 0.9609375],
+      "no_communication_accuracy": 0.0,
+      "population": 1024,
+      "shuffled_worker_accuracy": 0.05859375
+    }
+  ],
+  "checkpoint_sha256": {
+    "0": "3005369a4830c12baee8ffa7fedc1bed0f1888784e1043bd88f4afd2b7cddde9",
+    "1": "cbcae487dd7f4c695e1d6a83a61926cd43f5ccf6add1a7469c16a15697d22d07",
+    "2": "e1e35b3864354e8f3398497a897b6a759dfa3454a33d866de63784a323f461e4"
+  },
+  "closed_boundaries": {
+    "joint_reference_comparison_classified": false,
+    "population_result_record_only": true,
+    "reference_inference_performed": false,
+    "reference_model_loaded": false,
+    "training_performed": false
+  },
+  "execution_head": "5f9980056da6c841020fd34e19b9c041d3c1c815",
+  "experiment_version": "gate8-v1-population-scientific-result-v0",
+  "external_artifact_sha256": {
+    "gate8-v1-population-per-world.jsonl": "45e36bda230440d4fa2342183154b474473498df51917e147a37e0baa81c3323",
+    "gate8-v1-population-summary.json": "6d30d773f11c1155df3346128385da9231610ea05e95937e5acccb5529fca3fe",
+    "manifest.sha256": "8214aa82733a4fab9148a3ea210fd110b0a85f857483f14b15cb53d0f451255d",
+    "transition-table-seed-0.json": "ed616803c0d93880fd587670ec6c2b165b0be6b6f7c988d73a4b7682a727399d",
+    "transition-table-seed-1.json": "688c35725c03104d7ed95a4666bbb3c22af060bc49be10db51860616d48083b5",
+    "transition-table-seed-2.json": "f1d5f163cb0ea2d46eb5430e3096870e4e423d054247a7fc517f5f1db176ea07"
+  },
+  "frontiers": [
+    {"population": 32, "max_solved_depth": 4, "accuracy": 1.0, "ci": [1.0, 1.0], "active_workers": 23.0703125, "communicated_bits": 184.5625, "recurrent_updates": 23.0703125},
+    {"population": 64, "max_solved_depth": 8, "accuracy": 1.0, "ci": [1.0, 1.0], "active_workers": 54.83984375, "communicated_bits": 438.71875, "recurrent_updates": 54.83984375},
+    {"population": 128, "max_solved_depth": 16, "accuracy": 1.0, "ci": [1.0, 1.0], "active_workers": 118.732421875, "communicated_bits": 949.859375, "recurrent_updates": 118.732421875},
+    {"population": 256, "max_solved_depth": 32, "accuracy": 1.0, "ci": [1.0, 1.0], "active_workers": 246.392578125, "communicated_bits": 1971.140625, "recurrent_updates": 246.392578125},
+    {"population": 512, "max_solved_depth": 64, "accuracy": 1.0, "ci": [1.0, 1.0], "active_workers": 502.2890625, "communicated_bits": 4018.3125, "recurrent_updates": 502.2890625},
+    {"population": 1024, "max_solved_depth": 128, "accuracy": 1.0, "ci": [1.0, 1.0], "active_workers": 1013.775390625, "communicated_bits": 8110.203125, "recurrent_updates": 1013.775390625}
+  ],
+  "gemma_binding_result_head": "8237732aecbec083c66668de9fae132e0cc4c1f9",
+  "independent_audit": {
+    "all_147_condition_metric_rows_reproduced": true,
+    "all_147_correctness_matrix_hashes_reproduced": true,
+    "all_147_paired_bootstrap_intervals_reproduced": true,
+    "all_225792_row_predictions_and_resource_counts_reproduced": true,
+    "all_2048_transitions_match_frozen_exact_local_transform": true,
+    "all_six_frontiers_reproduced": true,
+    "both_causal_ablation_rows_and_intervals_reproduced": true,
+    "manifest_outer_hash_reproduced": true,
+    "raw_jsonl_exact_order_and_schema_verified": true,
+    "run_config_hash_reproduced": true,
+    "unchanged_population_scaling_classifier_reproduced": true,
+    "unique_world_ids_and_oracle_answers_reproduced": true
+  },
+  "modes": ["full", "no_communication", "shuffled_worker", "shuffled_message", "target_worker_only", "random_answer", "oracle"],
+  "population_scaling_classification": "G8_POSITIVE_CAPABILITY_SCALING",
+  "raw_rows": 225792,
+  "runtime_head": "333d88ac4fc52f1651741fba224e0b4605feedd3",
+  "scientific_protocol_head": "6bb89111a47713bea0a23bb1cae662ed5ec56b42",
+  "scientific_status": "G8_V1_POPULATION_SCIENTIFIC_EVALUATION_COMPLETE",
+  "test_matrix": {
+    "conditions": 21,
+    "seed": 0,
+    "split": "test",
+    "unique_worlds": 10752,
+    "world_index_end_inclusive": 511,
+    "world_index_start": 0,
+    "worlds_per_condition": 512
+  },
+  "transition_tables": {
+    "all_three_tables_identical": true,
+    "compiled_table_sha256": "4a29df3f45b2f24c7a180a9147dce396206040200dd80ceb6d4e03ba130d563c",
+    "entries_per_checkpoint": 2048
+  }
+}
