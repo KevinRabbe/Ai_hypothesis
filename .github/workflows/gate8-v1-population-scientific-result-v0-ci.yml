@@ -1,0 +1,160 @@
+name: Gate8 v1 population scientific result qualification
+
+on:
+  pull_request:
+    branches:
+      - agent/gate8-v1-population-scientific-execution-v0
+    paths:
+      - .github/workflows/gate8-v1-population-scientific-result-v0-ci.yml
+      - experiments/population_compute_scaling_v0/gate8_v1_population_scientific_result_v0.json
+      - experiments/population_compute_scaling_v0/gate8_v1_population_scientific_result_v0.md
+      - experiments/population_compute_scaling_v0/gate8_v1_population_scientific_manifest_v0.sha256
+
+permissions:
+  contents: read
+
+jobs:
+  result-only:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Verify immutable population result
+        shell: bash
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          root = Path("experiments/population_compute_scaling_v0")
+          result_path = root / "gate8_v1_population_scientific_result_v0.json"
+          manifest_path = root / "gate8_v1_population_scientific_manifest_v0.sha256"
+          result = json.loads(result_path.read_text(encoding="utf-8"))
+
+          assert result["experiment_version"] == "gate8-v1-population-scientific-result-v0"
+          assert result["scientific_status"] == "G8_V1_POPULATION_SCIENTIFIC_EVALUATION_COMPLETE"
+          assert result["population_scaling_classification"] == "G8_POSITIVE_CAPABILITY_SCALING"
+          assert result["execution_head"] == "5f9980056da6c841020fd34e19b9c041d3c1c815"
+          assert result["scientific_protocol_head"] == "6bb89111a47713bea0a23bb1cae662ed5ec56b42"
+          assert result["gemma_binding_result_head"] == "8237732aecbec083c66668de9fae132e0cc4c1f9"
+          assert result["architecture_head"] == "c3ab64008c816fa1eb6f9d6f8f0a1a99ed195ec8"
+          assert result["runtime_head"] == "333d88ac4fc52f1651741fba224e0b4605feedd3"
+
+          assert result["test_matrix"] == {
+              "conditions": 21,
+              "seed": 0,
+              "split": "test",
+              "unique_worlds": 10752,
+              "world_index_end_inclusive": 511,
+              "world_index_start": 0,
+              "worlds_per_condition": 512,
+          }
+          assert result["raw_rows"] == 225792
+          assert result["modes"] == [
+              "full",
+              "no_communication",
+              "shuffled_worker",
+              "shuffled_message",
+              "target_worker_only",
+              "random_answer",
+              "oracle",
+          ]
+          assert result["checkpoint_sha256"] == {
+              "0": "3005369a4830c12baee8ffa7fedc1bed0f1888784e1043bd88f4afd2b7cddde9",
+              "1": "cbcae487dd7f4c695e1d6a83a61926cd43f5ccf6add1a7469c16a15697d22d07",
+              "2": "e1e35b3864354e8f3398497a897b6a759dfa3454a33d866de63784a323f461e4",
+          }
+
+          tables = result["transition_tables"]
+          assert tables == {
+              "all_three_tables_identical": True,
+              "compiled_table_sha256": "4a29df3f45b2f24c7a180a9147dce396206040200dd80ceb6d4e03ba130d563c",
+              "entries_per_checkpoint": 2048,
+          }
+
+          expected_depths = [4, 8, 16, 32, 64, 128]
+          frontiers = result["frontiers"]
+          assert [row["population"] for row in frontiers] == [32, 64, 128, 256, 512, 1024]
+          assert [row["max_solved_depth"] for row in frontiers] == expected_depths
+          assert all(row["accuracy"] == 1.0 and row["ci"] == [1.0, 1.0] for row in frontiers)
+          assert all(left < right for left, right in zip(expected_depths, expected_depths[1:]))
+          assert expected_depths[-1] >= 4 * expected_depths[0]
+
+          causal = result["causal_ablations"]
+          assert [(row["population"], row["depth"]) for row in causal] == [(512, 64), (1024, 128)]
+          assert all(row["full_accuracy"] == 1.0 for row in causal)
+          assert all(row["no_communication_accuracy"] == 0.0 for row in causal)
+          assert all(row["full_minus_no_communication_ci"][0] > 0.20 for row in causal)
+          assert all(row["full_minus_shuffled_worker_ci"][0] > 0.20 for row in causal)
+
+          artifacts = result["external_artifact_sha256"]
+          assert artifacts == {
+              "gate8-v1-population-per-world.jsonl": "45e36bda230440d4fa2342183154b474473498df51917e147a37e0baa81c3323",
+              "gate8-v1-population-summary.json": "6d30d773f11c1155df3346128385da9231610ea05e95937e5acccb5529fca3fe",
+              "manifest.sha256": "8214aa82733a4fab9148a3ea210fd110b0a85f857483f14b15cb53d0f451255d",
+              "transition-table-seed-0.json": "ed616803c0d93880fd587670ec6c2b165b0be6b6f7c988d73a4b7682a727399d",
+              "transition-table-seed-1.json": "688c35725c03104d7ed95a4666bbb3c22af060bc49be10db51860616d48083b5",
+              "transition-table-seed-2.json": "f1d5f163cb0ea2d46eb5430e3096870e4e423d054247a7fc517f5f1db176ea07",
+          }
+
+          audit = result["independent_audit"]
+          assert audit and all(audit.values())
+          closed = result["closed_boundaries"]
+          assert closed == {
+              "joint_reference_comparison_classified": False,
+              "population_result_record_only": True,
+              "reference_inference_performed": False,
+              "reference_model_loaded": False,
+              "training_performed": False,
+          }
+
+          manifest = manifest_path.read_bytes()
+          assert hashlib.sha256(manifest).hexdigest() == "8214aa82733a4fab9148a3ea210fd110b0a85f857483f14b15cb53d0f451255d"
+          assert b"\r\n" in manifest
+          assert manifest.count(b"\r\n") == 8
+          assert b"\n" not in manifest.replace(b"\r\n", b"")
+          expected_lines = {
+              b"16424cfe097103d5fd1cea55ba440d27ed289f09d4644b541e802dac30b1fa8d  git-head.txt",
+              b"2616323406377336df51fd741f49875986e69bb80e54f531d785176c6109aa41  run-config.json",
+              b"45e36bda230440d4fa2342183154b474473498df51917e147a37e0baa81c3323  population/gate8-v1-population-per-world.jsonl",
+              b"688c35725c03104d7ed95a4666bbb3c22af060bc49be10db51860616d48083b5  population/transition-table-seed-1.json",
+              b"6d30d773f11c1155df3346128385da9231610ea05e95937e5acccb5529fca3fe  population/gate8-v1-population-summary.json",
+              b"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  git-status.txt",
+              b"ed616803c0d93880fd587670ec6c2b165b0be6b6f7c988d73a4b7682a727399d  population/transition-table-seed-0.json",
+              b"f1d5f163cb0ea2d46eb5430e3096870e4e423d054247a7fc517f5f1db176ea07  population/transition-table-seed-2.json",
+          }
+          assert set(manifest.splitlines()) == expected_lines
+          PY
+
+      - name: Prove exact result-only slice
+        shell: bash
+        run: |
+          git fetch origin "${{ github.base_ref }}"
+          mapfile -t changed < <(git diff --name-only "origin/${{ github.base_ref }}...HEAD" | sort)
+          expected=(
+            ".github/workflows/gate8-v1-population-scientific-result-v0-ci.yml"
+            "experiments/population_compute_scaling_v0/gate8_v1_population_scientific_manifest_v0.sha256"
+            "experiments/population_compute_scaling_v0/gate8_v1_population_scientific_result_v0.json"
+            "experiments/population_compute_scaling_v0/gate8_v1_population_scientific_result_v0.md"
+          )
+          printf '%s\n' "${changed[@]}"
+          test "${#changed[@]}" -eq "${#expected[@]}"
+          for index in "${!expected[@]}"; do
+            test "${changed[$index]}" = "${expected[$index]}"
+          done
+
+      - name: Keep executable and raw-data boundaries closed
+        shell: bash
+        run: |
+          test ! -e experiments/population_compute_scaling_v0/gate8-v1-population-per-world.jsonl
+          test ! -e experiments/population_compute_scaling_v0/transition-table-seed-0.json
+          test ! -e experiments/population_compute_scaling_v0/transition-table-seed-1.json
+          test ! -e experiments/population_compute_scaling_v0/transition-table-seed-2.json
+          ! git diff --name-only "origin/${{ github.base_ref }}...HEAD" | grep -E '\.(py|ps1|pt|bin|safetensors|jsonl)$'
