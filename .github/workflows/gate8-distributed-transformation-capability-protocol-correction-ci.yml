@@ -42,11 +42,22 @@ jobs:
       - name: Verify exact corrected condition semantics
         run: |
           python - <<'PY'
-          from ai_hypothesis.population_compute.gate8_distributed_transformation_capability_protocol_correction import (
-              gate8_relevant_edge_contracts,
-          )
+          import importlib.util
+          import pathlib
+          import sys
 
-          rows = gate8_relevant_edge_contracts()
+          path = pathlib.Path(
+              'ai_hypothesis/population_compute/'
+              'gate8_distributed_transformation_capability_protocol_correction.py'
+          )
+          name = 'gate8_protocol_correction_ci_module'
+          spec = importlib.util.spec_from_file_location(name, path)
+          assert spec is not None and spec.loader is not None
+          module = importlib.util.module_from_spec(spec)
+          sys.modules[name] = module
+          spec.loader.exec_module(module)
+
+          rows = module.gate8_relevant_edge_contracts()
           assert len(rows) == 21
           assert all(row.relevant_path_edges == row.depth for row in rows)
           assert all(row.relevant_fraction <= 1 / 8 for row in rows)
