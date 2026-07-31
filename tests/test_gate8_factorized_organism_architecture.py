@@ -44,7 +44,7 @@ class Gate8FactorizedOrganismArchitectureTests(unittest.TestCase):
         self.assertEqual(static["symbol_embedding"], 176)
         self.assertEqual(static["transform_embedding"], 24)
         self.assertEqual(static["initial_hidden_state"], 65)
-        self.assertEqual(static["worker_update_weight_ih"], 6_372)
+        self.assertEqual(static["worker_update_weight_ih"], 4_095)
         self.assertEqual(static["worker_update_weight_hh"], 12_675)
         self.assertEqual(static["worker_update_biases"], 390)
         self.assertEqual(static["carrier_head"], 1_056)
