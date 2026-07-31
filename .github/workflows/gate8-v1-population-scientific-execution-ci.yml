@@ -1,0 +1,183 @@
+name: Gate8 v1 population scientific execution qualification
+
+on:
+  push:
+    branches:
+      - agent/gate8-v1-population-scientific-execution-v0
+  pull_request:
+    paths:
+      - 'ai_hypothesis/population_compute/gate8_v1_scientific_population_runtime.py'
+      - 'scripts/run_gate8_v1_population_science.py'
+      - 'scripts/run_gate8_v1_population_science.ps1'
+      - 'tests/test_gate8_v1_scientific_population_execution.py'
+      - 'experiments/population_compute_scaling_v0/gate8_v1_population_scientific_execution_v0.md'
+      - '.github/workflows/gate8-v1-population-scientific-execution-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install CPU semantic dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Compile runtime, runner and regressions
+        run: |
+          python -m py_compile \
+            ai_hypothesis/population_compute/gate8_v1_scientific_population_runtime.py \
+            scripts/run_gate8_v1_population_science.py \
+            tests/test_gate8_v1_scientific_population_execution.py
+
+      - name: Run contract-only scientific execution regressions
+        run: |
+          python -m unittest tests/test_gate8_v1_scientific_population_execution.py
+
+      - name: Verify exact Phase-A plan
+        run: |
+          python - <<'PY'
+          import importlib.util
+          import pathlib
+          import sys
+
+          path = pathlib.Path(
+              'ai_hypothesis/population_compute/'
+              'gate8_v1_scientific_population_runtime.py'
+          )
+          name = 'gate8_v1_population_science_ci_plan'
+          spec = importlib.util.spec_from_file_location(name, path)
+          assert spec is not None and spec.loader is not None
+          module = importlib.util.module_from_spec(spec)
+          sys.modules[name] = module
+          spec.loader.exec_module(module)
+          plan = module.gate8_v1_scientific_population_runtime_plan()
+
+          assert plan['scientific_protocol_head'] == '6bb89111a47713bea0a23bb1cae662ed5ec56b42'
+          assert plan['gemma_binding_result_head'] == '8237732aecbec083c66668de9fae132e0cc4c1f9'
+          assert plan['architecture_head'] == 'c3ab64008c816fa1eb6f9d6f8f0a1a99ed195ec8'
+          assert plan['runtime_head'] == '333d88ac4fc52f1651741fba224e0b4605feedd3'
+          assert plan['learned_parameter_count'] == 19_649
+          assert plan['transition_table_entries_per_checkpoint'] == 2_048
+          assert plan['transition_table_compilation_exact'] is True
+          assert plan['test_split_admitted'] is True
+          assert plan['test_seed'] == 0
+          assert plan['test_world_indices'] == [0, 511]
+          assert plan['population_modes'] == [
+              'full', 'no_communication', 'shuffled_worker',
+              'shuffled_message', 'target_worker_only',
+          ]
+          assert plan['reads_world_truth'] is False
+          assert plan['reference_model_loaded'] is False
+          assert plan['reference_inference_performed'] is False
+          assert plan['training_performed'] is False
+          PY
+
+      - name: Verify closed source boundaries and no test exposure in CI
+        run: |
+          python - <<'PY'
+          import ast
+          import pathlib
+
+          runner_path = pathlib.Path('scripts/run_gate8_v1_population_science.py')
+          test_path = pathlib.Path('tests/test_gate8_v1_scientific_population_execution.py')
+          workflow_path = pathlib.Path(
+              '.github/workflows/gate8-v1-population-scientific-execution-ci.yml'
+          )
+          runner_text = runner_path.read_text(encoding='utf-8')
+          test_text = test_path.read_text(encoding='utf-8')
+          workflow_lines = workflow_path.read_text(encoding='utf-8').splitlines()
+
+          for forbidden in (
+              'AutoModel', 'AutoTokenizer', 'from_pretrained(',
+              'model.safetensors', 'optimizer.step', '.backward(',
+              'torch.optim',
+          ):
+              assert forbidden not in runner_text
+
+          expected_hashes = (
+              '3005369a4830c12baee8ffa7fedc1bed0f1888784e1043bd88f4afd2b7cddde9',
+              'cbcae487dd7f4c695e1d6a83a61926cd43f5ccf6add1a7469c16a15697d22d07',
+              'e1e35b3864354e8f3398497a897b6a759dfa3454a33d866de63784a323f461e4',
+          )
+          for digest in expected_hashes:
+              assert digest in runner_text
+          assert 'weights_only=True' in runner_text
+
+          test_tree = ast.parse(test_text)
+          for node in ast.walk(test_tree):
+              if not isinstance(node, ast.Call):
+                  continue
+              function_name = getattr(
+                  node.func, 'attr', getattr(node.func, 'id', '')
+              )
+              if function_name != 'generate_gate8_world':
+                  continue
+              split = next(
+                  (kw.value for kw in node.keywords if kw.arg == 'split'), None
+              )
+              assert not (
+                  isinstance(split, ast.Constant) and split.value == 'test'
+              ), 'CI regression generated a scientific-test world'
+
+          command = 'python ' + 'scripts/' + 'run_gate8_v1_population_science.py'
+          assert not any(
+              line.strip().startswith(command) for line in workflow_lines
+          )
+          PY
+
+      - name: Prove exact six-file execution slice
+        run: |
+          changed="$(git diff --name-only 8237732aecbec083c66668de9fae132e0cc4c1f9...HEAD | sort)"
+          expected="$(printf '%s\n' \
+            '.github/workflows/gate8-v1-population-scientific-execution-ci.yml' \
+            'ai_hypothesis/population_compute/gate8_v1_scientific_population_runtime.py' \
+            'experiments/population_compute_scaling_v0/gate8_v1_population_scientific_execution_v0.md' \
+            'scripts/run_gate8_v1_population_science.ps1' \
+            'scripts/run_gate8_v1_population_science.py' \
+            'tests/test_gate8_v1_scientific_population_execution.py' | sort)"
+          test "$changed" = "$expected"
+          test -z "$(git diff --name-only 8237732aecbec083c66668de9fae132e0cc4c1f9...HEAD | grep -Ei '\.(safetensors|bin|pt|pth|gguf|jsonl)$' || true)"
+
+  windows-wrapper-smoke:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Smoke wrapper before Torch, checkpoints, output or test generation
+        shell: pwsh
+        env:
+          GATE8_V1_POPULATION_SCIENCE_WRAPPER_SMOKE: '1'
+        run: |
+          $output = Join-Path $env:RUNNER_TEMP 'gate8-v1-population-science-smoke'
+          if (Test-Path -LiteralPath $output) {
+            Remove-Item -LiteralPath $output -Recurse -Force
+          }
+          .\scripts\run_gate8_v1_population_science.ps1 `
+            -Seed0Checkpoint (Join-Path $env:RUNNER_TEMP 'missing-seed0.pt') `
+            -Seed1Checkpoint (Join-Path $env:RUNNER_TEMP 'missing-seed1.pt') `
+            -Seed2Checkpoint (Join-Path $env:RUNNER_TEMP 'missing-seed2.pt') `
+            -OutputRoot $output
+          if (Test-Path -LiteralPath $output) {
+            throw 'Gate8 v1 wrapper smoke created an output directory.'
+          }
