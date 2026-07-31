@@ -1,0 +1,173 @@
+name: Gate8 factorized message training protocol v1 qualification
+
+on:
+  pull_request:
+    branches:
+      - agent/gate8-factorized-message-runtime-contract-v1
+    paths:
+      - ".github/workflows/gate8-factorized-message-training-protocol-v1-ci.yml"
+      - "ai_hypothesis/population_compute/gate8_factorized_organism_training_protocol.py"
+      - "tests/test_gate8_factorized_organism_training_protocol.py"
+      - "experiments/population_compute_scaling_v0/gate8_factorized_message_training_protocol_v1.md"
+
+permissions:
+  contents: read
+
+jobs:
+  training-protocol:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Compile frozen protocol
+        run: |
+          python -m py_compile \
+            ai_hypothesis/population_compute/gate8_factorized_organism_training_protocol.py \
+            tests/test_gate8_factorized_organism_training_protocol.py
+
+      - name: Run protocol regressions
+        run: |
+          python -m unittest tests/test_gate8_factorized_organism_training_protocol.py -v
+
+      - name: Verify complete transition and schedule contracts
+        run: |
+          python - <<'PY'
+          import importlib.util
+          import pathlib
+          import sys
+
+          def load(path: str, name: str):
+              spec = importlib.util.spec_from_file_location(name, pathlib.Path(path))
+              assert spec is not None and spec.loader is not None
+              module = importlib.util.module_from_spec(spec)
+              sys.modules[name] = module
+              spec.loader.exec_module(module)
+              return module
+
+          protocol = load(
+              "ai_hypothesis/population_compute/gate8_factorized_organism_training_protocol.py",
+              "gate8_v1_training_protocol_ci",
+          )
+          worlds = load(
+              "ai_hypothesis/population_compute/gate8_distributed_transformation_worlds.py",
+              "gate8_v1_training_protocol_worlds_ci",
+          )
+
+          assert protocol.GATE8_V1_TRAINING_PROTOCOL_ARCHITECTURE_HEAD == (
+              "c3ab64008c816fa1eb6f9d6f8f0a1a99ed195ec8"
+          )
+          assert protocol.GATE8_V1_TRAINING_PROTOCOL_RUNTIME_HEAD == (
+              "333d88ac4fc52f1651741fba224e0b4605feedd3"
+          )
+          assert protocol.GATE8_V1_LEARNED_PARAMETER_COUNT == 19_649
+
+          transition_cases = 0
+          for transform in worlds.GATE8_TRANSFORM_PERMUTATIONS:
+              outputs = set()
+              for inbox_code in range(256):
+                  carrier, symbol, target_code = protocol.gate8_v1_target_transition(
+                      inbox_code=inbox_code,
+                      transform=transform,
+                  )
+                  decoded_carrier, decoded_symbol = (
+                      protocol.gate8_v1_decode_message_code(target_code)
+                  )
+                  assert decoded_carrier == carrier
+                  assert decoded_symbol == symbol
+                  outputs.add(target_code)
+                  transition_cases += 1
+              assert outputs == set(range(256))
+          assert transition_cases == 2_048
+
+          counts = protocol.gate8_v1_condition_world_counts()
+          assert tuple(counts.values()) == (
+              43_691,
+              43_691,
+              43_691,
+              43_691,
+              43_690,
+              43_690,
+          )
+          assert sum(counts.values()) == 262_144
+
+          validation_indices = protocol.gate8_v1_validation_world_indices()
+          assert validation_indices == tuple(range(512, 1_024))
+          assert set(validation_indices).isdisjoint(range(512))
+
+          plan = protocol.gate8_v1_training_protocol_plan()
+          assert plan["training_worlds_per_seed"] == 262_144
+          assert plan["world_batch_size"] == 256
+          assert plan["optimizer_steps"] == 1_024
+          assert plan["checkpoint_steps"] == [256, 512, 768, 1_024]
+          assert plan["validation_world_indices"] == [512, 1_023]
+          assert plan["validation_worlds_per_condition"] == 512
+          assert plan["validation_disjoint_from_v0_indices_0_through_511"] is True
+          assert plan["seed0_first"] is True
+          assert plan["seeds_1_and_2_blocked_until_seed0_admission"] is True
+          assert plan["loss_weights"] == {
+              "carrier_cross_entropy": 1.0,
+              "symbol_cross_entropy": 1.0,
+          }
+          assert plan["removed_losses"] == [
+              "joint_256_way_message_cross_entropy",
+              "answer_cross_entropy",
+              "activity_binary_cross_entropy",
+          ]
+          assert plan["admission_thresholds"] == {
+              "minimum_condition_target_accuracy": 0.99,
+              "minimum_exact_message_accuracy": 0.995,
+              "minimum_carrier_accuracy": 0.995,
+              "minimum_symbol_accuracy": 0.995,
+              "inbox_code_coverage": 256,
+              "target_code_coverage": 256,
+              "target_carrier_coverage": 16,
+              "target_symbol_coverage": 16,
+          }
+          assert plan["execution_admitted"] is False
+          assert plan["training_admitted"] is False
+          assert plan["checkpoint_write_admitted"] is False
+          assert plan["scientific_test_worlds_admitted"] is False
+          assert plan["reference_model_admitted"] is False
+
+          source = pathlib.Path(
+              "ai_hypothesis/population_compute/gate8_factorized_organism_training_protocol.py"
+          ).read_text(encoding="utf-8")
+          for forbidden in (
+              "import torch",
+              "generate_gate8_world(",
+              "torch.optim",
+              "optimizer.step",
+              "backward(",
+              "torch.save(",
+              "torch.load(",
+              "snapshot_download(",
+              "AutoModel.from_pretrained",
+              "AutoTokenizer.from_pretrained",
+              "split=\"test\"",
+          ):
+              assert forbidden not in source
+
+          print("Gate8 v1 factorized training protocol verified")
+          PY
+
+      - name: Prove exact four-file protocol slice
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          git diff --name-only "$BASE_SHA" "$HEAD_SHA" | sort > /tmp/actual-files.txt
+          cat > /tmp/expected-files.txt <<'EOF'
+          .github/workflows/gate8-factorized-message-training-protocol-v1-ci.yml
+          ai_hypothesis/population_compute/gate8_factorized_organism_training_protocol.py
+          experiments/population_compute_scaling_v0/gate8_factorized_message_training_protocol_v1.md
+          tests/test_gate8_factorized_organism_training_protocol.py
+          EOF
+          diff -u /tmp/expected-files.txt /tmp/actual-files.txt
