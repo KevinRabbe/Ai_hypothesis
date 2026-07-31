@@ -1,0 +1,150 @@
+name: Gate8 organism training execution qualification
+
+on:
+  push:
+    branches:
+      - agent/gate8-organism-training-execution-v0
+  pull_request:
+    paths:
+      - 'ai_hypothesis/population_compute/gate8_organism_training.py'
+      - 'ai_hypothesis/population_compute/gate8_organism_development_runtime.py'
+      - 'scripts/train_gate8_organism.py'
+      - 'scripts/train_gate8_organism.ps1'
+      - 'tests/test_gate8_organism_training_execution.py'
+      - 'experiments/population_compute_scaling_v0/gate8_organism_training_execution_v0.md'
+      - '.github/workflows/gate8-organism-training-execution-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  training-execution-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install CPU Torch
+        run: |
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
+
+      - name: Compile training execution modules
+        run: |
+          python -m compileall -q \
+            ai_hypothesis/population_compute/gate8_organism_training.py \
+            ai_hypothesis/population_compute/gate8_organism_development_runtime.py \
+            scripts/train_gate8_organism.py
+
+      - name: Run contract-only execution regressions
+        run: |
+          python -m unittest tests/test_gate8_organism_training_execution.py
+
+      - name: Verify exact protocol and runtime bindings
+        run: |
+          python - <<'PY'
+          import importlib.util
+          import pathlib
+          import sys
+
+          def load(path, name):
+              spec = importlib.util.spec_from_file_location(name, pathlib.Path(path))
+              assert spec is not None and spec.loader is not None
+              module = importlib.util.module_from_spec(spec)
+              sys.modules[name] = module
+              spec.loader.exec_module(module)
+              return module
+
+          training = load(
+              'ai_hypothesis/population_compute/gate8_organism_training.py',
+              'gate8_training_execution_ci_mechanics',
+          )
+          development = load(
+              'ai_hypothesis/population_compute/gate8_organism_development_runtime.py',
+              'gate8_training_execution_ci_development',
+          )
+          assert training.GATE8_ORGANISM_TRAINING_EXECUTION_PROTOCOL_HEAD == (
+              '869791e5b44089f9c79447b8ae212ce830f8496a'
+          )
+          assert development.GATE8_DEVELOPMENT_RUNTIME_PROTOCOL_HEAD == (
+              '869791e5b44089f9c79447b8ae212ce830f8496a'
+          )
+          assert development.GATE8_DEVELOPMENT_RUNTIME_QUALIFIED_RUNTIME_HEAD == (
+              '1a2be148411bc71ba35fda12b035b724f06ec166'
+          )
+          assert training.GATE8_TRAINING_ALLOWED_SPLITS == (
+              'contract', 'train', 'validation'
+          )
+          assert development.GATE8_DEVELOPMENT_ALLOWED_SPLITS == (
+              'contract', 'train', 'validation'
+          )
+          assert training.gate8_training_mechanics_plan()['truth_field_read'] is False
+          assert development.gate8_development_runtime_plan()['truth_read'] is False
+          PY
+
+      - name: Verify full runner is frozen but never invoked by CI
+        run: |
+          runner=scripts/train_gate8_organism.py
+          grep -F 'GATE8_OPTIMIZER_STEPS + 1' "$runner"
+          grep -F 'split="train"' "$runner"
+          grep -F 'split="validation"' "$runner"
+          grep -F 'torch.optim.AdamW' "$runner"
+          grep -F 'clip_grad_norm_' "$runner"
+          grep -F 'GATE8_CHECKPOINT_STEPS' "$runner"
+          grep -F 'select_gate8_checkpoint' "$runner"
+          grep -F 'classify_gate8_training' "$runner"
+          ! grep --line-number -F 'split="test"' "$runner"
+          ! grep --line-number -F 'split="demonstration"' "$runner"
+          ! grep --line-number -E 'AutoModel|AutoTokenizer|from_pretrained|snapshot_download|model\.safetensors' "$runner"
+
+      - name: Verify mechanics and development runtime cannot inspect truth or generate worlds
+        run: |
+          files='ai_hypothesis/population_compute/gate8_organism_training.py ai_hypothesis/population_compute/gate8_organism_development_runtime.py'
+          ! grep --line-number -E '\.truth|generate_gate8_world|AutoModel|AutoTokenizer|from_pretrained|snapshot_download|model\.safetensors' $files
+          ! grep --line-number -F 'split="test"' $files
+          ! grep --line-number -F 'split="demonstration"' $files
+
+      - name: Prove exact seven-file execution slice
+        run: |
+          changed="$(git diff --name-only 869791e5b44089f9c79447b8ae212ce830f8496a...HEAD | sort)"
+          expected="$(printf '%s\n' \
+            '.github/workflows/gate8-organism-training-execution-ci.yml' \
+            'ai_hypothesis/population_compute/gate8_organism_development_runtime.py' \
+            'ai_hypothesis/population_compute/gate8_organism_training.py' \
+            'experiments/population_compute_scaling_v0/gate8_organism_training_execution_v0.md' \
+            'scripts/train_gate8_organism.py' \
+            'scripts/train_gate8_organism.ps1' \
+            'tests/test_gate8_organism_training_execution.py' | sort)"
+          test "$changed" = "$expected"
+
+  windows-wrapper-smoke:
+    if: github.head_ref == 'agent/gate8-organism-training-execution-v0' || github.ref == 'refs/heads/agent/gate8-organism-training-execution-v0'
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Smoke wrapper before Torch CUDA worlds optimizer or checkpoints
+        shell: pwsh
+        env:
+          GATE8_ORGANISM_TRAINING_WRAPPER_SMOKE: '1'
+        run: |
+          $output = Join-Path $env:RUNNER_TEMP 'gate8-organism-training-smoke'
+          if (Test-Path -LiteralPath $output) {
+              Remove-Item -LiteralPath $output -Recurse -Force
+          }
+          .\scripts\train_gate8_organism.ps1 -Seed 0 -OutputRoot $output
+          if (Test-Path -LiteralPath (Join-Path $output 'training')) {
+              throw 'Gate8 wrapper smoke crossed the training boundary.'
+          }
+          if (-not (Test-Path -LiteralPath (Join-Path $output 'run-config.json') -PathType Leaf)) {
+              throw 'Gate8 wrapper smoke did not preserve run provenance.'
+          }
