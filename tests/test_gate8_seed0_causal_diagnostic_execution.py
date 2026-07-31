@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import importlib.util
 import pathlib
 import sys
@@ -142,17 +143,11 @@ class Gate8Seed0CausalDiagnosticExecutionTests(unittest.TestCase):
         self.assertEqual(result.activity_root_invariance, 1.0)
 
     def test_runtime_rejects_scientific_test_before_execution(self):
-        test_world = WORLDS.generate_gate8_world(
-            split="test",
-            seed=0,
-            world_index=0,
-            population=32,
-            depth=4,
-        )
+        counterfactual_public = dataclasses.replace(self.world.public, split="test")
         with self.assertRaisesRegex(ValueError, "rejects this world split"):
             RUNTIME.run_gate8_seed0_diagnostic_runtime(
                 model=self._controlled_model(),
-                world=test_world.public,
+                world=counterfactual_public,
                 probe="baseline",
             )
 
