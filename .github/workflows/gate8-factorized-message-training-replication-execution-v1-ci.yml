@@ -1,0 +1,137 @@
+name: Gate8 factorized message replication execution v1 qualification
+
+on:
+  push:
+    branches:
+      - agent/gate8-factorized-message-training-replication-execution-v1
+  pull_request:
+    paths:
+      - 'scripts/train_gate8_factorized_organism_replication.py'
+      - 'scripts/train_gate8_factorized_organism_replication.ps1'
+      - 'tests/test_gate8_factorized_organism_training_replication_execution.py'
+      - 'experiments/population_compute_scaling_v0/gate8_factorized_message_training_replication_execution_v1.md'
+      - '.github/workflows/gate8-factorized-message-training-replication-execution-v1-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  replication-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Compile replication execution surface
+        run: |
+          python -m compileall -q \
+            scripts/train_gate8_factorized_organism_replication.py \
+            tests/test_gate8_factorized_organism_training_replication_execution.py
+
+      - name: Run replication boundary regressions
+        run: |
+          python -m unittest \
+            tests/test_gate8_factorized_organism_training_replication_execution.py
+
+      - name: Verify exact replication provenance and seed boundary
+        run: |
+          python - <<'PY'
+          import importlib.util
+          import pathlib
+          import sys
+
+          path = pathlib.Path(
+              'scripts/train_gate8_factorized_organism_replication.py'
+          )
+          spec = importlib.util.spec_from_file_location(
+              'gate8_replication_ci', path
+          )
+          assert spec is not None and spec.loader is not None
+          module = importlib.util.module_from_spec(spec)
+          sys.modules[spec.name] = module
+          spec.loader.exec_module(module)
+
+          assert module.ALLOWED_REPLICATION_SEEDS == (1, 2)
+          assert module.QUALIFIED_SEED0_RESULT_HEAD == (
+              'f259620f7d3beab2f886c76271c753e9ebf96dc9'
+          )
+          assert module.REPLICATION_EXECUTION_VERSION == (
+              'gate8-factorized-message-training-replication-execution-v1'
+          )
+          for seed in (-1, 0, 3):
+              try:
+                  module.train_gate8_v1_replication(
+                      seed=seed,
+                      output_root=pathlib.Path('/tmp/forbidden'),
+                      device_name='cuda',
+                  )
+              except ValueError as exc:
+                  assert 'seeds 1 and 2 only' in str(exc)
+              else:
+                  raise AssertionError('forbidden replication seed was admitted')
+          PY
+
+      - name: Verify frozen runner source without invoking it
+        run: |
+          runner=scripts/train_gate8_factorized_organism_replication.py
+          grep -F 'ALLOWED_REPLICATION_SEEDS = (1, 2)' "$runner"
+          grep -F 'f259620f7d3beab2f886c76271c753e9ebf96dc9' "$runner"
+          grep -F 'protocol.GATE8_V1_OPTIMIZER_STEPS + 1' "$runner"
+          grep -F 'protocol.GATE8_V1_CHECKPOINT_STEPS' "$runner"
+          grep -F 'base._build_validation_cache' "$runner"
+          grep -F 'base._validate_candidate' "$runner"
+          grep -F 'protocol.select_gate8_v1_checkpoint' "$runner"
+          grep -F 'protocol.classify_gate8_v1_training' "$runner"
+          grep -F 'torch.optim.AdamW' "$runner"
+          grep -F 'clip_grad_norm_' "$runner"
+          grep -F '"scientific_test_worlds_generated": False' "$runner"
+          grep -F '"reference_inference_performed": False' "$runner"
+          ! grep --line-number -E 'AutoModel|AutoTokenizer|from_pretrained|snapshot_download|model\.safetensors' "$runner"
+
+      - name: Prove exact five-file replication slice
+        run: |
+          changed="$(git diff --name-only f259620f7d3beab2f886c76271c753e9ebf96dc9...HEAD | sort)"
+          expected="$(printf '%s\n' \
+            '.github/workflows/gate8-factorized-message-training-replication-execution-v1-ci.yml' \
+            'experiments/population_compute_scaling_v0/gate8_factorized_message_training_replication_execution_v1.md' \
+            'scripts/train_gate8_factorized_organism_replication.ps1' \
+            'scripts/train_gate8_factorized_organism_replication.py' \
+            'tests/test_gate8_factorized_organism_training_replication_execution.py' | sort)"
+          test "$changed" = "$expected"
+
+  windows-wrapper-smoke:
+    if: github.head_ref == 'agent/gate8-factorized-message-training-replication-execution-v1' || github.ref == 'refs/heads/agent/gate8-factorized-message-training-replication-execution-v1'
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Smoke seeds 1 and 2 before Torch CUDA worlds optimizer or checkpoints
+        shell: pwsh
+        env:
+          GATE8_V1_REPLICATION_WRAPPER_SMOKE: '1'
+        run: |
+          foreach ($seed in @(1, 2)) {
+            $output = Join-Path $env:RUNNER_TEMP "gate8-v1-replication-seed-$seed"
+            if (Test-Path -LiteralPath $output) {
+              Remove-Item -LiteralPath $output -Recurse -Force
+            }
+            .\scripts\train_gate8_factorized_organism_replication.ps1 `
+              -Seed $seed `
+              -OutputRoot $output
+            if (Test-Path -LiteralPath (Join-Path $output 'training')) {
+              throw 'Gate8 replication wrapper smoke crossed training.'
+            }
+            if (-not (Test-Path -LiteralPath (Join-Path $output 'run-config.json') -PathType Leaf)) {
+              throw 'Gate8 replication wrapper smoke lost provenance.'
+            }
+          }
