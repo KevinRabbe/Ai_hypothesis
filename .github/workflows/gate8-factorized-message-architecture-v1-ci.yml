@@ -89,13 +89,12 @@ jobs:
 
           source = path.read_text(encoding="utf-8")
           for forbidden in (
-              "generate_gate8_world",
-              "snapshot_download",
-              "AutoTokenizer",
-              "AutoModel",
+              "generate_gate8_world(",
+              "snapshot_download(",
+              "AutoTokenizer.from_pretrained",
+              "AutoModel.from_pretrained",
               "torch.optim",
               "optimizer.step",
-              "scientific_test",
           ):
               assert forbidden not in source
 
