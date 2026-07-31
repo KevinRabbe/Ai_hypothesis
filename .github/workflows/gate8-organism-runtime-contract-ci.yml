@@ -1,0 +1,161 @@
+name: Gate8 organism runtime contract qualification
+
+on:
+  push:
+    branches:
+      - agent/gate8-organism-runtime-contract-v0
+  pull_request:
+    paths:
+      - 'ai_hypothesis/population_compute/gate8_organism_runtime.py'
+      - 'tests/test_gate8_organism_runtime_contract.py'
+      - 'experiments/population_compute_scaling_v0/gate8_organism_runtime_contract_v0.md'
+      - '.github/workflows/gate8-organism-runtime-contract-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  organism-runtime-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install CPU Torch
+        run: |
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
+
+      - name: Compile runtime contract
+        run: |
+          python -m compileall -q \
+            ai_hypothesis/population_compute/gate8_organism_runtime.py
+
+      - name: Run scheduler ablation and accounting regressions
+        run: |
+          python -m unittest tests/test_gate8_organism_runtime_contract.py
+
+      - name: Execute one contract-only runtime matrix probe
+        run: |
+          python - <<'PY'
+          import importlib.util
+          import pathlib
+          import sys
+          import torch
+
+          def load(path, name):
+              spec = importlib.util.spec_from_file_location(name, pathlib.Path(path))
+              assert spec is not None and spec.loader is not None
+              module = importlib.util.module_from_spec(spec)
+              sys.modules[name] = module
+              spec.loader.exec_module(module)
+              return module
+
+          worlds = load(
+              'ai_hypothesis/population_compute/gate8_distributed_transformation_worlds.py',
+              'gate8_runtime_ci_worlds',
+          )
+          architecture = load(
+              'ai_hypothesis/population_compute/gate8_organism_architecture.py',
+              'gate8_runtime_ci_architecture',
+          )
+          runtime = load(
+              'ai_hypothesis/population_compute/gate8_organism_runtime.py',
+              'gate8_runtime_ci_contract',
+          )
+          model = architecture.Gate8SharedWorkerCore()
+          with torch.no_grad():
+              for parameter in model.parameters():
+                  parameter.zero_()
+              model.message_head.bias[17] = 1.0
+              model.activity_head.bias.fill_(1.0)
+              model.answer_head.bias[11] = 1.0
+          model.eval()
+
+          rows = []
+          for population, depth in ((32, 4), (128, 16), (1024, 128)):
+              public = worlds.generate_gate8_world(
+                  split='contract',
+                  seed=0,
+                  world_index=0,
+                  population=population,
+                  depth=depth,
+              ).public
+              result = runtime.run_gate8_contract_runtime(
+                  model=model,
+                  world=public,
+              )
+              assert result.target_reached is True
+              assert result.predicted_symbol == 11
+              assert result.rounds_executed == depth
+              assert result.communicated_bits == result.delivered_messages * 8
+              assert result.recurrent_updates <= population
+              rows.append({
+                  'population': population,
+                  'depth': depth,
+                  'rounds': result.rounds_executed,
+                  'updates': result.recurrent_updates,
+                  'messages': result.delivered_messages,
+                  'bits': result.communicated_bits,
+              })
+          print(rows)
+          PY
+
+      - name: Verify exact architecture binding and closed stages
+        run: |
+          python - <<'PY'
+          import importlib.util
+          import pathlib
+          import sys
+
+          path = pathlib.Path(
+              'ai_hypothesis/population_compute/gate8_organism_runtime.py'
+          )
+          name = 'gate8_runtime_ci_plan'
+          spec = importlib.util.spec_from_file_location(name, path)
+          assert spec is not None and spec.loader is not None
+          module = importlib.util.module_from_spec(spec)
+          sys.modules[name] = module
+          spec.loader.exec_module(module)
+          plan = module.gate8_organism_runtime_plan()
+          assert plan['architecture_head'] == '2afdcc9f13f138e97c7b3821cc2a5a77bd87cf0c'
+          assert plan['learned_parameter_count'] == 19_649
+          assert plan['admitted_split'] == 'contract'
+          assert plan['root_seed_communicated_bits'] == 0
+          assert plan['message_selection'] == 'argmax'
+          assert plan['message_bits'] == 8
+          assert plan['one_message_per_scheduled_worker_per_round'] is True
+          assert plan['truth_used_by_runtime'] is False
+          assert plan['model_outputs_used_to_construct_ablation'] is False
+          assert plan['training_admitted'] is False
+          assert plan['checkpoint_admitted'] is False
+          assert plan['scientific_test_worlds_admitted'] is False
+          assert plan['reference_model_admitted'] is False
+          PY
+
+      - name: Verify runtime cannot solve train or load external models
+        run: |
+          module=ai_hypothesis/population_compute/gate8_organism_runtime.py
+          ! grep --line-number -E 'apply_gate8_transform|gate8_exact_symbolic_oracle|generate_gate8_world|torch\.optim|optimizer\.step|backward\(|DataLoader|AutoModel|AutoTokenizer|from_pretrained|snapshot_download|model\.safetensors|checkpoint\.pt' "$module"
+          for split in train validation test demonstration; do
+            ! grep --line-number -F "split=\"$split\"" "$module"
+            ! grep --line-number -F "split='$split'" "$module"
+          done
+
+      - name: Prove exact four-file runtime-only slice
+        run: |
+          changed="$(git diff --name-only 2afdcc9f13f138e97c7b3821cc2a5a77bd87cf0c...HEAD | sort)"
+          expected="$(printf '%s\n' \
+            '.github/workflows/gate8-organism-runtime-contract-ci.yml' \
+            'ai_hypothesis/population_compute/gate8_organism_runtime.py' \
+            'experiments/population_compute_scaling_v0/gate8_organism_runtime_contract_v0.md' \
+            'tests/test_gate8_organism_runtime_contract.py' | sort)"
+          test "$changed" = "$expected"
