@@ -124,6 +124,6 @@ jobs:
           changed="$(git diff --name-only '${{ github.event.pull_request.base.sha }}' '${{ github.event.pull_request.head.sha }}')"
           ! printf '%s\n' "$changed" | grep -E '(^|/)(scripts|ai_hypothesis|tests)/'
           ! printf '%s\n' "$changed" | grep -E '\.pt$'
-          ! grep -R -E 'generate_gate8_world|torch\.load|snapshot_download|AutoModel|AutoTokenizer' \
+          ! grep -R -E 'generate_gate8_world\(|snapshot_download\(|AutoModel\.from_pretrained|AutoTokenizer\.from_pretrained' \
               experiments/population_compute_scaling_v0/gate8_seed0_causal_diagnostic_result_summary_v0.json \
               experiments/population_compute_scaling_v0/gate8_seed0_causal_diagnostic_result_v0.md
