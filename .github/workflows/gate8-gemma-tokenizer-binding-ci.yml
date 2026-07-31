@@ -1,0 +1,136 @@
+name: Gate8 Gemma tokenizer binding qualification
+
+on:
+  push:
+    branches:
+      - agent/gate8-gemma-tokenizer-binding-execution-v0
+  pull_request:
+    paths:
+      - 'ai_hypothesis/population_compute/gate8_gemma_tokenizer_binding.py'
+      - 'scripts/bind_gate8_gemma_tokenizer.py'
+      - 'scripts/bind_gate8_gemma_tokenizer.ps1'
+      - 'tests/test_gate8_gemma_tokenizer_binding.py'
+      - 'experiments/population_compute_scaling_v0/gate8_gemma_tokenizer_binding_v0.md'
+      - '.github/workflows/gate8-gemma-tokenizer-binding-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tokenizer-binding-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Compile tokenizer binding modules
+        run: |
+          python -m compileall -q \
+            ai_hypothesis/population_compute/gate8_gemma_tokenizer_binding.py \
+            scripts/bind_gate8_gemma_tokenizer.py
+
+      - name: Run tokenizer file, count, matrix, and boundary regressions
+        run: |
+          python -m unittest tests/test_gate8_gemma_tokenizer_binding.py
+
+      - name: Verify exact immutable official identity
+        run: |
+          python - <<'PY'
+          import importlib.util
+          import pathlib
+          import sys
+
+          path = pathlib.Path(
+              'ai_hypothesis/population_compute/gate8_gemma_tokenizer_binding.py'
+          )
+          name = 'gate8_tokenizer_binding_ci_contract'
+          spec = importlib.util.spec_from_file_location(name, path)
+          assert spec is not None and spec.loader is not None
+          module = importlib.util.module_from_spec(spec)
+          sys.modules[name] = module
+          spec.loader.exec_module(module)
+
+          assert module.GATE8_TOKENIZER_BINDING_ENCODER_HEAD == '9882256ae0152bc266dc4d96cab3bbeb0c4ef95b'
+          assert module.GATE8_GEMMA_REPO_ID == 'google/gemma-3-1b-it'
+          assert module.GATE8_GEMMA_REVISION == 'dcc83ea841ab6100d6b47a070329e1ba4cf78752'
+          assert len(module.GATE8_VALID_CONDITIONS) == 21
+          assert module.GATE8_GEMMA_MAX_INPUT_TOKENS == 24576
+          assert module.GATE8_GEMMA_REQUIRED_TOKENIZER_FILES == (
+              'added_tokens.json',
+              'config.json',
+              'special_tokens_map.json',
+              'tokenizer.json',
+              'tokenizer.model',
+              'tokenizer_config.json',
+          )
+          assert 'model.safetensors' in module.GATE8_GEMMA_FORBIDDEN_MODEL_FILENAMES
+          PY
+
+      - name: Verify filtered immutable download and tokenizer-only execution
+        run: |
+          runner=scripts/bind_gate8_gemma_tokenizer.py
+          grep -F 'revision=binding.GATE8_GEMMA_REVISION' "$runner"
+          grep -F 'allow_patterns=list(binding.GATE8_GEMMA_REQUIRED_TOKENIZER_FILES)' "$runner"
+          grep -F 'local_files_only=True' "$runner"
+          grep -F 'trust_remote_code=False' "$runner"
+          grep -F 'use_fast=True' "$runner"
+          grep -F 'split="contract"' "$runner"
+          grep -F 'split="demonstration"' "$runner"
+          ! grep --line-number 'split="test"' "$runner"
+          ! grep --line-number 'model.safetensors' "$runner"
+
+      - name: Verify model training and inference remain impossible
+        run: |
+          files='ai_hypothesis/population_compute/gate8_gemma_tokenizer_binding.py scripts/bind_gate8_gemma_tokenizer.py'
+          ! grep --line-number -E 'AutoModel|ForCausalLM|model\.generate|optimizer|backward\(|training_step|torch\.load' $files
+          grep -F '"model_bound": False' scripts/bind_gate8_gemma_tokenizer.py
+          grep -F '"model_weights_downloaded": False' scripts/bind_gate8_gemma_tokenizer.py
+          grep -F '"inference_performed": False' scripts/bind_gate8_gemma_tokenizer.py
+          grep -F '"scientific_test_worlds_generated": False' scripts/bind_gate8_gemma_tokenizer.py
+
+      - name: Prove exact six-file tokenizer-binding slice
+        run: |
+          changed="$(git diff --name-only 9882256ae0152bc266dc4d96cab3bbeb0c4ef95b...HEAD | sort)"
+          expected="$(printf '%s\n' \
+            '.github/workflows/gate8-gemma-tokenizer-binding-ci.yml' \
+            'ai_hypothesis/population_compute/gate8_gemma_tokenizer_binding.py' \
+            'experiments/population_compute_scaling_v0/gate8_gemma_tokenizer_binding_v0.md' \
+            'scripts/bind_gate8_gemma_tokenizer.py' \
+            'scripts/bind_gate8_gemma_tokenizer.ps1' \
+            'tests/test_gate8_gemma_tokenizer_binding.py' | sort)"
+          test "$changed" = "$expected"
+
+  windows-wrapper-smoke:
+    if: github.head_ref == 'agent/gate8-gemma-tokenizer-binding-execution-v0' || github.ref == 'refs/heads/agent/gate8-gemma-tokenizer-binding-execution-v0'
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Smoke wrapper before packages network tokenizer or prompts
+        shell: pwsh
+        env:
+          GATE8_GEMMA_TOKENIZER_BINDING_WRAPPER_SMOKE: '1'
+        run: |
+          $output = Join-Path $env:RUNNER_TEMP 'gate8-gemma-tokenizer-binding-smoke'
+          if (Test-Path -LiteralPath $output) {
+              Remove-Item -LiteralPath $output -Recurse -Force
+          }
+          .\scripts\bind_gate8_gemma_tokenizer.ps1 `
+              -HuggingFaceLicenseAndAccessAttested `
+              -OutputRoot $output
+          if (Test-Path -LiteralPath (Join-Path $output 'binding')) {
+              throw 'Gate8 tokenizer wrapper smoke crossed the network/binding boundary.'
+          }
+          if (-not (Test-Path -LiteralPath (Join-Path $output 'run-config.json') -PathType Leaf)) {
+              throw 'Gate8 tokenizer wrapper smoke did not preserve provenance.'
+          }
