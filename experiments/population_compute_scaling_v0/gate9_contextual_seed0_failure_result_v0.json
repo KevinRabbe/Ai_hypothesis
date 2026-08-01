@@ -1,0 +1,85 @@
+{
+  "architecture_identity_correction": {
+    "auditor_source_identifier": "c689cc3f38f6f642916ee1a702d7de7bd0e43b",
+    "auditor_source_identifier_length": 38,
+    "correction_applied_fail_closed": true,
+    "qualified_architecture_head": "c689cc3f38f6f642916ee1a702d7de7bd0e43b",
+    "qualified_architecture_head_length": 40,
+    "source_artifact_modified": false
+  },
+  "audit_artifact_sha256": {
+    "gate9-contextual-seed-audit.json": "6f2fbd0289a70dab15d4901ca7733ae49194614ebb9060227b321ed4f387946a",
+    "git-head.txt": "ed98e732b67dc075eba3651092024cbc7f6b81e4cbf4493d97b0d18907593f3f",
+    "git-status.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "manifest.sha256": "f45b0f9b91da0b67e3a0103ae367138eb91faa7307e9e7cad46cda5d9118d766",
+    "run-config.json": "374641fc0ae76510f956b8dbe79546e8e1ed5fc3db38f6bcbaaf934c34bfd2fa"
+  },
+  "audit_identity": {
+    "audit_branch": "agent/gate9-contextual-seed-audit-v0",
+    "audit_head": "af8dc84cd2884e547b1c40599400bfaf8610ee64",
+    "audit_version": "gate9-contextual-training-seed-audit-v0",
+    "execution_head": "bdc1af9bc65b94b01ae3946977686bd90158786f",
+    "qualified_architecture_head": "c689cc3f38f6f642916ee1a702d7de7bd0e43b",
+    "training_protocol_head": "1228c19cbf85da4ab738c3355c58f946cd6a965c"
+  },
+  "checkpoint": {
+    "all_finite_float32": true,
+    "learned_parameter_count": 19649,
+    "sha256": "236f04d4c08e494ee51645750842e68bf18e66004fbf461e51a8d827e7eb1368",
+    "tensor_count": 17
+  },
+  "closed_boundaries": {
+    "final_result_record_only": true,
+    "raw_checkpoint_committed": false,
+    "raw_training_ledger_committed": false,
+    "raw_validation_ledger_committed": false,
+    "retraining_performed": false,
+    "scientific_test_execution_performed": false,
+    "scientific_test_generation_allowed": false,
+    "scientific_test_generation_performed": false,
+    "seed1_execution_performed": false,
+    "seed2_execution_performed": false,
+    "training_performed": false
+  },
+  "experiment_version": "gate9-contextual-seed0-failure-result-v0",
+  "independent_audit": {
+    "architecture_identity_corrected_fail_closed": true,
+    "audit_manifest_verified": true,
+    "checkpoint_schema_verified": true,
+    "clean_execution_tree_verified": true,
+    "manifest_entries_verified": 4,
+    "metrics_reconstructed_from_ledgers": true,
+    "source_artifact_modified": false,
+    "source_hashes_verified": true
+  },
+  "scientific_status": "G9_CONTEXTUAL_SEED0_FAILURE_RESULT_RECORDED",
+  "seed": 0,
+  "seed_outcome": "G9_CONTEXTUAL_SEED_CHECKPOINT_ADMISSION_FAILED",
+  "training": {
+    "episodes": 262144,
+    "final_loss": 0.6930734515190125,
+    "rows": 512,
+    "unique_batch_hashes": 512,
+    "unique_query_hashes": 512
+  },
+  "v0_admission_consequence": {
+    "all_seed_admission_still_possible": false,
+    "reason": "frozen_protocol_requires_all_three_ordered_seeds_to_pass",
+    "scientific_test_generation_allowed": false,
+    "seed1_and_seed2_may_run_for_replication_only": true
+  },
+  "validation": {
+    "bit_accuracy": 0.50048828125,
+    "exact_accuracy": 0.003326416015625,
+    "full_correct": 109,
+    "oracle_accuracy": 1.0,
+    "oracle_correct": 32768,
+    "query_only_accuracy": 0.003570556640625,
+    "query_only_correct": 117,
+    "rows": 32768,
+    "shuffled_accuracy": 0.00341796875,
+    "shuffled_correct": 112,
+    "unique_operator_ordinals": 32768,
+    "unique_shuffled_operator_ordinals": 32768
+  }
+}
