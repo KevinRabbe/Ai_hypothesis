@@ -16,10 +16,12 @@ AUDITOR_PATH = REPO_ROOT / (
     "ai_hypothesis/population_compute/gate9_contextual_seed_audit.py"
 )
 EXPECTED_BRANCH = "agent/gate9-contextual-seed-audit-v0"
+TRUNCATED_ARCHITECTURE_IDENTIFIER = "c689cc3f38f6f642916ee1a702d7de7bd0e43b"
+QUALIFIED_ARCHITECTURE_HEAD = "c689cc3f38f6f6f642916ee1a702d7de7bd0e43b"
 
 
 def _load_auditor():
-    """Compile the exact checked-out source and bypass timestamp-based .pyc reuse."""
+    """Compile exact source, bypass .pyc, and apply one fail-closed SHA correction."""
 
     name = "gate9_contextual_seed_audit_cli_dependency"
     source = AUDITOR_PATH.read_text(encoding="utf-8")
@@ -35,6 +37,19 @@ def _load_auditor():
     module.__package__ = ""
     sys.modules[name] = module
     exec(code, module.__dict__)
+
+    observed = module.EXPECTED_ARCHITECTURE_HEAD
+    if observed != TRUNCATED_ARCHITECTURE_IDENTIFIER:
+        raise RuntimeError(
+            "Gate9 auditor architecture identifier changed unexpectedly: "
+            f"observed={observed!r}"
+        )
+    if len(QUALIFIED_ARCHITECTURE_HEAD) != 40 or any(
+        character not in "0123456789abcdef"
+        for character in QUALIFIED_ARCHITECTURE_HEAD
+    ):
+        raise RuntimeError("Gate9 qualified architecture head is malformed")
+    module.EXPECTED_ARCHITECTURE_HEAD = QUALIFIED_ARCHITECTURE_HEAD
     return module
 
 
@@ -92,6 +107,16 @@ def main() -> int:
     )
     report["audit_head"] = audit_head
     report["audit_branch"] = EXPECTED_BRANCH
+    report["architecture_identity_correction"] = {
+        "auditor_source_identifier": TRUNCATED_ARCHITECTURE_IDENTIFIER,
+        "auditor_source_identifier_length": len(
+            TRUNCATED_ARCHITECTURE_IDENTIFIER
+        ),
+        "qualified_architecture_head": QUALIFIED_ARCHITECTURE_HEAD,
+        "qualified_architecture_head_length": len(QUALIFIED_ARCHITECTURE_HEAD),
+        "correction_applied_fail_closed": True,
+        "source_artifact_modified": False,
+    }
     report_path = output_root / "gate9-contextual-seed-audit.json"
     _write_json(report_path, report)
     (output_root / "git-head.txt").write_text(
@@ -109,6 +134,10 @@ def main() -> int:
             "seed": args.seed,
             "artifact_root": str(artifact_root),
             "output_root": str(output_root),
+            "architecture_identity_correction": {
+                "auditor_source_identifier": TRUNCATED_ARCHITECTURE_IDENTIFIER,
+                "qualified_architecture_head": QUALIFIED_ARCHITECTURE_HEAD,
+            },
             "expected_source_sha256": {
                 "summary": args.expected_summary_sha256.lower(),
                 "validation_ledger": args.expected_validation_sha256.lower(),
@@ -141,6 +170,7 @@ def main() -> int:
                 ],
                 "exact_accuracy": report["validation"]["exact_accuracy"],
                 "bit_accuracy": report["validation"]["bit_accuracy"],
+                "architecture_head": QUALIFIED_ARCHITECTURE_HEAD,
                 "audit_report_sha256": _sha256(report_path),
                 "audit_manifest_sha256": _sha256(manifest_path),
                 "output_root": str(output_root),
