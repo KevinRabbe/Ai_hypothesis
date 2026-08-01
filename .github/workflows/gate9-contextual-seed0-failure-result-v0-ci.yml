@@ -1,0 +1,189 @@
+name: Gate9 contextual seed0 failure result qualification
+
+on:
+  pull_request:
+    branches:
+      - agent/gate9-contextual-seed-audit-v0
+    paths:
+      - .github/workflows/gate9-contextual-seed0-failure-result-v0-ci.yml
+      - experiments/population_compute_scaling_v0/gate9_contextual_seed0_failure_audit_manifest_v0.sha256
+      - experiments/population_compute_scaling_v0/gate9_contextual_seed0_failure_result_v0.json
+      - experiments/population_compute_scaling_v0/gate9_contextual_seed0_failure_result_v0.md
+
+permissions:
+  contents: read
+
+jobs:
+  result-only:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Verify immutable seed0 failure result
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          root = Path("experiments/population_compute_scaling_v0")
+          result_path = root / "gate9_contextual_seed0_failure_result_v0.json"
+          manifest_path = root / "gate9_contextual_seed0_failure_audit_manifest_v0.sha256"
+          result_bytes = result_path.read_bytes()
+          result = json.loads(result_bytes)
+
+          assert hashlib.sha256(result_bytes).hexdigest() == "7a0610653b5f4ac71f6c36fb35abbef2dd60089707b659dfc54c48907c689098"
+          assert result["experiment_version"] == "gate9-contextual-seed0-failure-result-v0"
+          assert result["scientific_status"] == (
+              "G9_CONTEXTUAL_SEED0_FAILURE_RESULT_RECORDED"
+          )
+          assert result["seed"] == 0
+          assert result["seed_outcome"] == (
+              "G9_CONTEXTUAL_SEED_CHECKPOINT_ADMISSION_FAILED"
+          )
+
+          identity = result["audit_identity"]
+          assert identity == {
+              "audit_branch": "agent/gate9-contextual-seed-audit-v0",
+              "audit_head": "af8dc84cd2884e547b1c40599400bfaf8610ee64",
+              "audit_version": "gate9-contextual-training-seed-audit-v0",
+              "execution_head": "bdc1af9bc65b94b01ae3946977686bd90158786f",
+              "qualified_architecture_head": (
+                  "c689cc3f38f6f642916ee1a702d7de7bd0e43b"
+              ),
+              "training_protocol_head": (
+                  "1228c19cbf85da4ab738c3355c58f946cd6a965c"
+              ),
+          }
+
+          correction = result["architecture_identity_correction"]
+          assert correction == {
+              "auditor_source_identifier": (
+                  "c689cc3f38f6f642916ee1a702d7de7bd0e43b"
+              ),
+              "auditor_source_identifier_length": 38,
+              "correction_applied_fail_closed": True,
+              "qualified_architecture_head": (
+                  "c689cc3f38f6f642916ee1a702d7de7bd0e43b"
+              ),
+              "qualified_architecture_head_length": 40,
+              "source_artifact_modified": False,
+          }
+
+          assert result["training"] == {
+              "episodes": 262144,
+              "final_loss": 0.6930734515190125,
+              "rows": 512,
+              "unique_batch_hashes": 512,
+              "unique_query_hashes": 512,
+          }
+          validation = result["validation"]
+          assert validation == {
+              "bit_accuracy": 0.50048828125,
+              "exact_accuracy": 0.003326416015625,
+              "full_correct": 109,
+              "oracle_accuracy": 1.0,
+              "oracle_correct": 32768,
+              "query_only_accuracy": 0.003570556640625,
+              "query_only_correct": 117,
+              "rows": 32768,
+              "shuffled_accuracy": 0.00341796875,
+              "shuffled_correct": 112,
+              "unique_operator_ordinals": 32768,
+              "unique_shuffled_operator_ordinals": 32768,
+          }
+          assert validation["full_correct"] < validation["shuffled_correct"]
+          assert validation["full_correct"] < validation["query_only_correct"]
+
+          assert result["checkpoint"] == {
+              "all_finite_float32": True,
+              "learned_parameter_count": 19649,
+              "sha256": (
+                  "236f04d4c08e494ee51645750842e68bf18e66004fbf461e51a8d827e7eb1368"
+              ),
+              "tensor_count": 17,
+          }
+          assert result["v0_admission_consequence"] == {
+              "all_seed_admission_still_possible": False,
+              "reason": "frozen_protocol_requires_all_three_ordered_seeds_to_pass",
+              "scientific_test_generation_allowed": False,
+              "seed1_and_seed2_may_run_for_replication_only": True,
+          }
+          assert result["independent_audit"] and all(
+              value is True or value == 4
+              for value in result["independent_audit"].values()
+          )
+          boundaries = result["closed_boundaries"]
+          assert boundaries["final_result_record_only"] is True
+          assert boundaries["scientific_test_generation_allowed"] is False
+          for key, value in boundaries.items():
+              if key not in (
+                  "final_result_record_only",
+                  "scientific_test_generation_allowed",
+              ):
+                  assert value is False, (key, value)
+
+          expected_hashes = {
+              "gate9-contextual-seed-audit.json": (
+                  "6f2fbd0289a70dab15d4901ca7733ae49194614ebb9060227b321ed4f387946a"
+              ),
+              "git-head.txt": (
+                  "ed98e732b67dc075eba3651092024cbc7f6b81e4cbf4493d97b0d18907593f3f"
+              ),
+              "git-status.txt": (
+                  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              ),
+              "manifest.sha256": (
+                  "f45b0f9b91da0b67e3a0103ae367138eb91faa7307e9e7cad46cda5d9118d766"
+              ),
+              "run-config.json": (
+                  "374641fc0ae76510f956b8dbe79546e8e1ed5fc3db38f6bcbaaf934c34bfd2fa"
+              ),
+          }
+          assert result["audit_artifact_sha256"] == expected_hashes
+
+          manifest = manifest_path.read_bytes()
+          assert hashlib.sha256(manifest).hexdigest() == (
+              "f45b0f9b91da0b67e3a0103ae367138eb91faa7307e9e7cad46cda5d9118d766"
+          )
+          assert b"\r" not in manifest
+          assert manifest.count(b"\n") == 4
+          assert set(manifest.splitlines()) == {
+              b"6f2fbd0289a70dab15d4901ca7733ae49194614ebb9060227b321ed4f387946a  gate9-contextual-seed-audit.json",
+              b"ed98e732b67dc075eba3651092024cbc7f6b81e4cbf4493d97b0d18907593f3f  git-head.txt",
+              b"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  git-status.txt",
+              b"374641fc0ae76510f956b8dbe79546e8e1ed5fc3db38f6bcbaaf934c34bfd2fa  run-config.json",
+          }
+          PY
+
+      - name: Prove exact result-only slice
+        run: |
+          git fetch origin "${{ github.base_ref }}"
+          mapfile -t changed < <(
+            git diff --name-only "origin/${{ github.base_ref }}...HEAD" | sort
+          )
+          expected=(
+            ".github/workflows/gate9-contextual-seed0-failure-result-v0-ci.yml"
+            "experiments/population_compute_scaling_v0/gate9_contextual_seed0_failure_audit_manifest_v0.sha256"
+            "experiments/population_compute_scaling_v0/gate9_contextual_seed0_failure_result_v0.json"
+            "experiments/population_compute_scaling_v0/gate9_contextual_seed0_failure_result_v0.md"
+          )
+          test "${#changed[@]}" -eq "${#expected[@]}"
+          for index in "${!expected[@]}"; do
+            test "${changed[$index]}" = "${expected[$index]}"
+          done
+
+      - name: Keep raw and executable boundaries closed
+        run: |
+          ! git diff --name-only "origin/${{ github.base_ref }}...HEAD" |
+            grep -E '\.(py|ps1|pt|bin|safetensors|sqlite3|jsonl)$'
+          test ! -e experiments/population_compute_scaling_v0/gate9-contextual-seed-audit.json
+          test ! -e experiments/population_compute_scaling_v0/selected-checkpoint.pt
+          test ! -e experiments/population_compute_scaling_v0/train-steps.jsonl
+          test ! -e experiments/population_compute_scaling_v0/validation-per-episode.jsonl
