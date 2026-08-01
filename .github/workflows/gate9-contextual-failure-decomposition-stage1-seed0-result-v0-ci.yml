@@ -4,11 +4,6 @@ on:
   pull_request:
     branches:
       - agent/gate9-contextual-failure-decomposition-stage1-execution-v0
-    paths:
-      - .github/workflows/gate9-contextual-failure-decomposition-stage1-seed0-result-v0-ci.yml
-      - experiments/population_compute_scaling_v0/gate9_contextual_failure_decomposition_stage1_seed0_result_v0.json
-      - experiments/population_compute_scaling_v0/gate9_contextual_failure_decomposition_stage1_seed0_result_v0.md
-      - experiments/population_compute_scaling_v0/gate9_contextual_failure_decomposition_stage1_seed0_source_manifest_v0.sha256
 
 permissions:
   contents: read
@@ -60,7 +55,6 @@ jobs:
           assert result["seed_index"] == 0
           assert result["seed_outcome"] == "G9D_STAGE1_SEED_FAILED"
           assert result["role"] == "first_ordered_seed_result_only"
-
           assert result["stack_identity"] == {
               "architecture_head": "c689cc3f38f6f6f642916ee1a702d7de7bd0e43b",
               "execution_head": "2e1b91d578e7bf9b4c54aa2ee1c120a9ec01b21c",
@@ -106,7 +100,18 @@ jobs:
                   "G9D_DIAGNOSTIC_INCONCLUSIVE",
               ],
           }
-          expected_audit = {
+          assert result["closed_boundaries"] == {
+              "checkpoint_selection_performed": False,
+              "diagnostic_classification_performed": False,
+              "gate9_v0_result_mutation_performed": False,
+              "later_diagnostic_stage_execution_performed": False,
+              "population_execution_performed": False,
+              "retraining_performed": False,
+              "scientific_execution_performed": False,
+              "scientific_test_generation_performed": False,
+              "training_performed_in_result_slice": False,
+          }
+          assert result["independent_audit"] == {
               "checkpoint_all_finite_float32": True,
               "checkpoint_loaded_weights_only": True,
               "checkpoint_parameter_count_verified": True,
@@ -122,32 +127,19 @@ jobs:
               "training_ledger_reconstructed": True,
               "uploaded_artifact_hashes_match_manifest": True,
           }
-          assert result["independent_audit"] == expected_audit
-          assert result["closed_boundaries"] == {
-              "checkpoint_selection_performed": False,
-              "diagnostic_classification_performed": False,
-              "gate9_v0_result_mutation_performed": False,
-              "later_diagnostic_stage_execution_performed": False,
-              "population_execution_performed": False,
-              "retraining_performed": False,
-              "scientific_execution_performed": False,
-              "scientific_test_generation_performed": False,
-              "training_performed_in_result_slice": False,
-          }
 
-          source_hashes = {
+          expected_hashes = {
               "git-head.txt": "39aeac89e593584f77d1365c779f2eb2e5317e07729124026158f64c89abd940",
               "git-status.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "manifest.sha256": "8074a4224c4a51f38f869944f57fd0c350a0f164b50627a2f9173352e170dc0e",
               "run-config.json": "1673b768313b748bd00339247acdab3db37326b7139a36f3a9cdce0ae5824000",
               "seed-0/evaluation-per-episode.jsonl": "98623f9c37f74137722f6d45ef37536064017a429246d45a3820aaee2c9785e1",
               "seed-0/selected-checkpoint.pt": "3c2c2bac4036ccd8bc45c5aca8c28fe3b2e470902489907e224ba602bafaa93f",
               "seed-0/summary.json": "a306fcb06bbd6965553dd8406ffd0aad41259bab45149d39a67c77cab7d143c8",
               "seed-0/train-steps.jsonl": "b74cf27618985dd690c2d50555cf478e6dd06fe5907cbd55e9de7fdf448fcc9c",
           }
-          assert result["source_artifact_sha256"] == {
-              "manifest.sha256": "8074a4224c4a51f38f869944f57fd0c350a0f164b50627a2f9173352e170dc0e",
-              **source_hashes,
-          }
+          assert result["source_artifact_sha256"] == expected_hashes
+
           expected_manifest = """39aeac89e593584f77d1365c779f2eb2e5317e07729124026158f64c89abd940  git-head.txt
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  git-status.txt
 1673b768313b748bd00339247acdab3db37326b7139a36f3a9cdce0ae5824000  run-config.json
@@ -177,7 +169,7 @@ b74cf27618985dd690c2d50555cf478e6dd06fe5907cbd55e9de7fdf448fcc9c  seed-0/train-s
             test "${changed[$index]}" = "${expected[$index]}"
           done
 
-      - name: Keep execution and later diagnostic stages closed
+      - name: Keep executable artifacts out of the result slice
         run: |
           ! git diff --name-only \
             2e1b91d578e7bf9b4c54aa2ee1c120a9ec01b21c...HEAD |
