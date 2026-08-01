@@ -1,0 +1,142 @@
+name: Gate9 contextual seed artifact audit qualification
+
+on:
+  pull_request:
+    branches:
+      - agent/gate9-contextual-training-execution-v0
+    paths:
+      - .github/workflows/gate9-contextual-seed-audit-v0-ci.yml
+      - ai_hypothesis/population_compute/gate9_contextual_seed_audit.py
+      - experiments/population_compute_scaling_v0/gate9_contextual_seed_audit_v0.md
+      - scripts/audit_gate9_contextual_training_seed.py
+      - tests/test_gate9_contextual_seed_audit.py
+
+permissions:
+  contents: read
+
+jobs:
+  independent-audit-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11.9"
+
+      - name: Install exact CPU Torch family
+        run: |
+          python -m pip install --disable-pip-version-check \
+            torch==2.9.1 \
+            --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Compile and run full synthetic audit regressions
+        run: |
+          python -m py_compile \
+            ai_hypothesis/population_compute/gate9_contextual_seed_audit.py \
+            scripts/audit_gate9_contextual_training_seed.py \
+            tests/test_gate9_contextual_seed_audit.py
+          python -m unittest tests/test_gate9_contextual_seed_audit.py -v
+
+      - name: Verify exact source bindings and numeric contract
+        run: |
+          python - <<'PY'
+          import ast
+          import importlib.util
+          import math
+          import pathlib
+          import sys
+          import torch
+
+          path = pathlib.Path(
+              "ai_hypothesis/population_compute/gate9_contextual_seed_audit.py"
+          )
+          source = path.read_text(encoding="utf-8")
+          tree = ast.parse(source, filename=str(path))
+          constants = {}
+          for node in tree.body:
+              if not isinstance(node, ast.Assign) or len(node.targets) != 1:
+                  continue
+              target = node.targets[0]
+              if isinstance(target, ast.Name):
+                  try:
+                      constants[target.id] = ast.literal_eval(node.value)
+                  except (ValueError, TypeError):
+                      pass
+
+          expected_constants = {
+              "AUDIT_VERSION": "gate9-contextual-training-seed-audit-v0",
+              "EXPECTED_EXECUTION_BRANCH": "agent/gate9-contextual-training-execution-v0",
+              "EXPECTED_EXECUTION_HEAD": "bdc1af9bc65b94b01ae3946977686bd90158786f",
+              "EXPECTED_TRAINING_PROTOCOL_HEAD": "1228c19cbf85da4ab738c3355c58f946cd6a965c",
+              "EXPECTED_ARCHITECTURE_HEAD": "c689cc3f38f6f6f642916ee1a702d7de7bd0e43b",
+          }
+          observed_constants = {
+              name: constants.get(name) for name in expected_constants
+          }
+          assert observed_constants == expected_constants, {
+              "observed": observed_constants,
+              "expected": expected_constants,
+          }
+          for name in (
+              "EXPECTED_EXECUTION_HEAD",
+              "EXPECTED_TRAINING_PROTOCOL_HEAD",
+              "EXPECTED_ARCHITECTURE_HEAD",
+          ):
+              assert len(observed_constants[name]) == 40, (name, observed_constants[name])
+
+          spec = importlib.util.spec_from_file_location("gate9_seed_audit_ci", path)
+          module = importlib.util.module_from_spec(spec)
+          sys.modules[spec.name] = module
+          spec.loader.exec_module(module)
+          assert str(torch.__version__).startswith("2.9.1")
+          assert int(module.TRAIN_STEPS) == 512
+          assert int(module.TRAIN_EPISODES) == 262_144
+          assert int(module.VALIDATION_EPISODES) == 32_768
+          assert int(module.LEARNED_PARAMETER_COUNT) == 19_649
+          assert len(module.STATE_TENSOR_SHAPES) == 17
+          assert sum(
+              1 if not shape else math.prod(shape)
+              for shape in module.STATE_TENSOR_SHAPES.values()
+          ) == 19_649
+          print("Gate9 seed-audit source bindings qualified")
+          PY
+
+      - name: Prove auditor independence and exact scope
+        run: |
+          python - <<'PY'
+          import pathlib
+          import subprocess
+
+          source = pathlib.Path(
+              "ai_hypothesis/population_compute/gate9_contextual_seed_audit.py"
+          ).read_text(encoding="utf-8")
+          for token in (
+              "gate9_contextual_training_runtime",
+              "gate9_contextual_training_data",
+              "gate9_contextual_worker_architecture",
+              "gate9_contextual_operator_contract",
+              "generate_gate9_test_world",
+              "operator_from_counter",
+              "torch." + "optim",
+              "torch.save(",
+          ):
+              assert token not in source, token
+          assert "weights_only=True" in source
+          assert "source_artifact_modified" in source
+
+          base = "bdc1af9bc65b94b01ae3946977686bd90158786f"
+          expected = {
+              ".github/workflows/gate9-contextual-seed-audit-v0-ci.yml",
+              "ai_hypothesis/population_compute/gate9_contextual_seed_audit.py",
+              "experiments/population_compute_scaling_v0/gate9_contextual_seed_audit_v0.md",
+              "scripts/audit_gate9_contextual_training_seed.py",
+              "tests/test_gate9_contextual_seed_audit.py",
+          }
+          changed = set(subprocess.check_output(
+              ["git", "diff", "--name-only", base, "HEAD"], text=True
+          ).splitlines())
+          assert changed == expected, (changed, expected)
+          PY
