@@ -50,6 +50,10 @@ class Gate9ContextualWorkerArchitectureTests(unittest.TestCase):
         self.assertEqual(plan["graph_world_contract_head"], a.GATE9_GRAPH_WORLD_CONTRACT_HEAD)
         self.assertEqual(plan["learned_parameter_count"], 19_649)
         self.assertEqual(plan["parameter_breakdown"], a.GATE9_PARAMETER_BREAKDOWN)
+        self.assertEqual(
+            plan["architecture"]["query_only_control"],
+            "zero_support_summary_no_support_rows",
+        )
         self.assertTrue(plan["shared_across_workers"])
         self.assertTrue(plan["shared_across_populations"])
         self.assertTrue(plan["shared_across_rounds"])
@@ -77,6 +81,9 @@ class Gate9ContextualWorkerArchitectureTests(unittest.TestCase):
         logits = model(support_inputs, support_outputs, query)
         self.assertEqual(tuple(logits.shape), (8, 8))
         self.assertTrue(torch.isfinite(logits).all())
+        query_only = model.forward_query_only(query)
+        self.assertEqual(tuple(query_only.shape), (8, 8))
+        self.assertTrue(torch.isfinite(query_only).all())
         decoded = model.decode_bytes(logits)
         self.assertEqual(tuple(decoded.shape), (8,))
         self.assertEqual(decoded.dtype, torch.long)
@@ -141,6 +148,10 @@ class Gate9ContextualWorkerArchitectureTests(unittest.TestCase):
             model(inputs, outputs, query.unsqueeze(1))
         with self.assertRaisesRegex(ValueError, r"shape \[batch,8\]"):
             model.decode_bytes(torch.zeros(1, 7))
+        with self.assertRaisesRegex(ValueError, "torch.long"):
+            model.forward_query_only(query.float())
+        with self.assertRaisesRegex(ValueError, "nonempty byte vector"):
+            model.forward_query_only(query.unsqueeze(1))
 
     def test_support_context_and_query_both_affect_logits(self):
         torch.manual_seed(9011)
@@ -155,6 +166,8 @@ class Gate9ContextualWorkerArchitectureTests(unittest.TestCase):
         )
         logits2 = model(inputs2, outputs2, query2)
         self.assertFalse(torch.equal(logits2[0], logits2[1]))
+        query_only = model.forward_query_only(query2)
+        self.assertFalse(torch.equal(logits2, query_only))
 
     def test_architecture_has_no_optimizer_training_checkpoint_or_science_surface(self):
         text = ARCHITECTURE_PATH.read_text(encoding="utf-8")
