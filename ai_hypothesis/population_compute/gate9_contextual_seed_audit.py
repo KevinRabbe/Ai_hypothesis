@@ -91,6 +91,38 @@ def read_json(path: pathlib.Path) -> Any:
         raise AuditError(f"invalid JSON artifact: {path}") from error
 
 
+def validate_exact_mapping(
+    actual: Any,
+    expected: dict[str, Any],
+    label: str,
+) -> None:
+    """Validate one JSON object field-by-field with exact Python types."""
+
+    _require(isinstance(actual, dict), f"{label} is not an object")
+    actual_keys = set(actual)
+    expected_keys = set(expected)
+    missing = sorted(expected_keys - actual_keys)
+    extra = sorted(actual_keys - expected_keys)
+    _require(
+        not missing and not extra,
+        f"{label} field set drifted: missing={missing!r}, extra={extra!r}",
+    )
+    for field in sorted(expected):
+        observed = actual[field]
+        required = expected[field]
+        _require(
+            type(observed) is type(required),
+            f"{label} field type drifted: {field}: "
+            f"observed={type(observed).__name__}, "
+            f"expected={type(required).__name__}",
+        )
+        _require(
+            observed == required,
+            f"{label} field value drifted: {field}: "
+            f"observed={observed!r}, expected={required!r}",
+        )
+
+
 def iter_jsonl(path: pathlib.Path) -> Iterator[dict[str, Any]]:
     try:
         with path.open("r", encoding="utf-8", newline="") as handle:
@@ -426,7 +458,7 @@ def audit_seed_artifact(
         "graph_test_operator_access": False,
         "scientific_assignment_key_access": False,
     }
-    _require(config == expected_config, "run-config fields or values drifted")
+    validate_exact_mapping(config, expected_config, "run-config")
 
     summary_hash = sha256_file(paths["summary"])
     validation_hash = sha256_file(paths["validation"])
