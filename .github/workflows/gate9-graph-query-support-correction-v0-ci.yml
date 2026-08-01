@@ -1,0 +1,113 @@
+name: Gate9 graph-query support correction qualification
+
+on:
+  pull_request:
+    branches:
+      - agent/gate9-contextual-operator-contract-v0
+    paths:
+      - .github/workflows/gate9-graph-query-support-correction-v0-ci.yml
+      - ai_hypothesis/population_compute/gate9_graph_query_support_correction.py
+      - experiments/population_compute_scaling_v0/gate9_graph_query_support_correction_v0.md
+      - tests/test_gate9_graph_query_support_correction.py
+
+permissions:
+  contents: read
+
+jobs:
+  correction-only:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Compile correction and regressions
+        run: |
+          python -m py_compile \
+            ai_hypothesis/population_compute/gate9_graph_query_support_correction.py \
+            tests/test_gate9_graph_query_support_correction.py
+
+      - name: Run data-blind correction regressions
+        run: python -m unittest tests/test_gate9_graph_query_support_correction.py -v
+
+      - name: Verify corrected closed plan
+        run: |
+          python - <<'PY'
+          import importlib.util
+          import pathlib
+          import sys
+
+          path = pathlib.Path(
+              "ai_hypothesis/population_compute/"
+              "gate9_graph_query_support_correction.py"
+          )
+          spec = importlib.util.spec_from_file_location("gate9_query_correction_ci", path)
+          module = importlib.util.module_from_spec(spec)
+          sys.modules[spec.name] = module
+          spec.loader.exec_module(module)
+          plan = module.corrected_gate9_query_policy_plan()
+          assert plan["original_protocol_head"] == "e5e20e8de6707d35f1a7a9315a5a9a67deacc9a1"
+          assert plan["operator_contract_head"] == "be6451e1af82b18749bd0313a9c02ca62c4eee5c"
+          assert plan["local_query_excludes_support_inputs"] is True
+          assert plan["graph_query_excludes_support_inputs"] is False
+          assert plan["graph_support_hit_report_required"] is True
+          assert plan["graph_operator_rejection_on_support_hit"] is False
+          assert plan["graph_operator_counter_skipping_allowed"] is False
+          assert plan["graph_world_rejection_on_support_hit"] is False
+          assert plan["graph_operator_distribution_conditioned_on_support_hits"] is False
+          assert plan["thresholds_changed"] is False
+          assert plan["condition_matrix_changed"] is False
+          assert plan["operator_ranges_changed"] is False
+          for key in (
+              "operator_generation_admitted",
+              "graph_world_generation_admitted",
+              "architecture_admitted",
+              "training_admitted",
+              "checkpoint_loading_admitted",
+              "scientific_test_admitted",
+              "result_classification_admitted",
+          ):
+              assert plan[key] is False
+          print(plan)
+          PY
+
+      - name: Prove exact four-file correction slice
+        run: |
+          python - <<'PY'
+          import subprocess
+          base = "be6451e1af82b18749bd0313a9c02ca62c4eee5c"
+          expected = {
+              ".github/workflows/gate9-graph-query-support-correction-v0-ci.yml",
+              "ai_hypothesis/population_compute/gate9_graph_query_support_correction.py",
+              "experiments/population_compute_scaling_v0/gate9_graph_query_support_correction_v0.md",
+              "tests/test_gate9_graph_query_support_correction.py",
+          }
+          changed = set(subprocess.check_output(
+              ["git", "diff", "--name-only", base, "HEAD"], text=True
+          ).splitlines())
+          assert changed == expected, (changed, expected)
+          PY
+
+      - name: Keep every execution boundary closed
+        run: |
+          python - <<'PY'
+          import pathlib
+          source = pathlib.Path(
+              "ai_hypothesis/population_compute/"
+              "gate9_graph_query_support_correction.py"
+          ).read_text(encoding="utf-8")
+          for token in (
+              "import torch",
+              "import numpy",
+              "generate_gate9_world(",
+              "operator_from_counter(",
+              "open(",
+              "read_text(",
+              "json.load",
+          ):
+              assert token not in source, token
+          PY
