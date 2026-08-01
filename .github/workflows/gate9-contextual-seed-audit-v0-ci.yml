@@ -1,0 +1,110 @@
+name: Gate9 contextual seed artifact audit qualification
+
+on:
+  pull_request:
+    branches:
+      - agent/gate9-contextual-training-execution-v0
+    paths:
+      - .github/workflows/gate9-contextual-seed-audit-v0-ci.yml
+      - ai_hypothesis/population_compute/gate9_contextual_seed_audit.py
+      - experiments/population_compute_scaling_v0/gate9_contextual_seed_audit_v0.md
+      - scripts/audit_gate9_contextual_training_seed.py
+      - tests/test_gate9_contextual_seed_audit.py
+
+permissions:
+  contents: read
+
+jobs:
+  independent-audit-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11.9"
+
+      - name: Install exact CPU Torch family
+        run: |
+          python -m pip install --disable-pip-version-check \
+            torch==2.9.1 \
+            --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Compile and run complete synthetic audit regressions
+        run: |
+          python -m py_compile \
+            ai_hypothesis/population_compute/gate9_contextual_seed_audit.py \
+            scripts/audit_gate9_contextual_training_seed.py \
+            tests/test_gate9_contextual_seed_audit.py
+          python -m unittest tests/test_gate9_contextual_seed_audit.py -v
+
+      - name: Verify exact auditor blob and numeric contract
+        run: |
+          observed_blob="$(git hash-object ai_hypothesis/population_compute/gate9_contextual_seed_audit.py)"
+          expected_blob="f1214e1209440c6381561fd92c10d89a0c5e74f8"
+          test "$observed_blob" = "$expected_blob"
+          python - <<'PY'
+          import importlib.util
+          import math
+          import pathlib
+          import sys
+          import torch
+
+          path = pathlib.Path(
+              "ai_hypothesis/population_compute/gate9_contextual_seed_audit.py"
+          )
+          spec = importlib.util.spec_from_file_location("gate9_seed_audit_ci", path)
+          module = importlib.util.module_from_spec(spec)
+          sys.modules[spec.name] = module
+          spec.loader.exec_module(module)
+          assert str(torch.__version__).startswith("2.9.1")
+          assert module.TRAIN_STEPS == 512
+          assert module.TRAIN_EPISODES == 262_144
+          assert module.VALIDATION_EPISODES == 32_768
+          assert module.LEARNED_PARAMETER_COUNT == 19_649
+          assert len(module.STATE_TENSOR_SHAPES) == 17
+          assert sum(
+              1 if not shape else math.prod(shape)
+              for shape in module.STATE_TENSOR_SHAPES.values()
+          ) == 19_649
+          print("Gate9 auditor blob and numeric contract qualified")
+          PY
+
+      - name: Prove auditor independence and exact scope
+        run: |
+          python - <<'PY'
+          import pathlib
+          import subprocess
+
+          source = pathlib.Path(
+              "ai_hypothesis/population_compute/gate9_contextual_seed_audit.py"
+          ).read_text(encoding="utf-8")
+          for token in (
+              "gate9_contextual_training_runtime",
+              "gate9_contextual_training_data",
+              "gate9_contextual_worker_architecture",
+              "gate9_contextual_operator_contract",
+              "generate_gate9_test_world",
+              "operator_from_counter",
+              "torch." + "optim",
+              "torch.save(",
+          ):
+              assert token not in source, token
+          assert "weights_only=True" in source
+          assert "source_artifact_modified" in source
+
+          base = "bdc1af9bc65b94b01ae3946977686bd90158786f"
+          expected = {
+              ".github/workflows/gate9-contextual-seed-audit-v0-ci.yml",
+              "ai_hypothesis/population_compute/gate9_contextual_seed_audit.py",
+              "experiments/population_compute_scaling_v0/gate9_contextual_seed_audit_v0.md",
+              "scripts/audit_gate9_contextual_training_seed.py",
+              "tests/test_gate9_contextual_seed_audit.py",
+          }
+          changed = set(subprocess.check_output(
+              ["git", "diff", "--name-only", base, "HEAD"], text=True
+          ).splitlines())
+          assert changed == expected, (changed, expected)
+          PY
