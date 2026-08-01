@@ -12,7 +12,7 @@ Qualified graph-world base:
 b6688aa8bf305f099ec320ea60dd5ccdffce4d51
 ```
 
-The architecture consumes only the information available to one Gate-9 worker:
+The full worker consumes only the information available to one Gate-9 worker:
 exactly nine public support pairs in the qualified global order and one incoming
 eight-bit query. It has no topology, population, depth, operator identity or
 persistent per-operator memory.
@@ -20,7 +20,7 @@ persistent per-operator memory.
 ## Model-visible input
 
 Every byte is converted deterministically to its eight least-significant-first
-binary features. The model receives:
+binary features. Full mode receives:
 
 ```text
 support inputs   [batch, 9] bytes
@@ -71,6 +71,17 @@ order. It cannot encode operator identity. It permits the shared network to
 distinguish the zero row and eight basis-vector rows without adding a hidden
 operator descriptor.
 
+## Faithful query-only control
+
+The architecture exposes a separate `forward_query_only(query)` path. It does
+not fabricate nine zero-valued pairs and does not call the support encoder.
+Instead it supplies an exact zero support-summary vector to the shared
+query/support fusion and output head.
+
+This preserves the protocol meaning of removing every support pair while using
+the same learned query projection, fusion, bit head and output scale. It adds no
+input field and no learned parameter.
+
 ## Exact parameter budget
 
 ```text
@@ -99,11 +110,12 @@ Synthetic contract checks establish:
 - exact total and component parameter arithmetic;
 - exactly 17 parameter tensors;
 - strict support/query serialization and byte validation;
-- finite `[batch,8]` bit logits and valid decoded bytes;
+- finite `[batch,8]` full and query-only logits and valid decoded bytes;
 - every parameter tensor receives a finite, nonzero gradient in one synthetic
-  binary-cross-entropy backward pass;
+  binary-cross-entropy backward pass through full mode;
 - changing support context changes logits at a fixed query;
 - changing query changes logits at a fixed support context;
+- full and support-absent paths are distinct;
 - no optimizer, checkpoint, graph-world generator, operator counter, training
   loop or scientific execution surface exists.
 
@@ -126,6 +138,7 @@ This slice contains only:
 
 - the exact PyTorch module;
 - model-input serializer;
+- faithful query-only control path;
 - deterministic bit decoder;
 - architecture plan and parameter audit;
 - synthetic forward/backward regressions;
