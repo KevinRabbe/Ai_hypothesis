@@ -39,7 +39,7 @@ try {
 
     Write-Host ""
     Write-Host "============================================================"
-    Write-Host " Gate-9 CONTEXTUAL WORKER TRAINING — SEED $Seed"
+    Write-Host " Gate-9 CONTEXTUAL WORKER TRAINING - SEED $Seed"
     Write-Host "============================================================"
     Write-Host "Git head:          $head"
     Write-Host "Output:            $resolvedOutput"
