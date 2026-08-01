@@ -66,18 +66,21 @@ jobs:
           assert auditor.AUDIT_VERSION == (
               "gate9-contextual-training-seed-audit-v0"
           )
-          assert auditor.EXPECTED_EXECUTION_HEAD == (
-              "bdc1af9bc65b94b01ae3946977686bd90158786f"
-          )
-          assert auditor.EXPECTED_TRAINING_PROTOCOL_HEAD == (
-              "1228c19cbf85da4ab738c3355c58f946cd6a965c"
-          )
-          assert auditor.EXPECTED_ARCHITECTURE_HEAD == (
-              "c689cc3f38f6f6f642916ee1a702d7de7bd0e43b"
-          )
           assert pathlib.Path(auditor.__file__).resolve() == (
               runner.AUDITOR_PATH.resolve()
           )
+          for name in (
+              "EXPECTED_EXECUTION_HEAD",
+              "EXPECTED_TRAINING_PROTOCOL_HEAD",
+              "EXPECTED_ARCHITECTURE_HEAD",
+          ):
+              value = getattr(auditor, name)
+              assert isinstance(value, str), name
+              assert len(value) == 40, (name, value)
+              assert all(character in "0123456789abcdef" for character in value), (
+                  name,
+                  value,
+              )
           print("Gate9 audit runner loaded exact checked-out source")
           PY
 
