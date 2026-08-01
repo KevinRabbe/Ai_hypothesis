@@ -1,0 +1,145 @@
+name: Gate9 contextual operator contract qualification
+
+on:
+  pull_request:
+    branches:
+      - agent/gate9-contextual-operator-induction-protocol-v0
+    paths:
+      - .github/workflows/gate9-contextual-operator-contract-v0-ci.yml
+      - ai_hypothesis/population_compute/gate9_contextual_operator_contract.py
+      - experiments/population_compute_scaling_v0/gate9_contextual_operator_contract_v0.md
+      - tests/test_gate9_contextual_operator_contract.py
+
+permissions:
+  contents: read
+
+jobs:
+  operator-contract-only:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Compile contract and regressions
+        run: |
+          python -m py_compile \
+            ai_hypothesis/population_compute/gate9_contextual_operator_contract.py \
+            tests/test_gate9_contextual_operator_contract.py
+
+      - name: Run deterministic operator contract regressions
+        run: |
+          python -m unittest tests/test_gate9_contextual_operator_contract.py -v
+
+      - name: Verify exact split audit and closed plan
+        run: |
+          python - <<'PY'
+          import importlib.util
+          import pathlib
+          import sys
+
+          path = pathlib.Path(
+              "ai_hypothesis/population_compute/"
+              "gate9_contextual_operator_contract.py"
+          )
+          spec = importlib.util.spec_from_file_location("gate9_operator_ci", path)
+          module = importlib.util.module_from_spec(spec)
+          sys.modules[spec.name] = module
+          spec.loader.exec_module(module)
+          audit = module.gate9_operator_split_audit()
+
+          assert audit["protocol_head"] == (
+              "e5e20e8de6707d35f1a7a9315a5a9a67deacc9a1"
+          )
+          assert audit["operator_family_size"] == 1 << 64
+          assert audit["counter_mapping"] == "splitmix64_bijection_v0"
+          assert audit["counter_mapping_bijective"] is True
+          assert audit["operator_mapping_injective"] is True
+          assert [row["start"] for row in audit["ranges"]] == [
+              0,
+              1 << 32,
+              1 << 40,
+              1 << 48,
+          ]
+          assert [row["count"] for row in audit["ranges"]] == [
+              262_144,
+              32_768,
+              4_096,
+              2_629_632,
+          ]
+          assert all(value == 0 for value in audit["intersections"].values())
+          assert audit["support_inputs"] == [0, 1, 2, 4, 8, 16, 32, 64, 128]
+          assert len(audit["support_order"]) == 9
+          assert audit["support_order_operator_independent"] is True
+          assert audit["operator_key_visible_to_model"] is False
+          assert audit["operator_generation_admitted"] is True
+          assert audit["public_support_generation_admitted"] is True
+          assert audit["public_support_oracle_admitted"] is True
+          for key in (
+              "graph_world_generation_admitted",
+              "architecture_admitted",
+              "training_admitted",
+              "checkpoint_loading_admitted",
+              "scientific_test_admitted",
+              "result_classification_admitted",
+          ):
+              assert audit[key] is False, key
+          print(audit)
+          PY
+
+      - name: Keep graph model training and evidence boundaries closed
+        run: |
+          python - <<'PY'
+          import pathlib
+
+          source = pathlib.Path(
+              "ai_hypothesis/population_compute/"
+              "gate9_contextual_operator_contract.py"
+          ).read_text(encoding="utf-8")
+          workflow = pathlib.Path(
+              ".github/workflows/gate9-contextual-operator-contract-v0-ci.yml"
+          ).read_text(encoding="utf-8")
+          for token in (
+              "import torch",
+              "import numpy",
+              "generate_gate9_world(",
+              "torch.load(",
+              "torch.optim",
+              ".backward(",
+              "from_pretrained(",
+              "json.load",
+          ):
+              assert token not in source, token
+          combined = source + workflow
+          for token in (
+              "gate9_contextual_operator_" + "worlds.py",
+              "gate9_contextual_operator_" + "architecture.py",
+              "run_gate9_" + "contextual_operator",
+              "gate9_contextual_operator_" + "result",
+          ):
+              assert token not in combined, token
+          PY
+
+      - name: Prove exact four-file operator-contract slice
+        run: |
+          python - <<'PY'
+          import subprocess
+
+          base = "e5e20e8de6707d35f1a7a9315a5a9a67deacc9a1"
+          expected = {
+              ".github/workflows/gate9-contextual-operator-contract-v0-ci.yml",
+              "ai_hypothesis/population_compute/gate9_contextual_operator_contract.py",
+              "experiments/population_compute_scaling_v0/gate9_contextual_operator_contract_v0.md",
+              "tests/test_gate9_contextual_operator_contract.py",
+          }
+          changed = set(
+              subprocess.check_output(
+                  ["git", "diff", "--name-only", base, "HEAD"], text=True
+              ).splitlines()
+          )
+          assert changed == expected, (changed, expected)
+          PY
