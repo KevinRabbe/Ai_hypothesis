@@ -1,0 +1,185 @@
+name: Gate9 failure-decomposition stage1 execution qualification
+
+on:
+  pull_request:
+    branches:
+      - agent/gate9-contextual-failure-decomposition-protocol-v0
+    paths:
+      - .github/workflows/gate9-contextual-failure-decomposition-stage1-execution-v0-ci.yml
+      - ai_hypothesis/population_compute/gate9_contextual_failure_decomposition_stage1_runtime.py
+      - experiments/population_compute_scaling_v0/gate9_contextual_failure_decomposition_stage1_execution_v0.md
+      - scripts/run_gate9_contextual_failure_decomposition_stage1.py
+      - scripts/run_gate9_contextual_failure_decomposition_stage1.ps1
+      - tests/test_gate9_contextual_failure_decomposition_stage1_execution.py
+
+permissions:
+  contents: read
+
+jobs:
+  execution-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11.9"
+
+      - name: Install exact CPU contract runtime
+        run: |
+          python -m pip install --disable-pip-version-check numpy==2.3.5
+          python -m pip install --disable-pip-version-check \
+            torch==2.9.1 \
+            --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Compile and run stage1 contract regressions
+        run: |
+          python -m py_compile \
+            ai_hypothesis/population_compute/gate9_contextual_failure_decomposition_stage1_runtime.py \
+            scripts/run_gate9_contextual_failure_decomposition_stage1.py \
+            tests/test_gate9_contextual_failure_decomposition_stage1_execution.py
+          python -m unittest \
+            tests/test_gate9_contextual_failure_decomposition_stage1_execution.py -v
+
+      - name: Verify exact execution bindings without full training
+        run: |
+          git merge-base --is-ancestor \
+            8deca15aef78d8636b07570aff044f9b7ae31928 HEAD
+          git fetch origin \
+            agent/gate9-contextual-worker-architecture-v0
+          architecture_head="$(
+            git rev-parse \
+              origin/agent/gate9-contextual-worker-architecture-v0
+          )"
+          test "${#architecture_head}" -eq 40
+          case "$architecture_head" in
+            *[!0-9a-f]*) exit 1 ;;
+          esac
+          export GATE9D_EXPECTED_ARCHITECTURE_HEAD="$architecture_head"
+
+          python - <<'PY'
+          import importlib.util
+          import os
+          import pathlib
+          import sys
+          import torch
+          import numpy
+
+          assert str(torch.__version__).startswith("2.9.1")
+          assert numpy.__version__ == "2.3.5"
+          path = pathlib.Path(
+              "ai_hypothesis/population_compute/"
+              "gate9_contextual_failure_decomposition_stage1_runtime.py"
+          )
+          spec = importlib.util.spec_from_file_location("gate9d_stage1_ci", path)
+          module = importlib.util.module_from_spec(spec)
+          sys.modules[spec.name] = module
+          spec.loader.exec_module(module)
+
+          assert module.GATE9D_STAGE1_EXECUTION_VERSION == (
+              "gate9-contextual-failure-decomposition-stage1-execution-v0"
+          )
+          assert module.GATE9D_STAGE1_EXECUTION_BRANCH == (
+              "agent/gate9-contextual-failure-decomposition-"
+              "stage1-execution-v0"
+          )
+          assert module.GATE9D_PROTOCOL_HEAD == (
+              "8deca15aef78d8636b07570aff044f9b7ae31928"
+          )
+          assert module.protocol.GATE9D_ARCHITECTURE_HEAD == os.environ[
+              "GATE9D_EXPECTED_ARCHITECTURE_HEAD"
+          ]
+          assert module.GATE9D_STAGE_NAME == "single_operator_query_fit"
+          assert module.GATE9D_STAGE_INDEX == 0
+          assert module.GATE9D_TRAIN_STEPS == 1024
+          assert module.GATE9D_BATCH_SIZE == 247
+          assert module.GATE9D_TRAIN_EXAMPLES == 247
+          assert module.GATE9D_STAGE.order == 1
+          assert not module.GATE9D_STAGE.requires_context_causality
+          assert not module.GATE9D_STAGE.unseen_operator_evaluation
+          material = module.stage1_material()
+          assert len(material["queries"]) == 247
+          assert material["targets"] == material["oracle_targets"]
+          assert len(module.stage1_dataset_sha256(material)) == 64
+          print({
+              "stage": module.GATE9D_STAGE_NAME,
+              "train_steps": module.GATE9D_TRAIN_STEPS,
+              "unique_examples": module.GATE9D_TRAIN_EXAMPLES,
+              "full_training_executed": False,
+          })
+          PY
+
+      - name: Prove exact six-file execution slice
+        run: |
+          base=8deca15aef78d8636b07570aff044f9b7ae31928
+          mapfile -t changed < <(git diff --name-only "$base...HEAD" | sort)
+          expected=(
+            ".github/workflows/gate9-contextual-failure-decomposition-stage1-execution-v0-ci.yml"
+            "ai_hypothesis/population_compute/gate9_contextual_failure_decomposition_stage1_runtime.py"
+            "experiments/population_compute_scaling_v0/gate9_contextual_failure_decomposition_stage1_execution_v0.md"
+            "scripts/run_gate9_contextual_failure_decomposition_stage1.ps1"
+            "scripts/run_gate9_contextual_failure_decomposition_stage1.py"
+            "tests/test_gate9_contextual_failure_decomposition_stage1_execution.py"
+          )
+          test "${#changed[@]}" -eq "${#expected[@]}"
+          for index in "${!expected[@]}"; do
+            test "${changed[$index]}" = "${expected[$index]}"
+          done
+
+      - name: Keep later stages and Gate9 v0 science closed
+        run: |
+          python - <<'PY'
+          import pathlib
+
+          runtime = pathlib.Path(
+              "ai_hypothesis/population_compute/"
+              "gate9_contextual_failure_decomposition_stage1_runtime.py"
+          ).read_text(encoding="utf-8")
+          cli = pathlib.Path(
+              "scripts/run_gate9_contextual_failure_decomposition_stage1.py"
+          ).read_text(encoding="utf-8")
+          wrapper = pathlib.Path(
+              "scripts/run_gate9_contextual_failure_decomposition_stage1.ps1"
+          ).read_bytes()
+          wrapper.decode("ascii")
+          for token in (
+              "GATE9D_COLLISION_OPERATOR_COUNTERS",
+              "GATE9D_HELD_IN_OPERATOR_RANGE",
+              "GATE9D_UNSEEN_TRAIN_OPERATOR_RANGE",
+              "GATE9D_UNSEEN_EVAL_OPERATOR_RANGE",
+              "generate_gate9_test_world(",
+              "scientific_assignment_key",
+              "classify_diagnostic(",
+          ):
+              assert token not in runtime, token
+              assert token not in cli, token
+          assert "GATE9D_STAGE_INDEX = 0" in runtime
+          PY
+          ! git diff --name-only \
+            8deca15aef78d8636b07570aff044f9b7ae31928...HEAD |
+            grep -E '\.(pt|bin|safetensors|sqlite3|jsonl)$'
+
+  windows-wrapper-smoke:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Smoke ASCII wrapper before imports CUDA output or optimizer
+        shell: powershell
+        env:
+          GATE9D_STAGE1_WRAPPER_SMOKE: "1"
+        run: |
+          if ($PSVersionTable.PSEdition -ne "Desktop") {
+              throw "Expected Windows PowerShell Desktop edition."
+          }
+          $output = Join-Path $env:RUNNER_TEMP "not-created-gate9d-stage1"
+          .\scripts\run_gate9_contextual_failure_decomposition_stage1.ps1 `
+              -SeedIndex 0 `
+              -OutputRoot $output
+          if (Test-Path -LiteralPath $output) {
+              throw "Gate9D stage-1 wrapper smoke created output."
+          }
