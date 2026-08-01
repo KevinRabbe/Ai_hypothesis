@@ -64,13 +64,19 @@ Gate-9 v0 classification. No local or graph scientific tests may be generated.
 ## Evidence identities
 
 ```text
-result JSON SHA-256       885239d1dc5ac7fa251f3de2e1b57f9c37885a7fb24a327794b0dc1c7a6881a8
-source manifest SHA-256   38e5fde7c706104fa28ee3e3057ebaf308d38723cfc14993cf30db45e2fbacf1
-summary SHA-256           960241eef32655e804cd600712e83d99a447e79c638929b98d8932b6a26cdc16
-training ledger SHA-256   13a7f19737f110b35cf35c239538c9a19230965f44fa31cb8a4e73b233470279
-validation ledger SHA-256 8328ebbcf22760f659d6fc979fd810162ed6d3d9d2c33ae2e86a8b008cf74c53
-checkpoint SHA-256        edd305fe5d8d55b12379caf055ceebad260eb1bf024f4c2af375bae885b68643
+result JSON Git blob       1e5cd44ddd94494d3f234f00a24012e7b24f4f31
+source manifest SHA-256    38e5fde7c706104fa28ee3e3057ebaf308d38723cfc14993cf30db45e2fbacf1
+summary SHA-256            960241eef32655e804cd600712e83d99a447e79c638929b98d8932b6a26cdc16
+training ledger SHA-256    13a7f19737f110b35cf35c239538c9a19230965f44fa31cb8a4e73b233470279
+validation ledger SHA-256  8328ebbcf22760f659d6fc979fd810162ed6d3d9d2c33ae2e86a8b008cf74c53
+checkpoint SHA-256         edd305fe5d8d55b12379caf055ceebad260eb1bf024f4c2af375bae885b68643
 ```
+
+The first qualification run rejected a locally precomputed SHA-256 for the
+result JSON because the committed byte representation differed while the parsed
+record was identical. The qualification now binds the exact committed Git blob
+and separately verifies every scientific field. The result JSON itself was not
+rewritten.
 
 ## Scope
 
