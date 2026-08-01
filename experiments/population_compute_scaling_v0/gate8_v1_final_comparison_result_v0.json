@@ -1,0 +1,181 @@
+{
+  "bootstrap": {
+    "confidence": 0.95,
+    "namespace": "gate8-v1-final-comparison-bootstrap-v0",
+    "pooled_condition_weighting": "equal_weight_across_21_conditions",
+    "pooled_coupling": "independent_condition_streams_same_replicate_index_equal_condition_weight",
+    "quantile_method": "linear",
+    "samples": 20000,
+    "unit": "world_index_paired_across_three_population_seeds_and_reference_within_condition"
+  },
+  "classifications": {
+    "population_scaling": "G8_POSITIVE_CAPABILITY_SCALING",
+    "population_vs_1b_reference": "G8_POPULATION_EXCEEDS_1B_REFERENCE"
+  },
+  "closed_boundaries": {
+    "final_result_record_only": true,
+    "population_execution_performed": false,
+    "reference_inference_performed": false,
+    "reference_model_loaded": false,
+    "training_performed": false,
+    "world_generation_performed": false
+  },
+  "condition_evidence": {
+    "every_condition_clear_population_win": true,
+    "maximum_reference_condition_accuracy": 0.017578125,
+    "maximum_reference_input_tokens": 9892,
+    "minimum_condition_bootstrap_ci_low": 0.970703125,
+    "ordering": [
+      [
+        32,
+        4
+      ],
+      [
+        64,
+        4
+      ],
+      [
+        64,
+        8
+      ],
+      [
+        128,
+        4
+      ],
+      [
+        128,
+        8
+      ],
+      [
+        128,
+        16
+      ],
+      [
+        256,
+        4
+      ],
+      [
+        256,
+        8
+      ],
+      [
+        256,
+        16
+      ],
+      [
+        256,
+        32
+      ],
+      [
+        512,
+        4
+      ],
+      [
+        512,
+        8
+      ],
+      [
+        512,
+        16
+      ],
+      [
+        512,
+        32
+      ],
+      [
+        512,
+        64
+      ],
+      [
+        1024,
+        4
+      ],
+      [
+        1024,
+        8
+      ],
+      [
+        1024,
+        16
+      ],
+      [
+        1024,
+        32
+      ],
+      [
+        1024,
+        64
+      ],
+      [
+        1024,
+        128
+      ]
+    ],
+    "population_accuracy_all_conditions": 1.0,
+    "population_seed_accuracies_all_conditions": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "reference_correct": 37,
+    "reference_worlds": 10752,
+    "rows": 21
+  },
+  "execution_head": "474b2590e5e138134bcb993e1d8114c473f0455b",
+  "experiment_version": "gate8-v1-final-comparison-result-v0",
+  "final_artifact_sha256": {
+    "gate8-v1-final-comparison-per-condition.jsonl": "276969b304beee1edbeb3979c44a12db4b256b436e6d82c86ff92da7ce64f44d",
+    "gate8-v1-final-comparison-summary.json": "a63f1c6c7cb7facdc71a48e5df05297cc823017ea342dc052310d36c97394462",
+    "git-head.txt": "de2c731e2feda9ec21ab20fe33df58aec380cd4f7e231e2b1b40bcf4b79a1e51",
+    "git-status.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "manifest.sha256": "bc7ff2ca604c914a2bb610d0089450454c47fbb36eb76954db28ea898c3ced59",
+    "run-config.json": "8be990a776ce717291f56498d20d5b242a96fc6c5b9c93c5ff9bbad7a8830b17"
+  },
+  "gemma_reference_result_head": "1d48ecfd623a2fb9e3a2f846a4d1c49d20d8cadc",
+  "independent_audit": {
+    "all_population_seed_condition_accuracies_equal_one": true,
+    "condition_ledger_hash_reproduced": true,
+    "condition_order_matches_frozen_matrix": true,
+    "condition_rows_match_summary": true,
+    "final_manifest_hash_and_entries_reproduced": true,
+    "manifest_records_empty_git_status": true,
+    "pooled_delta_recomputed_from_condition_rows": true,
+    "pooled_reference_accuracy_recomputed_from_37_correct_rows": true,
+    "run_config_and_git_identity_match": true,
+    "source_artifact_bindings_match": true,
+    "unchanged_classifiers_reproduced": true
+  },
+  "population_result_head": "14636d219781381853f81036b96c691b7e6997ee",
+  "primary_result": {
+    "bootstrap_ci_high": 0.9975818452380956,
+    "bootstrap_ci_low": 0.9954427083333335,
+    "bootstrap_replicate_vector_sha256": "667978e5ed535996cccdd85f9c354dc70fd377fae135deb8e55653694de7f80e",
+    "population_mean_accuracy": 1.0,
+    "population_minus_reference_delta": 0.9965587797619048,
+    "reference_mean_accuracy": 0.003441220238095238
+  },
+  "scientific_protocol_head": "6bb89111a47713bea0a23bb1cae662ed5ec56b42",
+  "scientific_status": "G8_V1_FINAL_COMPARISON_COMPLETE",
+  "source_artifact_sha256": {
+    "population_manifest": "8214aa82733a4fab9148a3ea210fd110b0a85f857483f14b15cb53d0f451255d",
+    "population_per_world": "45e36bda230440d4fa2342183154b474473498df51917e147a37e0baa81c3323",
+    "population_summary": "6d30d773f11c1155df3346128385da9231610ea05e95937e5acccb5529fca3fe",
+    "reference_manifest": "3fc0628c0c5fb56901160f35639c708a44cb2501540db9ea5022dce0e374b743",
+    "reference_per_world": "dda1009295378f4626b444b016b7aed2ff06c3468dc8b385d64809d4704a4706",
+    "reference_prompt_index": "e238d801743939acaa362455410f85edd6a67d50f189d68a09bf75ffb63c60ab",
+    "reference_sqlite": "7173853a236b777a02596bce3b61abecef3e61d52df661eb39422325fbb224a1",
+    "reference_summary": "7e7f8002b41d25d6448ecaea6882fa84926b006d95c1aa024a94b774b0b305ab"
+  },
+  "test_matrix": {
+    "conditions": 21,
+    "population_full_rows": 32256,
+    "population_seeds": [
+      0,
+      1,
+      2
+    ],
+    "reference_rows": 10752,
+    "unique_worlds": 10752,
+    "worlds_per_condition": 512
+  }
+}
