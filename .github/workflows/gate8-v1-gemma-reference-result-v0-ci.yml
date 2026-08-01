@@ -1,0 +1,180 @@
+name: Gate8 v1 Gemma reference result qualification
+
+on:
+  pull_request:
+    branches:
+      - agent/gate8-v1-gemma-reference-execution-v0
+    paths:
+      - .github/workflows/gate8-v1-gemma-reference-result-v0-ci.yml
+      - experiments/population_compute_scaling_v0/gate8_v1_gemma_reference_result_v0.json
+      - experiments/population_compute_scaling_v0/gate8_v1_gemma_reference_result_v0.md
+      - experiments/population_compute_scaling_v0/gate8_v1_gemma_reference_manifest_v0.sha256
+
+permissions:
+  contents: read
+
+jobs:
+  result-only:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Verify immutable Gemma reference result
+        shell: bash
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          root = Path("experiments/population_compute_scaling_v0")
+          result_path = root / "gate8_v1_gemma_reference_result_v0.json"
+          manifest_path = root / "gate8_v1_gemma_reference_manifest_v0.sha256"
+          result_bytes = result_path.read_bytes()
+          result = json.loads(result_bytes)
+
+          assert hashlib.sha256(result_bytes).hexdigest() == "b7f927179b7a4c9d115c93943fad5ec0714994f164007f6d80fdc5a45e5b6dbb"
+          assert result["experiment_version"] == "gate8-v1-gemma-reference-result-v0"
+          assert result["scientific_status"] == "G8_V1_GEMMA_REFERENCE_EVALUATION_COMPLETE"
+          assert result["execution_head"] == "4ab5dd3856e7bdb5afefa2a92da4fef056102995"
+
+          assert result["test_matrix"] == {
+              "conditions": 21,
+              "seed": 0,
+              "split": "test",
+              "unique_worlds": 10752,
+              "world_index_end_inclusive": 511,
+              "world_index_start": 0,
+              "worlds_per_condition": 512,
+          }
+          assert result["population_binding"] == {
+              "per_world_sha256": "45e36bda230440d4fa2342183154b474473498df51917e147a37e0baa81c3323",
+              "result_head": "14636d219781381853f81036b96c691b7e6997ee",
+              "summary_sha256": "6d30d773f11c1155df3346128385da9231610ea05e95937e5acccb5529fca3fe",
+          }
+          assert result["reference"] == {
+              "attention_implementation": "sdpa",
+              "batch_size": 1,
+              "decoding": "greedy_temperature_0",
+              "demonstrations": 8,
+              "dtype": "bfloat16",
+              "max_new_tokens": 64,
+              "parameter_count": 999885952,
+              "repo_id": "google/gemma-3-1b-it",
+              "revision": "dcc83ea841ab6100d6b47a070329e1ba4cf78752",
+          }
+          assert result["prompt_matrix"] == {
+              "artifact": "gate8-v1-gemma-reference-prompt-index.jsonl",
+              "input_token_limit": 24576,
+              "maximum_input_tokens": 9892,
+              "rows": 10752,
+              "sha256": "e238d801743939acaa362455410f85edd6a67d50f189d68a09bf75ffb63c60ab",
+          }
+
+          aggregate = result["aggregate_metrics"]
+          assert aggregate == {
+              "correct": 37,
+              "invalid_outputs": 10172,
+              "pooled_reference_accuracy": 0.003441220238095238,
+              "valid_accuracy": 0.06379310344827586,
+              "valid_outputs": 580,
+              "valid_parse_rate": 0.053943452380952384,
+              "worlds": 10752,
+          }
+          assert aggregate["correct"] / aggregate["worlds"] == aggregate["pooled_reference_accuracy"]
+          assert aggregate["valid_outputs"] / aggregate["worlds"] == aggregate["valid_parse_rate"]
+          assert aggregate["correct"] / aggregate["valid_outputs"] == aggregate["valid_accuracy"]
+          assert result["valid_symbol_counts"] == {"3": 521, "7": 19, "9": 2, "11": 38}
+          assert sum(result["valid_symbol_counts"].values()) == aggregate["valid_outputs"]
+
+          conditions = result["condition_metrics"]
+          expected_conditions = [
+              (32, 4),
+              (64, 4), (64, 8),
+              (128, 4), (128, 8), (128, 16),
+              (256, 4), (256, 8), (256, 16), (256, 32),
+              (512, 4), (512, 8), (512, 16), (512, 32), (512, 64),
+              (1024, 4), (1024, 8), (1024, 16), (1024, 32), (1024, 64), (1024, 128),
+          ]
+          assert [(row["population"], row["depth"]) for row in conditions] == expected_conditions
+          assert all(row["worlds"] == 512 for row in conditions)
+          assert sum(row["correct"] for row in conditions) == aggregate["correct"]
+          assert sum(row["valid_outputs"] for row in conditions) == aggregate["valid_outputs"]
+          assert max(row["maximum_input_tokens"] for row in conditions) == 9892
+          assert max(row["peak_device_bytes"] for row in conditions) == 6637060608
+          assert all(0.0 <= row["bootstrap_ci_low"] <= row["bootstrap_ci_high"] <= 1.0 for row in conditions)
+          assert all(len(row["correctness_vector_sha256"]) == 64 for row in conditions)
+          assert all(row["valid_outputs"] == 0 and row["correct"] == 0 for row in conditions if row["population"] == 1024)
+
+          artifacts = result["external_artifact_sha256"]
+          assert artifacts == {
+              "gate8-v1-gemma-reference-per-world.jsonl": "dda1009295378f4626b444b016b7aed2ff06c3468dc8b385d64809d4704a4706",
+              "gate8-v1-gemma-reference-progress.sqlite3": "7173853a236b777a02596bce3b61abecef3e61d52df661eb39422325fbb224a1",
+              "gate8-v1-gemma-reference-prompt-index.jsonl": "e238d801743939acaa362455410f85edd6a67d50f189d68a09bf75ffb63c60ab",
+              "gate8-v1-gemma-reference-summary.json": "7e7f8002b41d25d6448ecaea6882fa84926b006d95c1aa024a94b774b0b305ab",
+              "manifest.sha256": "3fc0628c0c5fb56901160f35639c708a44cb2501540db9ea5022dce0e374b743",
+          }
+
+          assert result["execution_state"] == {
+              "reference_inference_performed": True,
+              "reference_model_loaded": True,
+              "resumed": False,
+              "rows_present_before_model_load": 0,
+              "scientific_test_worlds_generated": True,
+              "transactional_sqlite": True,
+          }
+          assert result["closed_boundaries"] == {
+              "joint_reference_comparison_classified": False,
+              "population_execution_performed": False,
+              "reference_result_record_only": True,
+              "training_performed": False,
+          }
+          audit = result["independent_audit"]
+          assert audit and all(audit.values())
+
+          manifest = manifest_path.read_bytes()
+          assert hashlib.sha256(manifest).hexdigest() == "3fc0628c0c5fb56901160f35639c708a44cb2501540db9ea5022dce0e374b743"
+          assert manifest.count(b"\r\n") == 7
+          assert b"\n" not in manifest.replace(b"\r\n", b"")
+          expected_lines = {
+              b"061ed7ce0fe8a731bab2b8717d8b5bea38787b91d76a244eb056f9821061b52a  run-config.json",
+              b"7173853a236b777a02596bce3b61abecef3e61d52df661eb39422325fbb224a1  reference/gate8-v1-gemma-reference-progress.sqlite3",
+              b"7e7f8002b41d25d6448ecaea6882fa84926b006d95c1aa024a94b774b0b305ab  reference/gate8-v1-gemma-reference-summary.json",
+              b"a61d9e11794557760af91608adc70a7bcb7a5318554d275b72587cb435324f42  git-head.txt",
+              b"dda1009295378f4626b444b016b7aed2ff06c3468dc8b385d64809d4704a4706  reference/gate8-v1-gemma-reference-per-world.jsonl",
+              b"e238d801743939acaa362455410f85edd6a67d50f189d68a09bf75ffb63c60ab  reference/gate8-v1-gemma-reference-prompt-index.jsonl",
+              b"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  git-status.txt",
+          }
+          assert set(manifest.splitlines()) == expected_lines
+          PY
+
+      - name: Prove exact result-only slice
+        shell: bash
+        run: |
+          git fetch origin "${{ github.base_ref }}"
+          mapfile -t changed < <(git diff --name-only "origin/${{ github.base_ref }}...HEAD" | sort)
+          expected=(
+            ".github/workflows/gate8-v1-gemma-reference-result-v0-ci.yml"
+            "experiments/population_compute_scaling_v0/gate8_v1_gemma_reference_manifest_v0.sha256"
+            "experiments/population_compute_scaling_v0/gate8_v1_gemma_reference_result_v0.json"
+            "experiments/population_compute_scaling_v0/gate8_v1_gemma_reference_result_v0.md"
+          )
+          printf '%s\n' "${changed[@]}"
+          test "${#changed[@]}" -eq "${#expected[@]}"
+          for index in "${!expected[@]}"; do
+            test "${changed[$index]}" = "${expected[$index]}"
+          done
+
+      - name: Keep executable and raw-data boundaries closed
+        shell: bash
+        run: |
+          test ! -e experiments/population_compute_scaling_v0/gate8-v1-gemma-reference-per-world.jsonl
+          test ! -e experiments/population_compute_scaling_v0/gate8-v1-gemma-reference-prompt-index.jsonl
+          test ! -e experiments/population_compute_scaling_v0/gate8-v1-gemma-reference-progress.sqlite3
+          ! git diff --name-only "origin/${{ github.base_ref }}...HEAD" | grep -E '\.(py|ps1|pt|bin|safetensors|sqlite3|jsonl)$'
