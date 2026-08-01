@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import importlib.util
 import json
 import pathlib
 import subprocess
 import sys
+import types
 from typing import Any
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -19,13 +19,22 @@ EXPECTED_BRANCH = "agent/gate9-contextual-seed-audit-v0"
 
 
 def _load_auditor():
+    """Compile the exact checked-out source and bypass timestamp-based .pyc reuse."""
+
     name = "gate9_contextual_seed_audit_cli_dependency"
-    spec = importlib.util.spec_from_file_location(name, AUDITOR_PATH)
-    if spec is None or spec.loader is None:
-        raise RuntimeError("could not load Gate9 seed auditor")
-    module = importlib.util.module_from_spec(spec)
+    source = AUDITOR_PATH.read_text(encoding="utf-8")
+    code = compile(
+        source,
+        str(AUDITOR_PATH),
+        "exec",
+        dont_inherit=True,
+        optimize=0,
+    )
+    module = types.ModuleType(name)
+    module.__file__ = str(AUDITOR_PATH)
+    module.__package__ = ""
     sys.modules[name] = module
-    spec.loader.exec_module(module)
+    exec(code, module.__dict__)
     return module
 
 
