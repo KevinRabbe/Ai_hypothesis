@@ -30,6 +30,7 @@ jobs:
           python - <<'PY'
           import hashlib
           import json
+          import subprocess
           from pathlib import Path
 
           root = Path("experiments/population_compute_scaling_v0")
@@ -38,7 +39,9 @@ jobs:
           result_bytes = result_path.read_bytes()
           result = json.loads(result_bytes)
 
-          assert hashlib.sha256(result_bytes).hexdigest() == "885239d1dc5ac7fa251f3de2e1b57f9c37885a7fb24a327794b0dc1c7a6881a8"
+          assert subprocess.check_output(
+              ["git", "hash-object", str(result_path)], text=True
+          ).strip() == "1e5cd44ddd94494d3f234f00a24012e7b24f4f31"
           assert result["experiment_version"] == "gate9-contextual-seed2-replication-result-v0"
           assert result["scientific_status"] == (
               "G9_CONTEXTUAL_SEED2_REPLICATION_FAILURE_RECORDED"
