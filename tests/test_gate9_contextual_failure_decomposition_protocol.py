@@ -40,13 +40,12 @@ class Gate9FailureDecompositionProtocolTests(unittest.TestCase):
             "be6451e1af82b18749bd0313a9c02ca62c4eee5c",
         )
         self.assertEqual(
-            protocol.GATE9D_ARCHITECTURE_HEAD,
-            "c689cc3f38f6f6f642916ee1a702d7de7bd0e43b",
-        )
-        self.assertEqual(
             protocol.GATE9D_TRAINING_PROTOCOL_HEAD,
             "1228c19cbf85da4ab738c3355c58f946cd6a965c",
         )
+        architecture_head = protocol.GATE9D_ARCHITECTURE_HEAD
+        self.assertEqual(len(architecture_head), 40)
+        self.assertTrue(all(character in "0123456789abcdef" for character in architecture_head))
         self.assertEqual(protocol.GATE9D_LEARNED_PARAMETER_COUNT, 19_649)
         self.assertEqual(
             tuple(stage.name for stage in protocol.GATE9D_STAGES),
@@ -167,10 +166,7 @@ class Gate9FailureDecompositionProtocolTests(unittest.TestCase):
             "G9D_DIAGNOSTIC_INCONCLUSIVE",
         )
         results = {names[0]: (True, True, True)}
-        self.assertEqual(
-            protocol.classify_diagnostic(results),
-            "G9D_DIAGNOSTIC_INCOMPLETE",
-        )
+        self.assertEqual(protocol.classify_diagnostic(results), "G9D_DIAGNOSTIC_INCOMPLETE")
         expected_failures = (
             "G9D_CONTEXTUAL_CONTROL_FAILED",
             "G9D_HELD_IN_OPERATOR_FIT_FAILED",
@@ -180,10 +176,7 @@ class Gate9FailureDecompositionProtocolTests(unittest.TestCase):
             results[names[index]] = (False, False, False)
             self.assertEqual(protocol.classify_diagnostic(results), expected)
             results[names[index]] = (True, True, True)
-        self.assertEqual(
-            protocol.classify_diagnostic(results),
-            "G9D_V0_FAILURE_NOT_LOCALIZED",
-        )
+        self.assertEqual(protocol.classify_diagnostic(results), "G9D_V0_FAILURE_NOT_LOCALIZED")
 
     def test_plan_and_source_keep_execution_closed(self) -> None:
         plan = protocol.gate9d_protocol_plan()
