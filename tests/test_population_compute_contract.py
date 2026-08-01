@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import hashlib
+import json
+import pathlib
 import unittest
 
 from ai_hypothesis.population_compute import (
@@ -178,6 +181,161 @@ class PopulationComputeContractTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "do not share information scope"):
             assess_scaling_curve(communicating, no_communication)
+
+    def test_gate9d_stage1_seed0_result_record_when_present(self) -> None:
+        result_root = (
+            pathlib.Path(__file__).resolve().parents[1]
+            / "experiments"
+            / "population_compute_scaling_v0"
+        )
+        result_path = result_root / (
+            "gate9_contextual_failure_decomposition_stage1_seed0_result_v0.json"
+        )
+        manifest_path = result_root / (
+            "gate9_contextual_failure_decomposition_stage1_seed0_source_manifest_v0.sha256"
+        )
+        if not result_path.exists() and not manifest_path.exists():
+            return
+
+        self.assertTrue(result_path.is_file())
+        self.assertTrue(manifest_path.is_file())
+        result_bytes = result_path.read_bytes()
+        self.assertEqual(
+            hashlib.sha256(result_bytes).hexdigest(),
+            "20188b8d70637b1599f5f603d700512c3d22d50fc5c3d0d1d0a5fa72843c0a80",
+        )
+        result = json.loads(result_bytes)
+        self.assertEqual(
+            result["experiment_version"],
+            "gate9-contextual-failure-decomposition-stage1-seed0-result-v0",
+        )
+        self.assertEqual(
+            result["scientific_status"],
+            "G9D_STAGE1_SEED0_FAILURE_RECORDED",
+        )
+        self.assertEqual(result["seed_index"], 0)
+        self.assertEqual(result["seed_outcome"], "G9D_STAGE1_SEED_FAILED")
+        self.assertEqual(result["role"], "first_ordered_seed_result_only")
+        self.assertEqual(
+            result["stack_identity"],
+            {
+                "architecture_head": "c689cc3f38f6f6f642916ee1a702d7de7bd0e43b",
+                "execution_head": "2e1b91d578e7bf9b4c54aa2ee1c120a9ec01b21c",
+                "operator_contract_head": "be6451e1af82b18749bd0313a9c02ca62c4eee5c",
+                "protocol_head": "8deca15aef78d8636b07570aff044f9b7ae31928",
+            },
+        )
+        self.assertEqual(
+            result["operator"],
+            {
+                "counter": 72_057_594_037_927_936,
+                "dataset_sha256": "37b4aafb3e184eaa2e8096b649457134bd5025f297912c26ed34100b76a3ff0f",
+                "key": 14_550_454_351_299_327_585,
+                "non_support_query_count": 247,
+            },
+        )
+        self.assertEqual(
+            result["training"],
+            {
+                "batch_size": 247,
+                "examples_seen": 252_928,
+                "final_loss": 0.36635908484458923,
+                "minimum_loss": 0.36635908484458923,
+                "minimum_loss_step": 1_024,
+                "rows": 1_024,
+                "steps": 1_024,
+                "unique_examples": 247,
+            },
+        )
+        self.assertEqual(
+            result["evaluation"],
+            {
+                "bit_accuracy": 0.8456477732793523,
+                "bit_correct": 1_671,
+                "bit_total": 1_976,
+                "exact_accuracy": 0.21052631578947367,
+                "full_correct": 52,
+                "oracle_accuracy": 1.0,
+                "oracle_correct": 247,
+                "query_only_accuracy": 0.0,
+                "query_only_correct": 0,
+                "rows": 247,
+                "stage_passes": False,
+            },
+        )
+        self.assertEqual(
+            result["diagnostic_consequence"],
+            {
+                "all_three_initialization_seeds_required_to_advance": True,
+                "remaining_seed_role": (
+                    "replication_and_mixed-outcome_resolution_only"
+                ),
+                "stage1_seed0_independently_failed": True,
+                "stage2_advancement_allowed": False,
+                "terminal_outcomes_still_possible": [
+                    "G9D_BASIC_QUERY_MAPPING_FAILED",
+                    "G9D_DIAGNOSTIC_INCONCLUSIVE",
+                ],
+            },
+        )
+        self.assertEqual(
+            result["closed_boundaries"],
+            {
+                "checkpoint_selection_performed": False,
+                "diagnostic_classification_performed": False,
+                "gate9_v0_result_mutation_performed": False,
+                "later_diagnostic_stage_execution_performed": False,
+                "population_execution_performed": False,
+                "retraining_performed": False,
+                "scientific_execution_performed": False,
+                "scientific_test_generation_performed": False,
+                "training_performed_in_result_slice": False,
+            },
+        )
+        self.assertEqual(
+            result["independent_audit"],
+            {
+                "checkpoint_all_finite_float32": True,
+                "checkpoint_loaded_weights_only": True,
+                "checkpoint_parameter_count_verified": True,
+                "checkpoint_schema_verified": True,
+                "evaluation_ledger_reconstructed": True,
+                "git_head_verified": True,
+                "git_status_empty_hash_verified_from_terminal": True,
+                "manifest_paths_sorted_and_unique": True,
+                "manifest_sha256_verified": True,
+                "run_config_verified": True,
+                "source_artifact_modified": False,
+                "summary_evidence_reconciled": True,
+                "training_ledger_reconstructed": True,
+                "uploaded_artifact_hashes_match_manifest": True,
+            },
+        )
+        expected_source_hashes = {
+            "git-head.txt": "39aeac89e593584f77d1365c779f2eb2e5317e07729124026158f64c89abd940",
+            "git-status.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "manifest.sha256": "8074a4224c4a51f38f869944f57fd0c350a0f164b50627a2f9173352e170dc0e",
+            "run-config.json": "1673b768313b748bd00339247acdab3db37326b7139a36f3a9cdce0ae5824000",
+            "seed-0/evaluation-per-episode.jsonl": "98623f9c37f74137722f6d45ef37536064017a429246d45a3820aaee2c9785e1",
+            "seed-0/selected-checkpoint.pt": "3c2c2bac4036ccd8bc45c5aca8c28fe3b2e470902489907e224ba602bafaa93f",
+            "seed-0/summary.json": "a306fcb06bbd6965553dd8406ffd0aad41259bab45149d39a67c77cab7d143c8",
+            "seed-0/train-steps.jsonl": "b74cf27618985dd690c2d50555cf478e6dd06fe5907cbd55e9de7fdf448fcc9c",
+        }
+        self.assertEqual(result["source_artifact_sha256"], expected_source_hashes)
+        expected_manifest = (
+            "39aeac89e593584f77d1365c779f2eb2e5317e07729124026158f64c89abd940  git-head.txt\n"
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  git-status.txt\n"
+            "1673b768313b748bd00339247acdab3db37326b7139a36f3a9cdce0ae5824000  run-config.json\n"
+            "98623f9c37f74137722f6d45ef37536064017a429246d45a3820aaee2c9785e1  seed-0/evaluation-per-episode.jsonl\n"
+            "3c2c2bac4036ccd8bc45c5aca8c28fe3b2e470902489907e224ba602bafaa93f  seed-0/selected-checkpoint.pt\n"
+            "a306fcb06bbd6965553dd8406ffd0aad41259bab45149d39a67c77cab7d143c8  seed-0/summary.json\n"
+            "b74cf27618985dd690c2d50555cf478e6dd06fe5907cbd55e9de7fdf448fcc9c  seed-0/train-steps.jsonl\n"
+        )
+        self.assertEqual(manifest_path.read_text(encoding="ascii"), expected_manifest)
+        self.assertEqual(
+            hashlib.sha256(expected_manifest.encode("ascii")).hexdigest(),
+            "8074a4224c4a51f38f869944f57fd0c350a0f164b50627a2f9173352e170dc0e",
+        )
 
     def _curve(
         self,
