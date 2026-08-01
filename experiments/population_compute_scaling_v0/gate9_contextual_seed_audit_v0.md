@@ -12,6 +12,26 @@ Qualified source execution head:
 bdc1af9bc65b94b01ae3946977686bd90158786f
 ```
 
+Qualified architecture branch head:
+
+```text
+c689cc3f38f6f6f642916ee1a702d7de7bd0e43b
+```
+
+The auditor source originally transcribed that architecture identity as the
+38-character value:
+
+```text
+c689cc3f38f6f642916ee1a702d7de7bd0e43b
+```
+
+The audit entrypoint corrects this only when the source still contains that
+exact known typo. The replacement must be a 40-character lowercase Git SHA and
+must equal `origin/agent/gate9-contextual-worker-architecture-v0`. Any different
+source value, malformed replacement, or branch mismatch fails closed. The
+source training artifact is never modified, and the correction is recorded in
+the audit report and audit run configuration.
+
 The first completed seed-0 run reported:
 
 ```text
@@ -45,7 +65,8 @@ Then it independently verifies:
 
 - exact source manifest ordering, file set and every recursive SHA-256;
 - clean execution Git status and exact execution head;
-- exact branch, software, seed, protocol and architecture identities;
+- exact branch, software, seed, protocol and corrected architecture identities;
+- exact run-config field set, Python types and values;
 - 512 contiguous training rows and 262,144 reported episodes;
 - the frozen linear-warmup/cosine learning rate at every step;
 - finite losses, gradient norms and wall times;
@@ -99,8 +120,9 @@ git-status.txt
 manifest.sha256
 ```
 
-The report contains source identities, reconstructed counts and metrics,
-checkpoint structure, seed outcome and the still-closed scientific-test flag.
+The report contains source identities, the explicit architecture-identity
+correction, reconstructed counts and metrics, checkpoint structure, seed
+outcome and the still-closed scientific-test flag.
 
 ## Qualification
 
@@ -109,6 +131,15 @@ same aggregate counts reported by seed 0. It proves exact metric
 reconstruction, fixed-final checkpoint validation, manifest tamper rejection,
 non-finite tensor rejection and absence of trainer/operator/scientific runtime
 imports.
+
+It also proves:
+
+- cache-independent compilation of the checked-out auditor source;
+- the known typo is exactly 38 lowercase hexadecimal characters;
+- the corrected identity is exactly 40 lowercase hexadecimal characters;
+- the corrected identity equals the remote architecture branch head;
+- the real Windows run-config shape passes exact validation;
+- truncated, extra-field and type-drift variants fail closed.
 
 No CI artifact is evidence about the real seed-0 run.
 
