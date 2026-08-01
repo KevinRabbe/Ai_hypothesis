@@ -45,6 +45,7 @@ jobs:
           python - <<'PY'
           import importlib.util
           import pathlib
+          import subprocess
           import sys
 
           runner_path = pathlib.Path(
@@ -62,14 +63,25 @@ jobs:
           sys.modules[spec.name] = runner
           spec.loader.exec_module(runner)
 
-          assert runner.TRUNCATED_ARCHITECTURE_IDENTIFIER == (
-              "c689cc3f38f6f642916ee1a702d7de7bd0e43b"
-          )
-          assert len(runner.TRUNCATED_ARCHITECTURE_IDENTIFIER) == 38
-          assert runner.QUALIFIED_ARCHITECTURE_HEAD == (
-              "c689cc3f38f6f642916ee1a702d7de7bd0e43b"
-          )
-          assert len(runner.QUALIFIED_ARCHITECTURE_HEAD) == 40
+          truncated = runner.TRUNCATED_ARCHITECTURE_IDENTIFIER
+          qualified = runner.QUALIFIED_ARCHITECTURE_HEAD
+          assert isinstance(truncated, str)
+          assert len(truncated) == 38, truncated
+          assert all(character in "0123456789abcdef" for character in truncated)
+          assert isinstance(qualified, str)
+          assert len(qualified) == 40, qualified
+          assert all(character in "0123456789abcdef" for character in qualified)
+          assert qualified != truncated
+
+          branch_head = subprocess.check_output(
+              [
+                  "git",
+                  "rev-parse",
+                  "origin/agent/gate9-contextual-worker-architecture-v0",
+              ],
+              text=True,
+          ).strip()
+          assert qualified == branch_head, (qualified, branch_head)
 
           auditor = runner._load_auditor()
           assert auditor.AUDIT_VERSION == (
@@ -78,9 +90,7 @@ jobs:
           assert pathlib.Path(auditor.__file__).resolve() == (
               runner.AUDITOR_PATH.resolve()
           )
-          assert auditor.EXPECTED_ARCHITECTURE_HEAD == (
-              runner.QUALIFIED_ARCHITECTURE_HEAD
-          )
+          assert auditor.EXPECTED_ARCHITECTURE_HEAD == qualified
 
           for name in (
               "EXPECTED_EXECUTION_HEAD",
@@ -96,7 +106,7 @@ jobs:
               )
 
           real_config = {
-              "architecture_head": runner.QUALIFIED_ARCHITECTURE_HEAD,
+              "architecture_head": qualified,
               "branch": auditor.EXPECTED_EXECUTION_BRANCH,
               "execution_head": auditor.EXPECTED_EXECUTION_HEAD,
               "experiment_version": auditor.EXPECTED_EXPERIMENT_VERSION,
@@ -122,9 +132,7 @@ jobs:
           wrong_type["seed"] = False
           mutations.append(wrong_type)
           wrong_value = dict(real_config)
-          wrong_value["architecture_head"] = (
-              runner.TRUNCATED_ARCHITECTURE_IDENTIFIER
-          )
+          wrong_value["architecture_head"] = truncated
           mutations.append(wrong_value)
           for mutation in mutations:
               try:
@@ -138,8 +146,9 @@ jobs:
 
           print({
               "cache_independent_source_loaded": True,
-              "truncated_identifier_rejected_as_artifact_identity": True,
-              "qualified_architecture_head": runner.QUALIFIED_ARCHITECTURE_HEAD,
+              "truncated_identifier_length": len(truncated),
+              "qualified_architecture_head": qualified,
+              "qualified_head_matches_branch": True,
               "real_windows_run_config_exact_match": True,
               "run_config_mutations_fail_closed": True,
           })
