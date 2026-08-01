@@ -1,0 +1,163 @@
+name: Gate9 contextual seed2 replication result qualification
+
+on:
+  pull_request:
+    branches:
+      - agent/gate9-contextual-seed1-replication-result-v0
+    paths:
+      - .github/workflows/gate9-contextual-seed2-replication-result-v0-ci.yml
+      - experiments/population_compute_scaling_v0/gate9_contextual_seed2_replication_audit_manifest_v0.sha256
+      - experiments/population_compute_scaling_v0/gate9_contextual_seed2_replication_result_v0.json
+      - experiments/population_compute_scaling_v0/gate9_contextual_seed2_replication_result_v0.md
+
+permissions:
+  contents: read
+
+jobs:
+  result-only:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Verify immutable seed2 replication result
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          import subprocess
+          from pathlib import Path
+
+          root = Path("experiments/population_compute_scaling_v0")
+          result_path = root / "gate9_contextual_seed2_replication_result_v0.json"
+          manifest_path = root / "gate9_contextual_seed2_replication_audit_manifest_v0.sha256"
+          result_bytes = result_path.read_bytes()
+          result = json.loads(result_bytes)
+
+          assert subprocess.check_output(
+              ["git", "hash-object", str(result_path)], text=True
+          ).strip() == "1e5cd44ddd94494d3f234f00a24012e7b24f4f31"
+          assert result["experiment_version"] == "gate9-contextual-seed2-replication-result-v0"
+          assert result["scientific_status"] == (
+              "G9_CONTEXTUAL_SEED2_REPLICATION_FAILURE_RECORDED"
+          )
+          assert result["role"] == "final_preregistered_replication_only"
+          assert result["seed"] == 2
+          assert result["seed_outcome"] == (
+              "G9_CONTEXTUAL_SEED_CHECKPOINT_ADMISSION_FAILED"
+          )
+
+          assert result["stack_identity"] == {
+              "architecture_head": "c689cc3f38f6f642916ee1a702d7de7bd0e43b",
+              "audit_contract_head": "af8dc84cd2884e547b1c40599400bfaf8610ee64",
+              "execution_head": "bdc1af9bc65b94b01ae3946977686bd90158786f",
+              "seed0_failure_result_head": "3d9e686d158e9a4534fbe55b52d6ba2080419ba8",
+              "seed1_replication_result_head": "71ec79d410f94a669366caa70878a127759b0fd3",
+              "training_protocol_head": "1228c19cbf85da4ab738c3355c58f946cd6a965c",
+          }
+
+          assert result["training"] == {
+              "episodes": 262144,
+              "final_loss": 0.693339467048645,
+              "rows": 512,
+              "unique_batch_hashes": 512,
+              "unique_query_hashes": 512,
+          }
+          assert result["validation"] == {
+              "bit_accuracy": 0.5026893615722656,
+              "exact_accuracy": 0.00390625,
+              "full_correct": 128,
+              "oracle_accuracy": 1.0,
+              "oracle_correct": 32768,
+              "query_only_accuracy": 0.003662109375,
+              "query_only_correct": 120,
+              "rows": 32768,
+              "shuffled_accuracy": 0.00372314453125,
+              "shuffled_correct": 122,
+              "unique_operator_ordinals": 32768,
+              "unique_shuffled_operator_ordinals": 32768,
+          }
+          assert result["admission"] == {
+              "bit_accuracy_min": 0.999,
+              "context_delta_min_strict": 0.5,
+              "exact_accuracy_min": 0.995,
+              "full_minus_query_only": 0.000244140625,
+              "full_minus_shuffled": 0.00018310546875,
+              "oracle_accuracy_observed": 1.0,
+              "oracle_accuracy_required": 1.0,
+              "passes": False,
+          }
+          assert result["checkpoint"] == {
+              "all_finite_float32": True,
+              "learned_parameter_count": 19649,
+              "sha256": "edd305fe5d8d55b12379caf055ceebad260eb1bf024f4c2af375bae885b68643",
+              "tensor_count": 17,
+          }
+          assert result["replication_consequence"] == {
+              "all_three_ordered_seeds_completed": True,
+              "all_three_ordered_seeds_failed": True,
+              "final_three_seed_result_record_required": True,
+              "root_cause_diagnosed": False,
+              "scientific_test_generation_allowed": False,
+              "seed2_independently_failed": True,
+          }
+
+          boundaries = result["closed_boundaries"]
+          assert boundaries["final_result_record_only"] is True
+          for key, value in boundaries.items():
+              if key != "final_result_record_only":
+                  assert value is False, (key, value)
+
+          expected_hashes = {
+              "git-head.txt": "3194e14bb0768613035b4fdd9e6e80590bf9e03c63cbc565ac34639556d5a556",
+              "git-status.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "manifest.sha256": "38e5fde7c706104fa28ee3e3057ebaf308d38723cfc14993cf30db45e2fbacf1",
+              "run-config.json": "8f73d8655fce324ceb6a344754b29566b6db41a63fa6644ac7f94a7f002be7fe",
+              "seed-2/selected-checkpoint.pt": "edd305fe5d8d55b12379caf055ceebad260eb1bf024f4c2af375bae885b68643",
+              "seed-2/summary.json": "960241eef32655e804cd600712e83d99a447e79c638929b98d8932b6a26cdc16",
+              "seed-2/train-steps.jsonl": "13a7f19737f110b35cf35c239538c9a19230965f44fa31cb8a4e73b233470279",
+              "seed-2/validation-per-episode.jsonl": "8328ebbcf22760f659d6fc979fd810162ed6d3d9d2c33ae2e86a8b008cf74c53",
+          }
+          assert result["source_artifact_sha256"] == expected_hashes
+
+          manifest = manifest_path.read_bytes()
+          assert hashlib.sha256(manifest).hexdigest() == (
+              "38e5fde7c706104fa28ee3e3057ebaf308d38723cfc14993cf30db45e2fbacf1"
+          )
+          assert b"\r" not in manifest
+          lines = manifest.splitlines()
+          assert len(lines) == 7
+          paths = [line.split(b"  ", 1)[1] for line in lines]
+          assert paths == sorted(paths)
+          assert len(set(paths)) == 7
+          PY
+
+      - name: Prove exact result-only slice
+        run: |
+          git fetch origin "${{ github.base_ref }}"
+          mapfile -t changed < <(
+            git diff --name-only "origin/${{ github.base_ref }}...HEAD" | sort
+          )
+          expected=(
+            ".github/workflows/gate9-contextual-seed2-replication-result-v0-ci.yml"
+            "experiments/population_compute_scaling_v0/gate9_contextual_seed2_replication_audit_manifest_v0.sha256"
+            "experiments/population_compute_scaling_v0/gate9_contextual_seed2_replication_result_v0.json"
+            "experiments/population_compute_scaling_v0/gate9_contextual_seed2_replication_result_v0.md"
+          )
+          test "${#changed[@]}" -eq "${#expected[@]}"
+          for index in "${!expected[@]}"; do
+            test "${changed[$index]}" = "${expected[$index]}"
+          done
+
+      - name: Keep raw and executable boundaries closed
+        run: |
+          ! git diff --name-only "origin/${{ github.base_ref }}...HEAD" |
+            grep -E '\.(py|ps1|pt|bin|safetensors|sqlite3|jsonl)$'
+          test ! -e experiments/population_compute_scaling_v0/selected-checkpoint.pt
+          test ! -e experiments/population_compute_scaling_v0/train-steps.jsonl
+          test ! -e experiments/population_compute_scaling_v0/validation-per-episode.jsonl

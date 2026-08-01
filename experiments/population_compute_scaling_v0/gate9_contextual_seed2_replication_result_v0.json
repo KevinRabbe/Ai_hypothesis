@@ -1,0 +1,98 @@
+{
+  "admission": {
+    "bit_accuracy_min": 0.999,
+    "context_delta_min_strict": 0.5,
+    "exact_accuracy_min": 0.995,
+    "full_minus_query_only": 0.000244140625,
+    "full_minus_shuffled": 0.00018310546875,
+    "oracle_accuracy_observed": 1.0,
+    "oracle_accuracy_required": 1.0,
+    "passes": false
+  },
+  "checkpoint": {
+    "all_finite_float32": true,
+    "learned_parameter_count": 19649,
+    "sha256": "edd305fe5d8d55b12379caf055ceebad260eb1bf024f4c2af375bae885b68643",
+    "tensor_count": 17
+  },
+  "closed_boundaries": {
+    "checkpoint_selection_performed": false,
+    "final_gate9_classification_performed": false,
+    "final_result_record_only": true,
+    "population_execution_performed": false,
+    "retraining_performed": false,
+    "scientific_execution_performed": false,
+    "scientific_test_generated": false,
+    "training_performed_in_result_slice": false
+  },
+  "experiment_version": "gate9-contextual-seed2-replication-result-v0",
+  "independent_audit": {
+    "checkpoint_loaded_weights_only": true,
+    "checkpoint_schema_verified": true,
+    "git_head_verified": true,
+    "git_status_manifest_binds_canonical_empty_bytes": true,
+    "manifest_paths_sorted_and_unique": true,
+    "manifest_sha256_verified": true,
+    "run_config_verified": true,
+    "source_artifact_modified": false,
+    "summary_evidence_reconciled": true,
+    "training_ledger_reconstructed": true,
+    "uploaded_artifact_hashes_match_manifest": true,
+    "validation_ledger_reconstructed": true
+  },
+  "recorded_episode_digests": {
+    "training_episode_sha256": "1ce9e1b46a4e6bb1308e7aad785899bdb581e765360183115dd6767c9acb0f59",
+    "validation_episode_sha256": "c9e33530ddfaa6552287c1eb33f8310a68a36ed4639ef9a608a3d3f877ebbaf1"
+  },
+  "replication_consequence": {
+    "all_three_ordered_seeds_completed": true,
+    "all_three_ordered_seeds_failed": true,
+    "final_three_seed_result_record_required": true,
+    "root_cause_diagnosed": false,
+    "scientific_test_generation_allowed": false,
+    "seed2_independently_failed": true
+  },
+  "role": "final_preregistered_replication_only",
+  "scientific_status": "G9_CONTEXTUAL_SEED2_REPLICATION_FAILURE_RECORDED",
+  "seed": 2,
+  "seed_outcome": "G9_CONTEXTUAL_SEED_CHECKPOINT_ADMISSION_FAILED",
+  "source_artifact_sha256": {
+    "git-head.txt": "3194e14bb0768613035b4fdd9e6e80590bf9e03c63cbc565ac34639556d5a556",
+    "git-status.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "manifest.sha256": "38e5fde7c706104fa28ee3e3057ebaf308d38723cfc14993cf30db45e2fbacf1",
+    "run-config.json": "8f73d8655fce324ceb6a344754b29566b6db41a63fa6644ac7f94a7f002be7fe",
+    "seed-2/selected-checkpoint.pt": "edd305fe5d8d55b12379caf055ceebad260eb1bf024f4c2af375bae885b68643",
+    "seed-2/summary.json": "960241eef32655e804cd600712e83d99a447e79c638929b98d8932b6a26cdc16",
+    "seed-2/train-steps.jsonl": "13a7f19737f110b35cf35c239538c9a19230965f44fa31cb8a4e73b233470279",
+    "seed-2/validation-per-episode.jsonl": "8328ebbcf22760f659d6fc979fd810162ed6d3d9d2c33ae2e86a8b008cf74c53"
+  },
+  "stack_identity": {
+    "architecture_head": "c689cc3f38f6f642916ee1a702d7de7bd0e43b",
+    "audit_contract_head": "af8dc84cd2884e547b1c40599400bfaf8610ee64",
+    "execution_head": "bdc1af9bc65b94b01ae3946977686bd90158786f",
+    "seed0_failure_result_head": "3d9e686d158e9a4534fbe55b52d6ba2080419ba8",
+    "seed1_replication_result_head": "71ec79d410f94a669366caa70878a127759b0fd3",
+    "training_protocol_head": "1228c19cbf85da4ab738c3355c58f946cd6a965c"
+  },
+  "training": {
+    "episodes": 262144,
+    "final_loss": 0.693339467048645,
+    "rows": 512,
+    "unique_batch_hashes": 512,
+    "unique_query_hashes": 512
+  },
+  "validation": {
+    "bit_accuracy": 0.5026893615722656,
+    "exact_accuracy": 0.00390625,
+    "full_correct": 128,
+    "oracle_accuracy": 1.0,
+    "oracle_correct": 32768,
+    "query_only_accuracy": 0.003662109375,
+    "query_only_correct": 120,
+    "rows": 32768,
+    "shuffled_accuracy": 0.00372314453125,
+    "shuffled_correct": 122,
+    "unique_operator_ordinals": 32768,
+    "unique_shuffled_operator_ordinals": 32768
+  }
+}
