@@ -40,11 +40,24 @@ jobs:
           git merge-base --is-ancestor \
             be6451e1af82b18749bd0313a9c02ca62c4eee5c HEAD
           git merge-base --is-ancestor \
-            c689cc3f38f6f642916ee1a702d7de7bd0e43b HEAD
-          git merge-base --is-ancestor \
             1228c19cbf85da4ab738c3355c58f946cd6a965c HEAD
+
+          git fetch origin \
+            agent/gate9-contextual-worker-architecture-v0
+          architecture_head="$(
+            git rev-parse \
+              origin/agent/gate9-contextual-worker-architecture-v0
+          )"
+          test "${#architecture_head}" -eq 40
+          case "$architecture_head" in
+            *[!0-9a-f]*) exit 1 ;;
+          esac
+          git merge-base --is-ancestor "$architecture_head" HEAD
+          export GATE9D_EXPECTED_ARCHITECTURE_HEAD="$architecture_head"
+
           python - <<'PY'
           import importlib.util
+          import os
           import pathlib
           import sys
 
@@ -62,6 +75,9 @@ jobs:
               "gate9-contextual-failure-decomposition-protocol-v0"
           )
           assert plan["status"] == "G9D_PROTOCOL_FROZEN_EXECUTION_CLOSED"
+          assert plan["source_bindings"]["architecture_head"] == os.environ[
+              "GATE9D_EXPECTED_ARCHITECTURE_HEAD"
+          ]
           assert plan["learned_parameter_count"] == 19_649
           assert plan["initialization_seeds"] == [910900, 910901, 910902]
           assert plan["query_count"] == 247
