@@ -119,6 +119,11 @@ jobs:
               ".github/workflows/"
               "gate9-contextual-training-execution-v0-ci.yml"
           ).read_text(encoding="utf-8")
+          wrapper_path = pathlib.Path(
+              "scripts/run_gate9_contextual_training.ps1"
+          )
+          wrapper_bytes = wrapper_path.read_bytes()
+          wrapper_bytes.decode("ascii")
 
           for token in (
               "graph_test_operator_counter(",
@@ -169,11 +174,15 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Smoke wrapper before imports CUDA output or optimizer
-        shell: pwsh
+      - name: Smoke wrapper under Windows PowerShell 5.1 before imports CUDA output or optimizer
+        shell: powershell
         env:
           GATE9_CONTEXTUAL_TRAINING_WRAPPER_SMOKE: "1"
         run: |
+          $version = $PSVersionTable.PSVersion.ToString()
+          if ($PSVersionTable.PSEdition -ne "Desktop") {
+              throw "Expected Windows PowerShell Desktop, observed $($PSVersionTable.PSEdition) $version"
+          }
           $output = Join-Path $env:RUNNER_TEMP "not-created-gate9-training"
           .\scripts\run_gate9_contextual_training.ps1 `
               -Seed 0 `
