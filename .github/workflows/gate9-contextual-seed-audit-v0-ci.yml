@@ -40,7 +40,7 @@ jobs:
             tests/test_gate9_contextual_seed_audit.py
           python -m unittest tests/test_gate9_contextual_seed_audit.py -v
 
-      - name: Verify cache-independent runner and exact config contract
+      - name: Verify cache-independent runner and exact identity correction
         run: |
           python - <<'PY'
           import importlib.util
@@ -61,18 +61,31 @@ jobs:
           runner = importlib.util.module_from_spec(spec)
           sys.modules[spec.name] = runner
           spec.loader.exec_module(runner)
-          auditor = runner._load_auditor()
 
+          assert runner.TRUNCATED_ARCHITECTURE_IDENTIFIER == (
+              "c689cc3f38f6f642916ee1a702d7de7bd0e43b"
+          )
+          assert len(runner.TRUNCATED_ARCHITECTURE_IDENTIFIER) == 38
+          assert runner.QUALIFIED_ARCHITECTURE_HEAD == (
+              "c689cc3f38f6f642916ee1a702d7de7bd0e43b"
+          )
+          assert len(runner.QUALIFIED_ARCHITECTURE_HEAD) == 40
+
+          auditor = runner._load_auditor()
           assert auditor.AUDIT_VERSION == (
               "gate9-contextual-training-seed-audit-v0"
           )
           assert pathlib.Path(auditor.__file__).resolve() == (
               runner.AUDITOR_PATH.resolve()
           )
+          assert auditor.EXPECTED_ARCHITECTURE_HEAD == (
+              runner.QUALIFIED_ARCHITECTURE_HEAD
+          )
 
           for name in (
               "EXPECTED_EXECUTION_HEAD",
               "EXPECTED_TRAINING_PROTOCOL_HEAD",
+              "EXPECTED_ARCHITECTURE_HEAD",
           ):
               value = getattr(auditor, name)
               assert isinstance(value, str), name
@@ -82,13 +95,8 @@ jobs:
                   value,
               )
 
-          historical = auditor.EXPECTED_ARCHITECTURE_HEAD
-          assert historical == "c689cc3f38f6f642916ee1a702d7de7bd0e43b"
-          assert len(historical) == 38
-          assert all(character in "0123456789abcdef" for character in historical)
-
           real_config = {
-              "architecture_head": historical,
+              "architecture_head": runner.QUALIFIED_ARCHITECTURE_HEAD,
               "branch": auditor.EXPECTED_EXECUTION_BRANCH,
               "execution_head": auditor.EXPECTED_EXECUTION_HEAD,
               "experiment_version": auditor.EXPECTED_EXPERIMENT_VERSION,
@@ -114,7 +122,9 @@ jobs:
           wrong_type["seed"] = False
           mutations.append(wrong_type)
           wrong_value = dict(real_config)
-          wrong_value["torch"] = "2.9.1+cpu"
+          wrong_value["architecture_head"] = (
+              runner.TRUNCATED_ARCHITECTURE_IDENTIFIER
+          )
           mutations.append(wrong_value)
           for mutation in mutations:
               try:
@@ -128,11 +138,10 @@ jobs:
 
           print({
               "cache_independent_source_loaded": True,
+              "truncated_identifier_rejected_as_artifact_identity": True,
+              "qualified_architecture_head": runner.QUALIFIED_ARCHITECTURE_HEAD,
               "real_windows_run_config_exact_match": True,
               "run_config_mutations_fail_closed": True,
-              "historical_architecture_identifier": historical,
-              "historical_architecture_identifier_length": len(historical),
-              "historical_architecture_identifier_is_full_git_sha": False,
           })
           PY
 
@@ -177,6 +186,9 @@ jobs:
           source = pathlib.Path(
               "ai_hypothesis/population_compute/gate9_contextual_seed_audit.py"
           ).read_text(encoding="utf-8")
+          runner = pathlib.Path(
+              "scripts/audit_gate9_contextual_training_seed.py"
+          ).read_text(encoding="utf-8")
           for token in (
               "gate9_contextual_training_runtime",
               "gate9_contextual_training_data",
@@ -188,10 +200,14 @@ jobs:
               "torch.save(",
           ):
               assert token not in source, token
+              assert token not in runner, token
           assert "weights_only=True" in source
           assert "source_artifact_modified" in source
           assert "validate_exact_mapping" in source
           assert "config == expected_config" not in source
+          assert "TRUNCATED_ARCHITECTURE_IDENTIFIER" in runner
+          assert "QUALIFIED_ARCHITECTURE_HEAD" in runner
+          assert "correction_applied_fail_closed" in runner
 
           base = "bdc1af9bc65b94b01ae3946977686bd90158786f"
           expected = {
