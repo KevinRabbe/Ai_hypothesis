@@ -1,0 +1,161 @@
+name: Gate9 contextual worker architecture qualification
+
+on:
+  pull_request:
+    branches:
+      - agent/gate9-contextual-graph-world-contract-v0
+    paths:
+      - .github/workflows/gate9-contextual-worker-architecture-v0-ci.yml
+      - ai_hypothesis/population_compute/gate9_contextual_worker_architecture.py
+      - experiments/population_compute_scaling_v0/gate9_contextual_worker_architecture_v0.md
+      - tests/test_gate9_contextual_worker_architecture.py
+
+permissions:
+  contents: read
+
+jobs:
+  architecture-only:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install exact CPU Torch family
+        run: |
+          python -m pip install --disable-pip-version-check \
+            torch==2.9.1 \
+            --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Compile architecture and regressions
+        run: |
+          python -m py_compile \
+            ai_hypothesis/population_compute/gate9_contextual_worker_architecture.py \
+            tests/test_gate9_contextual_worker_architecture.py
+
+      - name: Run exact-budget architecture regressions
+        run: |
+          python -m unittest tests/test_gate9_contextual_worker_architecture.py -v
+
+      - name: Verify exact architecture plan
+        run: |
+          python - <<'PY'
+          import importlib.util
+          import pathlib
+          import sys
+          import torch
+
+          assert torch.__version__.startswith("2.9.1"), torch.__version__
+          path = pathlib.Path(
+              "ai_hypothesis/population_compute/"
+              "gate9_contextual_worker_architecture.py"
+          )
+          spec = importlib.util.spec_from_file_location("gate9_architecture_ci", path)
+          module = importlib.util.module_from_spec(spec)
+          sys.modules[spec.name] = module
+          spec.loader.exec_module(module)
+          plan = module.gate9_contextual_worker_architecture_plan()
+
+          assert plan["graph_world_contract_head"] == (
+              "b6688aa8bf305f099ec320ea60dd5ccdffce4d51"
+          )
+          assert plan["learned_parameter_count"] == 19_649
+          assert plan["parameter_breakdown"] == {
+              "pair_projection": 816,
+              "query_projection": 432,
+              "support_slot_modulation": 216,
+              "support_attention": 9_408,
+              "support_feedforward": 6_256,
+              "query_support_fusion": 2_328,
+              "output_bit_head": 192,
+              "output_scale": 1,
+          }
+          assert sum(plan["parameter_breakdown"].values()) == 19_649
+          assert plan["input"]["support_examples"] == 9
+          assert plan["input"]["support_order"] == [8, 0, 64, 4, 2, 1, 32, 128, 16]
+          assert plan["input"]["support_pair_features"] == 16
+          assert plan["input"]["query_features"] == 8
+          for key in (
+              "operator_counter_visible",
+              "operator_key_visible",
+              "world_id_visible",
+              "worker_id_visible",
+              "node_id_visible",
+              "population_visible",
+              "depth_visible",
+              "round_visible",
+              "target_flag_visible",
+          ):
+              assert plan["input"][key] is False
+          assert plan["shared_across_workers"] is True
+          assert plan["shared_across_populations"] is True
+          assert plan["shared_across_rounds"] is True
+          assert plan["per_operator_parameters"] == 0
+          assert plan["padding_parameters"] == 0
+          assert plan["contract_forward_backward_admitted"] is True
+          for key in (
+              "optimizer_admitted",
+              "training_admitted",
+              "checkpoint_serialization_admitted",
+              "checkpoint_loading_admitted",
+              "scientific_test_world_generation_admitted",
+              "scientific_execution_admitted",
+              "result_classification_admitted",
+          ):
+              assert plan[key] is False
+          print(plan)
+          PY
+
+      - name: Keep training checkpoint and science boundaries closed
+        run: |
+          python - <<'PY'
+          import pathlib
+          source = pathlib.Path(
+              "ai_hypothesis/population_compute/"
+              "gate9_contextual_worker_architecture.py"
+          ).read_text(encoding="utf-8")
+          workflow = pathlib.Path(
+              ".github/workflows/gate9-contextual-worker-architecture-v0-ci.yml"
+          ).read_text(encoding="utf-8")
+          for token in (
+              "torch." + "optim",
+              "torch.load(",
+              "torch.save(",
+              ".backward(",
+              "generate_gate9_test_world(",
+              "generate_gate9_contract_world(",
+              "operator_from_counter(",
+              "json.load",
+              "from_pretrained(",
+          ):
+              assert token not in source, token
+          combined = source + workflow
+          for token in (
+              "gate9_contextual_" + "training.py",
+              "run_gate9_" + "contextual",
+              "gate9_contextual_" + "checkpoint",
+              "gate9_contextual_" + "result",
+          ):
+              assert token not in combined, token
+          PY
+
+      - name: Prove exact four-file architecture slice
+        run: |
+          python - <<'PY'
+          import subprocess
+          base = "b6688aa8bf305f099ec320ea60dd5ccdffce4d51"
+          expected = {
+              ".github/workflows/gate9-contextual-worker-architecture-v0-ci.yml",
+              "ai_hypothesis/population_compute/gate9_contextual_worker_architecture.py",
+              "experiments/population_compute_scaling_v0/gate9_contextual_worker_architecture_v0.md",
+              "tests/test_gate9_contextual_worker_architecture.py",
+          }
+          changed = set(subprocess.check_output(
+              ["git", "diff", "--name-only", base, "HEAD"], text=True
+          ).splitlines())
+          assert changed == expected, (changed, expected)
+          PY
