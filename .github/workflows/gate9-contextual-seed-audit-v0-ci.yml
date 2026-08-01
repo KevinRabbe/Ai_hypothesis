@@ -40,6 +40,47 @@ jobs:
             tests/test_gate9_contextual_seed_audit.py
           python -m unittest tests/test_gate9_contextual_seed_audit.py -v
 
+      - name: Verify cache-independent runner source loading
+        run: |
+          python - <<'PY'
+          import importlib.util
+          import pathlib
+          import sys
+
+          runner_path = pathlib.Path(
+              "scripts/audit_gate9_contextual_training_seed.py"
+          )
+          runner_source = runner_path.read_text(encoding="utf-8")
+          assert "compile(" in runner_source
+          assert "types.ModuleType" in runner_source
+          assert "spec.loader.exec_module" not in runner_source
+
+          spec = importlib.util.spec_from_file_location(
+              "gate9_seed_audit_runner_ci", runner_path
+          )
+          runner = importlib.util.module_from_spec(spec)
+          sys.modules[spec.name] = runner
+          spec.loader.exec_module(runner)
+          auditor = runner._load_auditor()
+
+          assert auditor.AUDIT_VERSION == (
+              "gate9-contextual-training-seed-audit-v0"
+          )
+          assert auditor.EXPECTED_EXECUTION_HEAD == (
+              "bdc1af9bc65b94b01ae3946977686bd90158786f"
+          )
+          assert auditor.EXPECTED_TRAINING_PROTOCOL_HEAD == (
+              "1228c19cbf85da4ab738c3355c58f946cd6a965c"
+          )
+          assert auditor.EXPECTED_ARCHITECTURE_HEAD == (
+              "c689cc3f38f6f6f642916ee1a702d7de7bd0e43b"
+          )
+          assert pathlib.Path(auditor.__file__).resolve() == (
+              runner.AUDITOR_PATH.resolve()
+          )
+          print("Gate9 audit runner loaded exact checked-out source")
+          PY
+
       - name: Verify exact auditor blob and numeric contract
         run: |
           observed_blob="$(git hash-object ai_hypothesis/population_compute/gate9_contextual_seed_audit.py)"
