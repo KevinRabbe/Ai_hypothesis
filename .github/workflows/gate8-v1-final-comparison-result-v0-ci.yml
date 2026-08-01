@@ -1,0 +1,146 @@
+name: Gate8 v1 final comparison result qualification
+
+on:
+  pull_request:
+    branches:
+      - agent/gate8-v1-final-comparison-execution-v0
+    paths:
+      - .github/workflows/gate8-v1-final-comparison-result-v0-ci.yml
+      - experiments/population_compute_scaling_v0/gate8_v1_final_comparison_result_v0.json
+      - experiments/population_compute_scaling_v0/gate8_v1_final_comparison_result_v0.md
+      - experiments/population_compute_scaling_v0/gate8_v1_final_comparison_manifest_v0.sha256
+
+permissions:
+  contents: read
+
+jobs:
+  result-only:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Verify immutable final result
+        shell: bash
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          root = Path("experiments/population_compute_scaling_v0")
+          result_path = root / "gate8_v1_final_comparison_result_v0.json"
+          manifest_path = root / "gate8_v1_final_comparison_manifest_v0.sha256"
+          result_bytes = result_path.read_bytes()
+          result = json.loads(result_bytes)
+
+          assert hashlib.sha256(result_bytes).hexdigest() == "201fae88aa64bc34ff009dcf66bfb040abc7a541b710df0274ac49f567a9de6b"
+          assert result["experiment_version"] == "gate8-v1-final-comparison-result-v0"
+          assert result["scientific_status"] == "G8_V1_FINAL_COMPARISON_COMPLETE"
+          assert result["execution_head"] == "474b2590e5e138134bcb993e1d8114c473f0455b"
+          assert result["population_result_head"] == "14636d219781381853f81036b96c691b7e6997ee"
+          assert result["gemma_reference_result_head"] == "1d48ecfd623a2fb9e3a2f846a4d1c49d20d8cadc"
+          assert result["scientific_protocol_head"] == "6bb89111a47713bea0a23bb1cae662ed5ec56b42"
+
+          assert result["classifications"] == {
+              "population_scaling": "G8_POSITIVE_CAPABILITY_SCALING",
+              "population_vs_1b_reference": "G8_POPULATION_EXCEEDS_1B_REFERENCE",
+          }
+          primary = result["primary_result"]
+          assert primary == {
+              "bootstrap_ci_high": 0.9975818452380956,
+              "bootstrap_ci_low": 0.9954427083333335,
+              "bootstrap_replicate_vector_sha256": "667978e5ed535996cccdd85f9c354dc70fd377fae135deb8e55653694de7f80e",
+              "population_mean_accuracy": 1.0,
+              "population_minus_reference_delta": 0.9965587797619048,
+              "reference_mean_accuracy": 0.003441220238095238,
+          }
+          assert primary["bootstrap_ci_low"] > 0.0
+
+          assert result["test_matrix"] == {
+              "conditions": 21,
+              "population_full_rows": 32256,
+              "population_seeds": [0, 1, 2],
+              "reference_rows": 10752,
+              "unique_worlds": 10752,
+              "worlds_per_condition": 512,
+          }
+
+          evidence = result["condition_evidence"]
+          assert evidence["rows"] == 21
+          assert evidence["reference_correct"] == 37
+          assert evidence["reference_worlds"] == 10752
+          assert evidence["population_accuracy_all_conditions"] == 1.0
+          assert evidence["population_seed_accuracies_all_conditions"] == [1.0, 1.0, 1.0]
+          assert evidence["maximum_reference_condition_accuracy"] == 0.017578125
+          assert evidence["maximum_reference_input_tokens"] == 9892
+          assert evidence["minimum_condition_bootstrap_ci_low"] == 0.970703125
+          assert evidence["every_condition_clear_population_win"] is True
+          assert evidence["ordering"] == [
+              [32, 4],
+              [64, 4], [64, 8],
+              [128, 4], [128, 8], [128, 16],
+              [256, 4], [256, 8], [256, 16], [256, 32],
+              [512, 4], [512, 8], [512, 16], [512, 32], [512, 64],
+              [1024, 4], [1024, 8], [1024, 16], [1024, 32], [1024, 64], [1024, 128],
+          ]
+
+          assert result["final_artifact_sha256"] == {
+              "gate8-v1-final-comparison-per-condition.jsonl": "276969b304beee1edbeb3979c44a12db4b256b436e6d82c86ff92da7ce64f44d",
+              "gate8-v1-final-comparison-summary.json": "a63f1c6c7cb7facdc71a48e5df05297cc823017ea342dc052310d36c97394462",
+              "git-head.txt": "de2c731e2feda9ec21ab20fe33df58aec380cd4f7e231e2b1b40bcf4b79a1e51",
+              "git-status.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "manifest.sha256": "bc7ff2ca604c914a2bb610d0089450454c47fbb36eb76954db28ea898c3ced59",
+              "run-config.json": "8be990a776ce717291f56498d20d5b242a96fc6c5b9c93c5ff9bbad7a8830b17",
+          }
+          assert result["independent_audit"] and all(result["independent_audit"].values())
+          assert result["closed_boundaries"] == {
+              "final_result_record_only": True,
+              "population_execution_performed": False,
+              "reference_inference_performed": False,
+              "reference_model_loaded": False,
+              "training_performed": False,
+              "world_generation_performed": False,
+          }
+
+          manifest = manifest_path.read_bytes()
+          assert hashlib.sha256(manifest).hexdigest() == "bc7ff2ca604c914a2bb610d0089450454c47fbb36eb76954db28ea898c3ced59"
+          assert manifest.count(b"\n") == 5
+          assert b"\r" not in manifest
+          expected = {
+              b"276969b304beee1edbeb3979c44a12db4b256b436e6d82c86ff92da7ce64f44d  comparison/gate8-v1-final-comparison-per-condition.jsonl",
+              b"a63f1c6c7cb7facdc71a48e5df05297cc823017ea342dc052310d36c97394462  comparison/gate8-v1-final-comparison-summary.json",
+              b"de2c731e2feda9ec21ab20fe33df58aec380cd4f7e231e2b1b40bcf4b79a1e51  git-head.txt",
+              b"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  git-status.txt",
+              b"8be990a776ce717291f56498d20d5b242a96fc6c5b9c93c5ff9bbad7a8830b17  run-config.json",
+          }
+          assert set(manifest.splitlines()) == expected
+          PY
+
+      - name: Prove exact result-only slice
+        shell: bash
+        run: |
+          git fetch origin "${{ github.base_ref }}"
+          mapfile -t changed < <(git diff --name-only "origin/${{ github.base_ref }}...HEAD" | sort)
+          expected=(
+            ".github/workflows/gate8-v1-final-comparison-result-v0-ci.yml"
+            "experiments/population_compute_scaling_v0/gate8_v1_final_comparison_manifest_v0.sha256"
+            "experiments/population_compute_scaling_v0/gate8_v1_final_comparison_result_v0.json"
+            "experiments/population_compute_scaling_v0/gate8_v1_final_comparison_result_v0.md"
+          )
+          test "${#changed[@]}" -eq "${#expected[@]}"
+          for index in "${!expected[@]}"; do
+            test "${changed[$index]}" = "${expected[$index]}"
+          done
+
+      - name: Keep raw and executable boundaries closed
+        shell: bash
+        run: |
+          test ! -e experiments/population_compute_scaling_v0/gate8-v1-final-comparison-per-condition.jsonl
+          test ! -e experiments/population_compute_scaling_v0/gate8-v1-final-comparison-summary.json
+          ! git diff --name-only "origin/${{ github.base_ref }}...HEAD" | grep -E '\.(py|ps1|pt|bin|safetensors|sqlite3|jsonl)$'
