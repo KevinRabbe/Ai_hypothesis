@@ -168,11 +168,19 @@ class Gate9TrainingExecutionTests(unittest.TestCase):
             self.assertEqual(len(lines), 2)
             self.assertNotIn("manifest.sha256", manifest.read_text(encoding="ascii"))
 
+    def test_wrapper_is_strict_ascii_for_windows_powershell_51(self):
+        wrapper_bytes = WRAPPER_PATH.read_bytes()
+        decoded = wrapper_bytes.decode("ascii")
+        self.assertIn(
+            "Gate-9 CONTEXTUAL WORKER TRAINING - SEED $Seed",
+            decoded,
+        )
+
     def test_execution_sources_keep_scientific_ranges_and_assignment_closed(self):
         runtime = RUNTIME_PATH.read_text(encoding="utf-8")
         data_source = DATA_PATH.read_text(encoding="utf-8")
         script = SCRIPT_PATH.read_text(encoding="utf-8")
-        wrapper = WRAPPER_PATH.read_text(encoding="utf-8")
+        wrapper = WRAPPER_PATH.read_text(encoding="ascii")
         for token in (
             "GATE9_LOCAL_TEST_OPERATOR_COUNTER_START",
             "GATE9_GRAPH_TEST_OPERATOR_COUNTER_START",
