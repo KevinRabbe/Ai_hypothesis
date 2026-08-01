@@ -1,10 +1,4 @@
-"""Independent Gate-9 contextual-training seed artifact auditor.
-
-This module reads one completed seed artifact root and reconstructs its manifest,
-training ledger, validation ledger, fixed-final checkpoint contract, reported
-metrics, and frozen checkpoint-admission outcome. It does not import the
-trainer, architecture, operator generator, or scientific test runtime.
-"""
+"""Independent read-only audit of one completed Gate-9 training seed."""
 from __future__ import annotations
 
 import hashlib
@@ -67,12 +61,27 @@ class AuditError(RuntimeError):
     pass
 
 
+def _require(condition: bool, message: str) -> None:
+    if not condition:
+        raise AuditError(message)
+
+
 def sha256_file(path: pathlib.Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
         for chunk in iter(lambda: handle.read(1 << 20), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _valid_sha256(value: Any, label: str) -> str:
+    _require(isinstance(value, str), f"{label} is not text")
+    _require(
+        len(value) == 64
+        and all(character in "0123456789abcdef" for character in value),
+        f"{label} is not lowercase SHA-256",
+    )
+    return value
 
 
 def read_json(path: pathlib.Path) -> Any:
@@ -86,28 +95,27 @@ def iter_jsonl(path: pathlib.Path) -> Iterator[dict[str, Any]]:
     try:
         with path.open("r", encoding="utf-8", newline="") as handle:
             for line_number, line in enumerate(handle, 1):
-                if not line.endswith("\n"):
-                    raise AuditError(
-                        f"JSONL row lacks newline: {path}:{line_number}"
-                    )
+                _require(
+                    line.endswith("\n"),
+                    f"JSONL row lacks newline: {path}:{line_number}",
+                )
                 try:
-                    payload = json.loads(line)
+                    row = json.loads(line)
                 except json.JSONDecodeError as error:
                     raise AuditError(
                         f"invalid JSONL row: {path}:{line_number}"
                     ) from error
-                if not isinstance(payload, dict):
-                    raise AuditError(
-                        f"JSONL row is not an object: {path}:{line_number}"
-                    )
-                yield payload
+                _require(
+                    isinstance(row, dict),
+                    f"JSONL row is not an object: {path}:{line_number}",
+                )
+                yield row
     except OSError as error:
         raise AuditError(f"could not read JSONL artifact: {path}") from error
 
 
 def learning_rate_at_step(step: int) -> float:
-    if not 1 <= step <= TRAIN_STEPS:
-        raise AuditError("training step lies outside 1..512")
+    _require(1 <= step <= TRAIN_STEPS, "training step lies outside 1..512")
     if step <= WARMUP_STEPS:
         return BASE_LR * step / WARMUP_STEPS
     progress = (step - WARMUP_STEPS) / (TRAIN_STEPS - WARMUP_STEPS)
@@ -115,34 +123,29 @@ def learning_rate_at_step(step: int) -> float:
     return MIN_LR + (BASE_LR - MIN_LR) * cosine
 
 
-def _require(condition: bool, message: str) -> None:
-    if not condition:
-        raise AuditError(message)
-
-
-def _valid_sha256(value: Any, label: str) -> str:
-    _require(isinstance(value, str), f"{label} is not text")
-    _require(
-        len(value) == 64
-        and all(character in "0123456789abcdef" for character in value),
-        f"{label} is not lowercase SHA-256",
-    )
-    return value
-
-
 def verify_manifest(root: pathlib.Path) -> dict[str, str]:
     manifest_path = root / "manifest.sha256"
     _require(manifest_path.is_file(), "manifest.sha256 is missing")
     lines = manifest_path.read_text(encoding="ascii").splitlines()
-    _require(lines == sorted(lines), "manifest rows are not sorted")
-    entries: dict[str, str] = {}
+    parsed: list[tuple[str, str]] = []
     for line in lines:
         parts = line.split("  ", 1)
         _require(len(parts) == 2, "manifest row is malformed")
         digest, relative = parts
         _valid_sha256(digest, f"manifest digest for {relative}")
         _require(relative != "manifest.sha256", "manifest includes itself")
-        _require(relative not in entries, f"duplicate manifest path: {relative}")
+        parsed.append((relative, digest))
+    relative_paths = [relative for relative, _ in parsed]
+    _require(
+        relative_paths == sorted(relative_paths),
+        "manifest paths are not sorted",
+    )
+    _require(
+        len(relative_paths) == len(set(relative_paths)),
+        "manifest contains a duplicate path",
+    )
+    entries: dict[str, str] = {}
+    for relative, digest in parsed:
         path = root / pathlib.PurePosixPath(relative)
         _require(path.is_file(), f"manifest artifact is missing: {relative}")
         _require(
@@ -160,10 +163,10 @@ def verify_manifest(root: pathlib.Path) -> dict[str, str]:
 
 
 def audit_training_ledger(path: pathlib.Path, seed: int) -> dict[str, Any]:
-    final_loss = None
-    seen_batch_hashes: set[str] = set()
-    seen_query_hashes: set[str] = set()
     rows = 0
+    final_loss: float | None = None
+    batch_hashes: set[str] = set()
+    query_hashes: set[str] = set()
     for expected_step, row in enumerate(iter_jsonl(path), 1):
         rows += 1
         _require(row.get("seed") == seed, "training ledger seed drifted")
@@ -187,29 +190,34 @@ def audit_training_ledger(path: pathlib.Path, seed: int) -> dict[str, Any]:
         gradient = row.get("pre_clip_gradient_norm")
         wall = row.get("wall_seconds")
         _require(
-            isinstance(loss, (int, float)) and math.isfinite(float(loss)) and loss >= 0,
+            isinstance(loss, (int, float))
+            and math.isfinite(float(loss))
+            and float(loss) >= 0.0,
             "training loss is invalid",
         )
         _require(
             isinstance(gradient, (int, float))
             and math.isfinite(float(gradient))
-            and gradient >= 0,
+            and float(gradient) >= 0.0,
             "gradient norm is invalid",
         )
         _require(
-            isinstance(wall, (int, float)) and math.isfinite(float(wall)) and wall >= 0,
+            isinstance(wall, (int, float))
+            and math.isfinite(float(wall))
+            and float(wall) >= 0.0,
             "training wall time is invalid",
         )
         batch_hash = _valid_sha256(
-            row.get("batch_operator_ordinal_sha256"), "training batch ordinal hash"
+            row.get("batch_operator_ordinal_sha256"),
+            "training batch ordinal hash",
         )
         query_hash = _valid_sha256(
-            row.get("batch_query_sha256"), "training batch query hash"
+            row.get("batch_query_sha256"),
+            "training batch query hash",
         )
-        _require(batch_hash not in seen_batch_hashes, "training batch hash repeated")
-        _require(query_hash not in seen_query_hashes, "training query hash repeated")
-        seen_batch_hashes.add(batch_hash)
-        seen_query_hashes.add(query_hash)
+        _require(batch_hash not in batch_hashes, "training batch hash repeated")
+        batch_hashes.add(batch_hash)
+        query_hashes.add(query_hash)
         final_loss = float(loss)
     _require(rows == TRAIN_STEPS, f"training ledger has {rows} rows, expected 512")
     _require(final_loss is not None, "training ledger is empty")
@@ -217,14 +225,18 @@ def audit_training_ledger(path: pathlib.Path, seed: int) -> dict[str, Any]:
         "rows": rows,
         "episodes": rows * TRAIN_BATCH_SIZE,
         "final_loss": final_loss,
-        "unique_batch_hashes": len(seen_batch_hashes),
-        "unique_query_hashes": len(seen_query_hashes),
+        "unique_batch_hashes": len(batch_hashes),
+        "unique_query_hashes": len(query_hashes),
     }
 
 
 def audit_validation_ledger(path: pathlib.Path) -> dict[str, Any]:
     seen_ordinals = bytearray(VALIDATION_EPISODES)
-    full_correct = shuffled_correct = query_correct = oracle_correct = 0
+    seen_shuffled = bytearray(VALIDATION_EPISODES)
+    full_correct = 0
+    shuffled_correct = 0
+    query_correct = 0
+    oracle_correct = 0
     bit_correct = 0
     rows = 0
     for expected_index, row in enumerate(iter_jsonl(path)):
@@ -256,47 +268,49 @@ def audit_validation_ledger(path: pathlib.Path) -> dict[str, Any]:
             and shuffled_ordinal != ordinal,
             "shuffled-context ordinal is not a valid derangement",
         )
-        query = row.get("query")
-        answer = row.get("answer")
-        full = row.get("full_prediction")
-        shuffled = row.get("shuffled_context_prediction")
-        query_only = row.get("query_only_prediction")
-        oracle = row.get("oracle_prediction")
-        for value, label in (
-            (query, "query"),
-            (answer, "answer"),
-            (full, "full prediction"),
-            (shuffled, "shuffled prediction"),
-            (query_only, "query-only prediction"),
-            (oracle, "oracle prediction"),
-        ):
+        _require(
+            not seen_shuffled[shuffled_ordinal],
+            "shuffled-context operator ordinal repeated",
+        )
+        seen_shuffled[shuffled_ordinal] = 1
+        values = {
+            "query": row.get("query"),
+            "answer": row.get("answer"),
+            "full": row.get("full_prediction"),
+            "shuffled": row.get("shuffled_context_prediction"),
+            "query_only": row.get("query_only_prediction"),
+            "oracle": row.get("oracle_prediction"),
+        }
+        for label, value in values.items():
             _require(
                 isinstance(value, int) and 0 <= value <= 255,
-                f"validation {label} is invalid",
+                f"validation {label} byte is invalid",
             )
-        _require(query not in SUPPORT_INPUTS, "validation query is a support input")
-        expected_flags = {
-            "full_correct": full == answer,
-            "shuffled_context_correct": shuffled == answer,
-            "query_only_correct": query_only == answer,
-            "oracle_correct": oracle == answer,
+        _require(values["query"] not in SUPPORT_INPUTS, "validation query is a support input")
+        flags = {
+            "full_correct": values["full"] == values["answer"],
+            "shuffled_context_correct": values["shuffled"] == values["answer"],
+            "query_only_correct": values["query_only"] == values["answer"],
+            "oracle_correct": values["oracle"] == values["answer"],
         }
-        for field, expected in expected_flags.items():
+        for field, expected in flags.items():
             _require(row.get(field) is expected, f"validation {field} drifted")
-        full_correct += int(expected_flags["full_correct"])
-        shuffled_correct += int(expected_flags["shuffled_context_correct"])
-        query_correct += int(expected_flags["query_only_correct"])
-        oracle_correct += int(expected_flags["oracle_correct"])
-        bit_correct += 8 - ((full ^ answer).bit_count())
+        full_correct += int(flags["full_correct"])
+        shuffled_correct += int(flags["shuffled_context_correct"])
+        query_correct += int(flags["query_only_correct"])
+        oracle_correct += int(flags["oracle_correct"])
+        bit_correct += 8 - ((values["full"] ^ values["answer"]).bit_count())
     _require(
         rows == VALIDATION_EPISODES,
         f"validation ledger has {rows} rows, expected 32768",
     )
     _require(sum(seen_ordinals) == VALIDATION_EPISODES, "validation coverage incomplete")
+    _require(sum(seen_shuffled) == VALIDATION_EPISODES, "shuffled-context coverage incomplete")
     _require(oracle_correct == VALIDATION_EPISODES, "oracle accuracy is not exactly 1.0")
     return {
         "rows": rows,
         "unique_operator_ordinals": sum(seen_ordinals),
+        "unique_shuffled_operator_ordinals": sum(seen_shuffled),
         "full_correct": full_correct,
         "shuffled_correct": shuffled_correct,
         "query_only_correct": query_correct,
@@ -386,7 +400,10 @@ def audit_seed_artifact(
     manifest_entries = verify_manifest(root)
     manifest_hash = sha256_file(paths["manifest"])
     if expected_manifest_sha256 is not None:
-        _require(manifest_hash == expected_manifest_sha256.lower(), "manifest identity differs from terminal")
+        _require(
+            manifest_hash == expected_manifest_sha256.lower(),
+            "manifest identity differs from terminal",
+        )
 
     head = paths["git_head"].read_text(encoding="ascii").strip()
     status = paths["git_status"].read_text(encoding="utf-8")
@@ -394,7 +411,6 @@ def audit_seed_artifact(
     _require(status == "", "execution working tree was not clean")
 
     config = read_json(paths["run_config"])
-    _require(isinstance(config, dict), "run config is not an object")
     expected_config = {
         "experiment_version": EXPECTED_EXPERIMENT_VERSION,
         "execution_head": EXPECTED_EXECUTION_HEAD,
@@ -421,18 +437,22 @@ def audit_seed_artifact(
         (checkpoint_hash, expected_checkpoint_sha256, "checkpoint"),
     ):
         if expected is not None:
-            _require(observed == expected.lower(), f"{label} identity differs from terminal")
+            _require(
+                observed == expected.lower(),
+                f"{label} identity differs from terminal",
+            )
 
     summary = read_json(paths["summary"])
     _require(isinstance(summary, dict), "summary is not an object")
-    _require(summary.get("experiment_version") == EXPECTED_EXPERIMENT_VERSION, "summary experiment drifted")
-    _require(summary.get("scientific_status") == EXPECTED_SEED_STATUS, "summary status drifted")
-    _require(summary.get("execution_head") == EXPECTED_EXECUTION_HEAD, "summary head drifted")
-    _require(summary.get("training_protocol_head") == EXPECTED_TRAINING_PROTOCOL_HEAD, "summary protocol drifted")
-    _require(summary.get("architecture_head") == EXPECTED_ARCHITECTURE_HEAD, "summary architecture drifted")
-    _require(summary.get("seed") == seed, "summary seed drifted")
-    boundaries = summary.get("boundaries")
-    _require(isinstance(boundaries, dict), "summary boundaries are missing")
+    for field, expected in (
+        ("experiment_version", EXPECTED_EXPERIMENT_VERSION),
+        ("scientific_status", EXPECTED_SEED_STATUS),
+        ("execution_head", EXPECTED_EXECUTION_HEAD),
+        ("training_protocol_head", EXPECTED_TRAINING_PROTOCOL_HEAD),
+        ("architecture_head", EXPECTED_ARCHITECTURE_HEAD),
+        ("seed", seed),
+    ):
+        _require(summary.get(field) == expected, f"summary {field} drifted")
     expected_boundaries = {
         "training_performed": True,
         "validation_performed": True,
@@ -444,7 +464,7 @@ def audit_seed_artifact(
         "scientific_execution_performed": False,
         "result_classification_performed": False,
     }
-    _require(boundaries == expected_boundaries, "summary boundary evidence drifted")
+    _require(summary.get("boundaries") == expected_boundaries, "summary boundary evidence drifted")
 
     training = audit_training_ledger(paths["training"], seed)
     validation = audit_validation_ledger(paths["validation"])
@@ -480,33 +500,42 @@ def audit_seed_artifact(
             )
         else:
             _require(observed == expected, f"summary validation evidence drifted: {field}")
+
     admission_passes = (
         validation["exact_accuracy"] >= EXACT_ACCURACY_MIN
         and validation["bit_accuracy"] >= BIT_ACCURACY_MIN
-        and validation["exact_accuracy"] - validation["shuffled_accuracy"]
-        > CONTEXT_DELTA_MIN
-        and validation["exact_accuracy"] - validation["query_only_accuracy"]
-        > CONTEXT_DELTA_MIN
+        and validation["exact_accuracy"] - validation["shuffled_accuracy"] > CONTEXT_DELTA_MIN
+        and validation["exact_accuracy"] - validation["query_only_accuracy"] > CONTEXT_DELTA_MIN
         and validation["oracle_accuracy"] == 1.0
     )
     _require(evidence.get("admission_passes") is admission_passes, "admission flag drifted")
     artifacts = summary.get("artifacts")
     _require(isinstance(artifacts, dict), "summary artifact map is missing")
-    _require(artifacts.get("selected_checkpoint_sha256") == checkpoint_hash, "summary checkpoint identity drifted")
+    _require(
+        artifacts.get("selected_checkpoint_sha256") == checkpoint_hash,
+        "summary checkpoint identity drifted",
+    )
 
-    _require(manifest_entries["git-head.txt"] == sha256_file(paths["git_head"]), "manifest Git-head binding drifted")
-    _require(manifest_entries["git-status.txt"] == sha256_file(paths["git_status"]), "manifest Git-status binding drifted")
-    _require(manifest_entries["run-config.json"] == sha256_file(paths["run_config"]), "manifest run-config binding drifted")
-    _require(manifest_entries[f"seed-{seed}/summary.json"] == summary_hash, "manifest summary binding drifted")
-    _require(manifest_entries[f"seed-{seed}/validation-per-episode.jsonl"] == validation_hash, "manifest validation binding drifted")
-    _require(manifest_entries[f"seed-{seed}/selected-checkpoint.pt"] == checkpoint_hash, "manifest checkpoint binding drifted")
+    required_manifest_bindings = {
+        "git-head.txt": paths["git_head"],
+        "git-status.txt": paths["git_status"],
+        "run-config.json": paths["run_config"],
+        f"seed-{seed}/summary.json": paths["summary"],
+        f"seed-{seed}/train-steps.jsonl": paths["training"],
+        f"seed-{seed}/validation-per-episode.jsonl": paths["validation"],
+        f"seed-{seed}/selected-checkpoint.pt": paths["checkpoint"],
+    }
+    for relative, path in required_manifest_bindings.items():
+        _require(
+            manifest_entries.get(relative) == sha256_file(path),
+            f"manifest binding drifted: {relative}",
+        )
 
     outcome = (
         "G9_CONTEXTUAL_SEED_CHECKPOINT_ADMITTED"
         if admission_passes
         else "G9_CONTEXTUAL_SEED_CHECKPOINT_ADMISSION_FAILED"
     )
-    all_seed_admission_still_possible = admission_passes
     return {
         "audit_version": AUDIT_VERSION,
         "status": "G9_CONTEXTUAL_SEED_AUDIT_COMPLETE",
@@ -514,7 +543,7 @@ def audit_seed_artifact(
         "artifact_root": str(root),
         "execution_head": head,
         "seed_outcome": outcome,
-        "all_seed_admission_still_possible": all_seed_admission_still_possible,
+        "all_seed_admission_still_possible": admission_passes,
         "scientific_test_generation_allowed": False,
         "training": training,
         "validation": validation,
