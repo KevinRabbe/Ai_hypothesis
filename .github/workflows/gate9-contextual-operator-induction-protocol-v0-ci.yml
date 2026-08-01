@@ -1,0 +1,170 @@
+name: Gate9 contextual operator-induction protocol qualification
+
+on:
+  pull_request:
+    branches:
+      - agent/gate8-v1-final-comparison-result-v0
+    paths:
+      - .github/workflows/gate9-contextual-operator-induction-protocol-v0-ci.yml
+      - ai_hypothesis/population_compute/gate9_contextual_operator_induction_protocol.py
+      - experiments/population_compute_scaling_v0/gate9_contextual_operator_induction_protocol_v0.md
+      - tests/test_gate9_contextual_operator_induction_protocol.py
+
+permissions:
+  contents: read
+
+jobs:
+  protocol-only:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Compile protocol and regressions
+        run: |
+          python -m py_compile \
+            ai_hypothesis/population_compute/gate9_contextual_operator_induction_protocol.py \
+            tests/test_gate9_contextual_operator_induction_protocol.py
+
+      - name: Run frozen protocol regressions
+        run: |
+          python -m unittest \
+            tests/test_gate9_contextual_operator_induction_protocol.py -v
+
+      - name: Verify exact closed plan and arithmetic
+        run: |
+          python - <<'PY'
+          import importlib.util
+          import pathlib
+          import sys
+
+          path = pathlib.Path(
+              "ai_hypothesis/population_compute/"
+              "gate9_contextual_operator_induction_protocol.py"
+          )
+          spec = importlib.util.spec_from_file_location("gate9_protocol_ci", path)
+          module = importlib.util.module_from_spec(spec)
+          sys.modules[spec.name] = module
+          spec.loader.exec_module(module)
+
+          plan = module.gate9_protocol_plan()
+          assert plan["gate8_final_result_head"] == (
+              "a063be4bf04979b026370f87cdd0aa05712cdd05"
+          )
+          assert plan["gate8_summary_sha256"] == (
+              "a63f1c6c7cb7facdc71a48e5df05297cc823017ea342dc052310d36c97394462"
+          )
+          assert plan["gate8_scaling_outcome"] == (
+              "G8_POSITIVE_CAPABILITY_SCALING"
+          )
+          assert plan["gate8_reference_outcome"] == (
+              "G8_POPULATION_EXCEEDS_1B_REFERENCE"
+          )
+          assert plan["learned_parameter_budget"] == 19_649
+          assert plan["checkpoint_seeds"] == [0, 1, 2]
+          assert plan["symbol_bits"] == 8
+          assert plan["message_bits"] == 8
+          assert plan["support_examples"] == 9
+          assert plan["support_inputs"] == [0, 1, 2, 4, 8, 16, 32, 64, 128]
+          assert plan["operator_family_size"] == 1 << 64
+          assert plan["operator_counts"] == {
+              "train": 262_144,
+              "validation": 32_768,
+              "local_test": 4_096,
+              "graph_test": 2_629_632,
+          }
+          assert plan["condition_count"] == 21
+          assert plan["worlds_per_condition"] == 256
+          assert plan["test_world_start"] == 0
+          assert plan["test_world_end_inclusive"] == 255
+          assert plan["bootstrap_samples"] == 20_000
+          assert plan["causal_conditions"] == [[512, 64], [1024, 128]]
+          assert module.GATE9_SCIENTIFIC_TEST_OPERATOR_COUNT == 2_633_728
+          assert module.GATE9_OPERATOR_FAMILY_SIZE > (
+              module.GATE9_TRAIN_OPERATOR_COUNT
+              + module.GATE9_VALIDATION_OPERATOR_COUNT
+              + module.GATE9_SCIENTIFIC_TEST_OPERATOR_COUNT
+          )
+          for key in (
+              "execution_admitted",
+              "operator_generation_admitted",
+              "world_generation_admitted",
+              "architecture_admitted",
+              "training_admitted",
+              "checkpoint_loading_admitted",
+              "scientific_test_admitted",
+              "reference_inference_admitted",
+              "result_classification_admitted",
+          ):
+              assert plan[key] is False, key
+          print(plan)
+          PY
+
+      - name: Keep every execution and artifact boundary closed
+        run: |
+          python - <<'PY'
+          import pathlib
+
+          module = pathlib.Path(
+              "ai_hypothesis/population_compute/"
+              "gate9_contextual_operator_induction_protocol.py"
+          ).read_text(encoding="utf-8")
+          tests = pathlib.Path(
+              "tests/test_gate9_contextual_operator_induction_protocol.py"
+          ).read_text(encoding="utf-8")
+          workflow = pathlib.Path(
+              ".github/workflows/"
+              "gate9-contextual-operator-induction-protocol-v0-ci.yml"
+          ).read_text(encoding="utf-8")
+
+          for token in (
+              "import torch",
+              "import numpy",
+              "torch.load(",
+              "torch.optim",
+              ".backward(",
+              "generate_gate9_operator(",
+              "generate_gate9_world(",
+              "run_gate9",
+              "from_pretrained(",
+              "json.load",
+          ):
+              assert token not in module, token
+
+          forbidden_paths = (
+              "gate9_contextual_operator_" + "generator.py",
+              "gate9_contextual_operator_" + "worlds.py",
+              "gate9_contextual_operator_" + "architecture.py",
+              "run_gate9_" + "contextual_operator",
+              "gate9_contextual_operator_" + "result",
+          )
+          combined = module + tests + workflow
+          for token in forbidden_paths:
+              assert token not in combined, token
+          PY
+
+      - name: Prove exact four-file protocol slice
+        run: |
+          python - <<'PY'
+          import subprocess
+
+          base = "a063be4bf04979b026370f87cdd0aa05712cdd05"
+          expected = {
+              ".github/workflows/gate9-contextual-operator-induction-protocol-v0-ci.yml",
+              "ai_hypothesis/population_compute/gate9_contextual_operator_induction_protocol.py",
+              "experiments/population_compute_scaling_v0/gate9_contextual_operator_induction_protocol_v0.md",
+              "tests/test_gate9_contextual_operator_induction_protocol.py",
+          }
+          changed = set(
+              subprocess.check_output(
+                  ["git", "diff", "--name-only", base, "HEAD"],
+                  text=True,
+              ).splitlines()
+          )
+          assert changed == expected, (changed, expected)
+          PY
