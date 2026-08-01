@@ -115,10 +115,16 @@ jobs:
               "scientific_test_generation_allowed": False,
               "seed1_and_seed2_may_run_for_replication_only": True,
           }
-          assert result["independent_audit"] and all(
-              value is True or value == 4
-              for value in result["independent_audit"].values()
-          )
+          assert result["independent_audit"] == {
+              "architecture_identity_corrected_fail_closed": True,
+              "audit_manifest_verified": True,
+              "checkpoint_schema_verified": True,
+              "clean_execution_tree_verified": True,
+              "manifest_entries_verified": 4,
+              "metrics_reconstructed_from_ledgers": True,
+              "source_artifact_modified": False,
+              "source_hashes_verified": True,
+          }
           boundaries = result["closed_boundaries"]
           assert boundaries["final_result_record_only"] is True
           assert boundaries["scientific_test_generation_allowed"] is False
