@@ -1,0 +1,135 @@
+name: Gate9 contextual failure-decomposition protocol qualification
+
+on:
+  pull_request:
+    branches:
+      - agent/gate9-contextual-three-seed-final-result-v0
+    paths:
+      - .github/workflows/gate9-contextual-failure-decomposition-protocol-v0-ci.yml
+      - ai_hypothesis/population_compute/gate9_contextual_failure_decomposition_protocol.py
+      - experiments/population_compute_scaling_v0/gate9_contextual_failure_decomposition_protocol_v0.md
+      - tests/test_gate9_contextual_failure_decomposition_protocol.py
+
+permissions:
+  contents: read
+
+jobs:
+  protocol-only:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11.9"
+
+      - name: Compile and run protocol regressions
+        run: |
+          python -m py_compile \
+            ai_hypothesis/population_compute/gate9_contextual_failure_decomposition_protocol.py \
+            tests/test_gate9_contextual_failure_decomposition_protocol.py
+          python -m unittest \
+            tests/test_gate9_contextual_failure_decomposition_protocol.py -v
+
+      - name: Verify exact protocol plan and source ancestry
+        run: |
+          git merge-base --is-ancestor \
+            33f2860795a1b70e5fbe20998f4fe8a2a6fc8452 HEAD
+          git merge-base --is-ancestor \
+            be6451e1af82b18749bd0313a9c02ca62c4eee5c HEAD
+          git merge-base --is-ancestor \
+            c689cc3f38f6f642916ee1a702d7de7bd0e43b HEAD
+          git merge-base --is-ancestor \
+            1228c19cbf85da4ab738c3355c58f946cd6a965c HEAD
+          python - <<'PY'
+          import importlib.util
+          import pathlib
+          import sys
+
+          path = pathlib.Path(
+              "ai_hypothesis/population_compute/"
+              "gate9_contextual_failure_decomposition_protocol.py"
+          )
+          spec = importlib.util.spec_from_file_location("gate9d_ci", path)
+          module = importlib.util.module_from_spec(spec)
+          sys.modules[spec.name] = module
+          spec.loader.exec_module(module)
+          plan = module.gate9d_protocol_plan()
+
+          assert plan["version"] == (
+              "gate9-contextual-failure-decomposition-protocol-v0"
+          )
+          assert plan["status"] == "G9D_PROTOCOL_FROZEN_EXECUTION_CLOSED"
+          assert plan["learned_parameter_count"] == 19_649
+          assert plan["initialization_seeds"] == [910900, 910901, 910902]
+          assert plan["query_count"] == 247
+          assert [stage["name"] for stage in plan["stages"]] == [
+              "single_operator_query_fit",
+              "paired_operator_context_collision",
+              "held_in_multi_operator_fit",
+              "unseen_operator_generalization",
+          ]
+          assert [stage["steps"] for stage in plan["stages"]] == [
+              1024, 2048, 4096, 8192
+          ]
+          assert plan["decision_rule"] == {
+              "advance_only_when": "all_three_initialization_seeds_pass",
+              "all_three_fail": "return_stage_specific_failure",
+              "mixed_seed_result": "G9D_DIAGNOSTIC_INCONCLUSIVE",
+              "missing_stage": "G9D_DIAGNOSTIC_INCOMPLETE",
+              "all_stages_pass": "G9D_V0_FAILURE_NOT_LOCALIZED",
+              "stop_after_first_nonpassing_stage": True,
+          }
+          assert plan["boundaries"] == {
+              "protocol_only": True,
+              "torch_imported": False,
+              "execution_admitted": False,
+              "checkpoint_loading_admitted": False,
+              "gate9_v0_result_mutation_admitted": False,
+              "local_scientific_test_generation_admitted": False,
+              "graph_scientific_test_generation_admitted": False,
+              "population_execution_admitted": False,
+          }
+          PY
+
+      - name: Prove exact four-file protocol-only slice
+        run: |
+          base=33f2860795a1b70e5fbe20998f4fe8a2a6fc8452
+          mapfile -t changed < <(git diff --name-only "$base...HEAD" | sort)
+          expected=(
+            ".github/workflows/gate9-contextual-failure-decomposition-protocol-v0-ci.yml"
+            "ai_hypothesis/population_compute/gate9_contextual_failure_decomposition_protocol.py"
+            "experiments/population_compute_scaling_v0/gate9_contextual_failure_decomposition_protocol_v0.md"
+            "tests/test_gate9_contextual_failure_decomposition_protocol.py"
+          )
+          test "${#changed[@]}" -eq "${#expected[@]}"
+          for index in "${!expected[@]}"; do
+            test "${changed[$index]}" = "${expected[$index]}"
+          done
+
+      - name: Keep execution and Gate9 v0 scientific boundaries closed
+        run: |
+          python - <<'PY'
+          import pathlib
+
+          source = pathlib.Path(
+              "ai_hypothesis/population_compute/"
+              "gate9_contextual_failure_decomposition_protocol.py"
+          ).read_text(encoding="utf-8")
+          for token in (
+              "import torch",
+              "torch.",
+              "optimizer.step(",
+              "torch.load(",
+              "torch.save(",
+              "operator_from_counter(",
+              "generate_gate9_test_world(",
+              "scientific_assignment_key",
+          ):
+              assert token not in source, token
+          PY
+          ! git diff --name-only \
+            33f2860795a1b70e5fbe20998f4fe8a2a6fc8452...HEAD |
+            grep -E '\.(pt|bin|safetensors|sqlite3|jsonl|ps1)$'
