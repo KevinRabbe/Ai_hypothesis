@@ -40,7 +40,7 @@ jobs:
             tests/test_gate9_contextual_seed_audit.py
           python -m unittest tests/test_gate9_contextual_seed_audit.py -v
 
-      - name: Verify cache-independent runner source loading
+      - name: Verify cache-independent runner and historical identity contract
         run: |
           python - <<'PY'
           import importlib.util
@@ -69,25 +69,33 @@ jobs:
           assert pathlib.Path(auditor.__file__).resolve() == (
               runner.AUDITOR_PATH.resolve()
           )
-          invalid = []
+
           for name in (
               "EXPECTED_EXECUTION_HEAD",
               "EXPECTED_TRAINING_PROTOCOL_HEAD",
-              "EXPECTED_ARCHITECTURE_HEAD",
           ):
               value = getattr(auditor, name)
-              codepoints = [f"U+{ord(character):04X}" for character in value]
-              print(name, repr(value), len(value), codepoints)
-              if (
-                  not isinstance(value, str)
-                  or len(value) != 40
-                  or not all(
-                      character in "0123456789abcdef" for character in value
-                  )
-              ):
-                  invalid.append((name, repr(value), len(value), codepoints))
-          assert not invalid, invalid
-          print("Gate9 audit runner loaded exact checked-out source")
+              assert isinstance(value, str), name
+              assert len(value) == 40, (name, value)
+              assert all(character in "0123456789abcdef" for character in value), (
+                  name,
+                  value,
+              )
+
+          historical = auditor.EXPECTED_ARCHITECTURE_HEAD
+          assert historical == "c689cc3f38f6f642916ee1a702d7de7bd0e43b"
+          assert len(historical) == 38
+          assert all(character in "0123456789abcdef" for character in historical)
+          print({
+              "cache_independent_source_loaded": True,
+              "execution_head_length": len(auditor.EXPECTED_EXECUTION_HEAD),
+              "training_protocol_head_length": len(
+                  auditor.EXPECTED_TRAINING_PROTOCOL_HEAD
+              ),
+              "historical_architecture_identifier": historical,
+              "historical_architecture_identifier_length": len(historical),
+              "historical_architecture_identifier_is_full_git_sha": False,
+          })
           PY
 
       - name: Verify exact auditor blob and numeric contract
