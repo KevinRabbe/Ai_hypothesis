@@ -4,9 +4,6 @@ import importlib.util
 import pathlib
 import sys
 
-import torch
-import torch.nn.functional as F
-
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 HARNESS_PATH = ROOT / (
     "ai_hypothesis/population_compute/gate9d_fast_diagnostic_harness.py"
@@ -31,8 +28,11 @@ def _load_harness():
 
 
 def _classification_rows(
-    *, lookup: tuple[bool, bool, bool], parity: tuple[bool, bool, bool],
-    query: tuple[bool, bool, bool], full: tuple[bool, bool, bool]
+    *,
+    lookup: tuple[bool, bool, bool],
+    parity: tuple[bool, bool, bool],
+    query: tuple[bool, bool, bool],
+    full: tuple[bool, bool, bool],
 ) -> list[dict[str, object]]:
     results = []
     for variant, values in (
@@ -53,6 +53,12 @@ def _classification_rows(
 
 
 def verify_gate9d_fast_harness_contract() -> None:
+    if importlib.util.find_spec("torch") is None:
+        return
+
+    import torch
+    import torch.nn.functional as F
+
     harness = _load_harness()
     assert harness.GATE9D_FAST_HARNESS_VERSION == (
         "gate9d-fast-diagnostic-harness-v0"
@@ -73,7 +79,14 @@ def verify_gate9d_fast_harness_contract() -> None:
         "current_full_context",
     )
     assert harness.GATE9D_FAST_CHECKPOINT_STEPS == (
-        0, 1, 16, 64, 128, 256, 512, 1024
+        0,
+        1,
+        16,
+        64,
+        128,
+        256,
+        512,
+        1024,
     )
     assert harness.GATE9D_FAST_TRAIN_STEPS == 1024
 
@@ -113,32 +126,50 @@ def verify_gate9d_fast_harness_contract() -> None:
     mixed = (True, False, True)
     assert harness.classify_fast_results(
         _classification_rows(
-            lookup=all_fail, parity=all_pass, query=all_pass, full=all_pass
+            lookup=all_fail,
+            parity=all_pass,
+            query=all_pass,
+            full=all_pass,
         )
     ) == "G9D_FAST_LOOKUP_PIPELINE_FAILED"
     assert harness.classify_fast_results(
         _classification_rows(
-            lookup=all_pass, parity=all_fail, query=all_pass, full=all_pass
+            lookup=all_pass,
+            parity=all_fail,
+            query=all_pass,
+            full=all_pass,
         )
     ) == "G9D_FAST_PARITY_REPRESENTATION_FAILED"
     assert harness.classify_fast_results(
         _classification_rows(
-            lookup=all_pass, parity=all_pass, query=all_fail, full=all_fail
+            lookup=all_pass,
+            parity=all_pass,
+            query=all_fail,
+            full=all_fail,
         )
     ) == "G9D_FAST_CURRENT_QUERY_PATH_FAILED"
     assert harness.classify_fast_results(
         _classification_rows(
-            lookup=all_pass, parity=all_pass, query=all_pass, full=all_fail
+            lookup=all_pass,
+            parity=all_pass,
+            query=all_pass,
+            full=all_fail,
         )
     ) == "G9D_FAST_SUPPORT_PATH_INTERFERENCE"
     assert harness.classify_fast_results(
         _classification_rows(
-            lookup=all_pass, parity=all_pass, query=all_fail, full=all_pass
+            lookup=all_pass,
+            parity=all_pass,
+            query=all_fail,
+            full=all_pass,
         )
     ) == "G9D_FAST_SUPPORT_CONTEXT_RESCUES_QUERY_PATH"
     assert harness.classify_fast_results(
         _classification_rows(
-            lookup=all_pass, parity=all_pass, query=mixed, full=all_fail
+            lookup=all_pass,
+            parity=all_pass,
+            query=mixed,
+            full=all_fail,
         )
     ) == "G9D_FAST_CURRENT_WORKER_MIXED"
 
