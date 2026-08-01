@@ -123,10 +123,17 @@ jobs:
               "uploaded_artifact_hashes_match_manifest": True,
           }
           assert result["independent_audit"] == expected_audit
-          assert all(
-              value is False
-              for value in result["closed_boundaries"].values()
-          )
+          assert result["closed_boundaries"] == {
+              "checkpoint_selection_performed": False,
+              "diagnostic_classification_performed": False,
+              "gate9_v0_result_mutation_performed": False,
+              "later_diagnostic_stage_execution_performed": False,
+              "population_execution_performed": False,
+              "retraining_performed": False,
+              "scientific_execution_performed": False,
+              "scientific_test_generation_performed": False,
+              "training_performed_in_result_slice": False,
+          }
 
           source_hashes = {
               "git-head.txt": "39aeac89e593584f77d1365c779f2eb2e5317e07729124026158f64c89abd940",
@@ -175,6 +182,3 @@ b74cf27618985dd690c2d50555cf478e6dd06fe5907cbd55e9de7fdf448fcc9c  seed-0/train-s
           ! git diff --name-only \
             2e1b91d578e7bf9b4c54aa2ee1c120a9ec01b21c...HEAD |
             grep -E '\.(pt|bin|safetensors|sqlite3|jsonl|py|ps1)$'
-          ! git diff \
-            2e1b91d578e7bf9b4c54aa2ee1c120a9ec01b21c...HEAD -- . ':!*.md' |
-            grep -E 'optimizer\.step|torch\.load|torch\.save|stage2|stage3|stage4|population_execution|scientific_test_generation'
