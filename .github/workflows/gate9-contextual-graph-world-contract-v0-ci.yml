@@ -1,0 +1,127 @@
+name: Gate9 contextual graph-world contract qualification
+
+on:
+  pull_request:
+    branches:
+      - agent/gate9-graph-query-support-correction-v0
+    paths:
+      - .github/workflows/gate9-contextual-graph-world-contract-v0-ci.yml
+      - ai_hypothesis/population_compute/gate9_contextual_graph_world_contract.py
+      - experiments/population_compute_scaling_v0/gate9_contextual_graph_world_contract_v0.md
+      - tests/test_gate9_contextual_graph_world_contract.py
+
+permissions:
+  contents: read
+
+jobs:
+  graph-contract-only:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Compile graph contract and regressions
+        run: |
+          python -m py_compile \
+            ai_hypothesis/population_compute/gate9_contextual_graph_world_contract.py \
+            tests/test_gate9_contextual_graph_world_contract.py
+
+      - name: Run graph-world contract regressions
+        run: |
+          python -m unittest tests/test_gate9_contextual_graph_world_contract.py -v
+
+      - name: Verify exact contract plan
+        run: |
+          python - <<'PY'
+          import importlib.util
+          import pathlib
+          import sys
+
+          path = pathlib.Path(
+              "ai_hypothesis/population_compute/"
+              "gate9_contextual_graph_world_contract.py"
+          )
+          spec = importlib.util.spec_from_file_location("gate9_graph_contract_ci", path)
+          module = importlib.util.module_from_spec(spec)
+          sys.modules[spec.name] = module
+          spec.loader.exec_module(module)
+          plan = module.gate9_graph_world_contract_plan()
+
+          assert plan["protocol_head"] == "e5e20e8de6707d35f1a7a9315a5a9a67deacc9a1"
+          assert plan["operator_contract_head"] == "be6451e1af82b18749bd0313a9c02ca62c4eee5c"
+          assert plan["query_policy_correction_head"] == "0dd7e5417bab5d3af074772a60725b95d22be76f"
+          assert plan["contract_worlds_per_condition"] == 8
+          assert plan["contract_operator_counter_start"] == 1 << 60
+          assert plan["contract_operator_count"] == 82_176
+          assert plan["graph_test_operator_counter_start"] == 1 << 48
+          assert plan["graph_test_operator_count"] == 2_629_632
+          assert plan["test_assignment_key_bound"] is False
+          assert plan["test_assignment_multiplier"] is None
+          assert plan["test_assignment_key_visible_to_model"] is False
+          assert plan["test_operator_allocation_bijective_after_key_binding"] is True
+          assert plan["test_operator_counter_skipping_allowed"] is False
+          assert plan["test_operator_rejection_allowed"] is False
+          assert plan["public_worker_fields"] == [
+              "worker_index", "source_node", "target_node", "support_pairs"
+          ]
+          assert plan["public_query_fields"] == [
+              "root_node", "target_node", "root_symbol"
+          ]
+          assert plan["public_operator_counter_exposed"] is False
+          assert plan["public_operator_key_exposed"] is False
+          assert plan["support_hit_reporting_required"] is True
+          assert plan["contract_world_generation_admitted"] is True
+          for key in (
+              "scientific_test_world_generation_admitted",
+              "architecture_admitted",
+              "training_admitted",
+              "checkpoint_loading_admitted",
+              "scientific_execution_admitted",
+              "result_classification_admitted",
+          ):
+              assert plan[key] is False
+          print(plan)
+          PY
+
+      - name: Keep test model training and execution boundaries closed
+        run: |
+          python - <<'PY'
+          import pathlib
+          source = pathlib.Path(
+              "ai_hypothesis/population_compute/"
+              "gate9_contextual_graph_world_contract.py"
+          ).read_text(encoding="utf-8")
+          for token in (
+              "import torch",
+              "import numpy",
+              "torch.load(",
+              "torch.optim",
+              ".backward(",
+              "generate_gate9_test_world(",
+              "from_pretrained(",
+              "json.load",
+          ):
+              assert token not in source, token
+          PY
+
+      - name: Prove exact four-file graph-contract slice
+        run: |
+          python - <<'PY'
+          import subprocess
+          base = "0dd7e5417bab5d3af074772a60725b95d22be76f"
+          expected = {
+              ".github/workflows/gate9-contextual-graph-world-contract-v0-ci.yml",
+              "ai_hypothesis/population_compute/gate9_contextual_graph_world_contract.py",
+              "experiments/population_compute_scaling_v0/gate9_contextual_graph_world_contract_v0.md",
+              "tests/test_gate9_contextual_graph_world_contract.py",
+          }
+          changed = set(subprocess.check_output(
+              ["git", "diff", "--name-only", base, "HEAD"], text=True
+          ).splitlines())
+          assert changed == expected, (changed, expected)
+          PY
