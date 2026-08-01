@@ -30,7 +30,7 @@ operators = load(OPERATOR_PATH, "gate9d_operator_test_dependency")
 
 
 class Gate9FailureDecompositionProtocolTests(unittest.TestCase):
-    def test_exact_source_bindings_and_stage_order(self) -> None:
+    def test_exact_bindings_stage_order_and_query_domain(self) -> None:
         self.assertEqual(
             protocol.GATE9D_FINAL_RESULT_HEAD,
             "33f2860795a1b70e5fbe20998f4fe8a2a6fc8452",
@@ -57,14 +57,11 @@ class Gate9FailureDecompositionProtocolTests(unittest.TestCase):
                 "unseen_operator_generalization",
             ),
         )
-
-    def test_query_domain_is_exact_non_support_byte_domain(self) -> None:
-        self.assertEqual(len(protocol.GATE9D_QUERY_VALUES), 247)
-        self.assertEqual(len(set(protocol.GATE9D_QUERY_VALUES)), 247)
         self.assertEqual(
             set(protocol.GATE9D_QUERY_VALUES),
             set(range(256)) - set(protocol.GATE9D_SUPPORT_INPUTS),
         )
+        self.assertEqual(len(protocol.GATE9D_QUERY_VALUES), 247)
 
     def test_collision_pair_is_exact_and_forces_context(self) -> None:
         observed = tuple(
@@ -76,16 +73,14 @@ class Gate9FailureDecompositionProtocolTests(unittest.TestCase):
             protocol.GATE9D_COLLISION_OPERATOR_KEYS,
         )
         self.assertEqual(observed[0].matrix_rows, observed[1].matrix_rows)
-        self.assertEqual(observed[0].bias, 0)
-        self.assertEqual(observed[1].bias, 255)
+        self.assertEqual((observed[0].bias, observed[1].bias), (0, 255))
         for query in protocol.GATE9D_QUERY_VALUES:
-            self.assertNotEqual(observed[0].apply(query), observed[1].apply(query))
             self.assertEqual(
                 observed[0].apply(query) ^ observed[1].apply(query),
                 255,
             )
 
-    def test_diagnostic_operator_identities_are_disjoint(self) -> None:
+    def test_operator_namespaces_are_pairwise_and_v0_disjoint(self) -> None:
         groups = (
             set(protocol.GATE9D_SINGLE_OPERATOR_RANGE.counters()),
             set(protocol.GATE9D_COLLISION_OPERATOR_COUNTERS),
@@ -102,21 +97,14 @@ class Gate9FailureDecompositionProtocolTests(unittest.TestCase):
                     any(frozen.start <= counter < frozen.stop for counter in group)
                 )
 
-    def test_stage_sizes_and_schedules_are_frozen(self) -> None:
-        expected = {
-            "single_operator_query_fit": (1, 1, 247, 247, 1_024, 247),
-            "paired_operator_context_collision": (2, 2, 494, 494, 2_048, 494),
-            "held_in_multi_operator_fit": (16, 16, 3_952, 3_952, 4_096, 512),
-            "unseen_operator_generalization": (
-                256,
-                64,
-                63_232,
-                15_808,
-                8_192,
-                512,
-            ),
-        }
-        for stage in protocol.GATE9D_STAGES:
+    def test_stage_sizes_schedules_and_unseen_split(self) -> None:
+        expected = (
+            (1, 1, 247, 247, 1_024, 247),
+            (2, 2, 494, 494, 2_048, 494),
+            (16, 16, 3_952, 3_952, 4_096, 512),
+            (256, 64, 63_232, 15_808, 8_192, 512),
+        )
+        for stage, required in zip(protocol.GATE9D_STAGES, expected, strict=True):
             self.assertEqual(
                 (
                     len(stage.train_operator_counters),
@@ -126,56 +114,50 @@ class Gate9FailureDecompositionProtocolTests(unittest.TestCase):
                     stage.steps,
                     stage.batch_size,
                 ),
-                expected[stage.name],
+                required,
             )
         self.assertFalse(protocol.GATE9D_STAGES[0].requires_context_causality)
         self.assertTrue(
-            all(
-                stage.requires_context_causality
-                for stage in protocol.GATE9D_STAGES[1:]
-            )
+            all(stage.requires_context_causality for stage in protocol.GATE9D_STAGES[1:])
         )
-        self.assertTrue(protocol.GATE9D_STAGES[-1].unseen_operator_evaluation)
+        final = protocol.GATE9D_STAGES[-1]
+        self.assertTrue(final.unseen_operator_evaluation)
         self.assertFalse(
-            set(protocol.GATE9D_STAGES[-1].train_operator_counters)
-            & set(protocol.GATE9D_STAGES[-1].evaluation_operator_counters)
+            set(final.train_operator_counters)
+            & set(final.evaluation_operator_counters)
         )
 
-    def test_seed_stage_thresholds_are_strict_and_stage_aware(self) -> None:
-        single = protocol.GATE9D_STAGES[0]
-        contextual = protocol.GATE9D_STAGES[1]
-        base_pass = protocol.SeedStageEvidence(
+    def test_thresholds_are_strict_and_stage_aware(self) -> None:
+        single, contextual = protocol.GATE9D_STAGES[:2]
+        single_pass = protocol.SeedStageEvidence(
             exact_accuracy=0.995,
             bit_accuracy=0.999,
             full_minus_shuffled=-1.0,
             full_minus_query_only=-1.0,
             oracle_accuracy=1.0,
         )
-        self.assertTrue(base_pass.passes(single))
-        self.assertFalse(base_pass.passes(contextual))
-        contextual_pass = protocol.SeedStageEvidence(
-            exact_accuracy=0.995,
-            bit_accuracy=0.999,
-            full_minus_shuffled=0.5000000000000001,
-            full_minus_query_only=0.5000000000000001,
-            oracle_accuracy=1.0,
-        )
-        self.assertTrue(contextual_pass.passes(contextual))
-        boundary_fail = protocol.SeedStageEvidence(
+        self.assertTrue(single_pass.passes(single))
+        self.assertFalse(single_pass.passes(contextual))
+        boundary = protocol.SeedStageEvidence(
             exact_accuracy=0.995,
             bit_accuracy=0.999,
             full_minus_shuffled=0.50,
             full_minus_query_only=0.50,
             oracle_accuracy=1.0,
         )
-        self.assertFalse(boundary_fail.passes(contextual))
-
-    def test_classifier_stops_at_first_deficiency(self) -> None:
-        names = [stage.name for stage in protocol.GATE9D_STAGES]
-        self.assertEqual(
-            protocol.classify_diagnostic({}),
-            "G9D_DIAGNOSTIC_INCOMPLETE",
+        self.assertFalse(boundary.passes(contextual))
+        above = protocol.SeedStageEvidence(
+            exact_accuracy=0.995,
+            bit_accuracy=0.999,
+            full_minus_shuffled=0.5000000000000001,
+            full_minus_query_only=0.5000000000000001,
+            oracle_accuracy=1.0,
         )
+        self.assertTrue(above.passes(contextual))
+
+    def test_classifier_stops_at_first_nonpassing_stage(self) -> None:
+        names = [stage.name for stage in protocol.GATE9D_STAGES]
+        self.assertEqual(protocol.classify_diagnostic({}), "G9D_DIAGNOSTIC_INCOMPLETE")
         self.assertEqual(
             protocol.classify_diagnostic({names[0]: (False, False, False)}),
             "G9D_BASIC_QUERY_MAPPING_FAILED",
@@ -189,30 +171,21 @@ class Gate9FailureDecompositionProtocolTests(unittest.TestCase):
             protocol.classify_diagnostic(results),
             "G9D_DIAGNOSTIC_INCOMPLETE",
         )
-        results[names[1]] = (False, False, False)
-        self.assertEqual(
-            protocol.classify_diagnostic(results),
+        expected_failures = (
             "G9D_CONTEXTUAL_CONTROL_FAILED",
-        )
-        results[names[1]] = (True, True, True)
-        results[names[2]] = (False, False, False)
-        self.assertEqual(
-            protocol.classify_diagnostic(results),
             "G9D_HELD_IN_OPERATOR_FIT_FAILED",
-        )
-        results[names[2]] = (True, True, True)
-        results[names[3]] = (False, False, False)
-        self.assertEqual(
-            protocol.classify_diagnostic(results),
             "G9D_UNSEEN_OPERATOR_GENERALIZATION_FAILED",
         )
-        results[names[3]] = (True, True, True)
+        for index, expected in enumerate(expected_failures, 1):
+            results[names[index]] = (False, False, False)
+            self.assertEqual(protocol.classify_diagnostic(results), expected)
+            results[names[index]] = (True, True, True)
         self.assertEqual(
             protocol.classify_diagnostic(results),
             "G9D_V0_FAILURE_NOT_LOCALIZED",
         )
 
-    def test_plan_keeps_execution_and_gate9_v0_closed(self) -> None:
+    def test_plan_and_source_keep_execution_closed(self) -> None:
         plan = protocol.gate9d_protocol_plan()
         self.assertEqual(plan["status"], "G9D_PROTOCOL_FROZEN_EXECUTION_CLOSED")
         self.assertEqual(plan["initialization_seeds"], [910900, 910901, 910902])
@@ -221,8 +194,6 @@ class Gate9FailureDecompositionProtocolTests(unittest.TestCase):
         for key, value in plan["boundaries"].items():
             if key != "protocol_only":
                 self.assertFalse(value, key)
-
-    def test_protocol_source_has_no_execution_dependencies(self) -> None:
         source = PROTOCOL_PATH.read_text(encoding="utf-8")
         for token in (
             "import torch",
