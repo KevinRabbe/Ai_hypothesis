@@ -1,0 +1,166 @@
+name: Gate9 contextual training protocol qualification
+
+on:
+  pull_request:
+    branches:
+      - agent/gate9-contextual-worker-architecture-v0
+    paths:
+      - .github/workflows/gate9-contextual-training-protocol-v0-ci.yml
+      - ai_hypothesis/population_compute/gate9_contextual_training_protocol.py
+      - experiments/population_compute_scaling_v0/gate9_contextual_training_protocol_v0.md
+      - tests/test_gate9_contextual_training_protocol.py
+
+permissions:
+  contents: read
+
+jobs:
+  protocol-only:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Compile protocol and regressions
+        run: |
+          python -m py_compile \
+            ai_hypothesis/population_compute/gate9_contextual_training_protocol.py \
+            tests/test_gate9_contextual_training_protocol.py
+
+      - name: Run data-frozen training protocol regressions
+        run: |
+          python -m unittest tests/test_gate9_contextual_training_protocol.py -v
+
+      - name: Verify exact closed training plan
+        run: |
+          python - <<'PY'
+          import importlib.util
+          import pathlib
+          import sys
+
+          path = pathlib.Path(
+              "ai_hypothesis/population_compute/"
+              "gate9_contextual_training_protocol.py"
+          )
+          spec = importlib.util.spec_from_file_location("gate9_training_protocol_ci", path)
+          module = importlib.util.module_from_spec(spec)
+          sys.modules[spec.name] = module
+          spec.loader.exec_module(module)
+          plan = module.gate9_training_protocol_plan()
+
+          assert plan["architecture_head"] == "c689cc3f38f6f6f642916ee1a702d7de7bd0e43b"
+          assert plan["operator_contract_head"] == "be6451e1af82b18749bd0313a9c02ca62c4eee5c"
+          assert plan["checkpoint_seeds"] == [0, 1, 2]
+          assert plan["initialization_seeds"] == [900900, 900901, 900902]
+          assert plan["learned_parameter_count"] == 19_649
+          assert plan["state_tensor_count"] == 17
+          assert sum(
+              1 if not shape else __import__("math").prod(shape)
+              for shape in plan["state_tensor_shapes"].values()
+          ) == 19_649
+          assert plan["train"]["operator_counter_start"] == 0
+          assert plan["train"]["operator_count"] == 262_144
+          assert plan["train"]["episodes_per_seed"] == 262_144
+          assert plan["train"]["batch_size"] == 512
+          assert plan["train"]["steps"] == 512
+          assert plan["train"]["one_query_per_unique_operator"] is True
+          assert plan["validation"]["operator_counter_start"] == 1 << 32
+          assert plan["validation"]["operator_count"] == 32_768
+          assert plan["validation"]["batches"] == 64
+          assert plan["validation"]["shared_across_checkpoint_seeds"] is True
+          assert plan["validation"]["modes"] == [
+              "full", "shuffled_context", "query_only", "oracle"
+          ]
+          assert plan["optimizer"] == {
+              "name": "AdamW",
+              "base_learning_rate": 1.0e-3,
+              "minimum_learning_rate": 1.0e-4,
+              "warmup_steps": 16,
+              "schedule": "linear_warmup_then_cosine_decay",
+              "betas": [0.9, 0.95],
+              "epsilon": 1.0e-8,
+              "weight_decay": 1.0e-4,
+              "gradient_clip_norm": 1.0,
+          }
+          assert plan["precision"] == "float32"
+          assert plan["amp_enabled"] is False
+          assert plan["tf32_enabled"] is False
+          assert plan["compile_enabled"] is False
+          assert plan["deterministic_algorithms"] is True
+          assert plan["checkpoint"]["selected_step"] == 512
+          assert plan["checkpoint"]["selection"] == (
+              "fixed_final_step_only_no_best_checkpoint_selection"
+          )
+          assert plan["checkpoint"]["retraining_after_failure_allowed"] is False
+          assert plan["checkpoint"]["seed_selection_allowed"] is False
+          assert plan["local_test_operator_access"] is False
+          assert plan["graph_test_operator_access"] is False
+          assert plan["scientific_assignment_key_access"] is False
+          for key in (
+              "operator_generation_admitted",
+              "training_execution_admitted",
+              "optimizer_instantiation_admitted",
+              "checkpoint_serialization_admitted",
+              "checkpoint_loading_admitted",
+              "scientific_test_generation_admitted",
+              "scientific_execution_admitted",
+              "result_classification_admitted",
+          ):
+              assert plan[key] is False
+          print(plan)
+          PY
+
+      - name: Keep every execution and artifact boundary closed
+        run: |
+          python - <<'PY'
+          import pathlib
+          source = pathlib.Path(
+              "ai_hypothesis/population_compute/"
+              "gate9_contextual_training_protocol.py"
+          ).read_text(encoding="utf-8")
+          workflow = pathlib.Path(
+              ".github/workflows/gate9-contextual-training-protocol-v0-ci.yml"
+          ).read_text(encoding="utf-8")
+          for token in (
+              "import torch",
+              "import numpy",
+              "torch." + "optim",
+              "AdamW(",
+              "torch.save(",
+              "torch.load(",
+              "operator_from_counter(",
+              "generate_gate9_test_world(",
+              "open(",
+              "read_text(",
+              "json.load",
+          ):
+              assert token not in source, token
+          combined = source + workflow
+          for token in (
+              "run_gate9_contextual_" + "training",
+              "gate9_contextual_training_" + "execution",
+              "gate9_contextual_checkpoint_" + "result",
+          ):
+              assert token not in combined, token
+          PY
+
+      - name: Prove exact four-file protocol slice
+        run: |
+          python - <<'PY'
+          import subprocess
+          base = "c689cc3f38f6f6f642916ee1a702d7de7bd0e43b"
+          expected = {
+              ".github/workflows/gate9-contextual-training-protocol-v0-ci.yml",
+              "ai_hypothesis/population_compute/gate9_contextual_training_protocol.py",
+              "experiments/population_compute_scaling_v0/gate9_contextual_training_protocol_v0.md",
+              "tests/test_gate9_contextual_training_protocol.py",
+          }
+          changed = set(subprocess.check_output(
+              ["git", "diff", "--name-only", base, "HEAD"], text=True
+          ).splitlines())
+          assert changed == expected, (changed, expected)
+          PY
