@@ -1,0 +1,131 @@
+name: Gate8 v1 final comparison execution qualification
+
+on:
+  pull_request:
+    branches:
+      - agent/gate8-v1-gemma-reference-result-v0
+    paths:
+      - .github/workflows/gate8-v1-final-comparison-execution-v0-ci.yml
+      - ai_hypothesis/population_compute/gate8_v1_final_comparison.py
+      - experiments/population_compute_scaling_v0/gate8_v1_final_comparison_execution_v0.md
+      - scripts/run_gate8_v1_final_comparison.py
+      - scripts/run_gate8_v1_final_comparison.ps1
+      - tests/test_gate8_v1_final_comparison.py
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11.9"
+
+      - name: Install exact statistical runtime
+        run: python -m pip install --disable-pip-version-check numpy==2.3.5
+
+      - name: Compile finalizer and regressions
+        run: |
+          python -m py_compile \
+            ai_hypothesis/population_compute/gate8_v1_final_comparison.py \
+            scripts/run_gate8_v1_final_comparison.py \
+            tests/test_gate8_v1_final_comparison.py
+
+      - name: Run final-comparison contract regressions
+        run: python -m unittest tests/test_gate8_v1_final_comparison.py -v
+
+      - name: Verify exact closed plan
+        run: |
+          python - <<'PY'
+          import importlib.util
+          import pathlib
+          import sys
+
+          path = pathlib.Path("ai_hypothesis/population_compute/gate8_v1_final_comparison.py")
+          spec = importlib.util.spec_from_file_location("g8_final_plan", path)
+          module = importlib.util.module_from_spec(spec)
+          sys.modules[spec.name] = module
+          spec.loader.exec_module(module)
+          plan = module.final_comparison_plan()
+          assert plan["gemma_result_head"] == "1d48ecfd623a2fb9e3a2f846a4d1c49d20d8cadc"
+          assert plan["population_result_head"] == "14636d219781381853f81036b96c691b7e6997ee"
+          assert plan["scientific_protocol_head"] == "6bb89111a47713bea0a23bb1cae662ed5ec56b42"
+          assert len(plan["conditions"]) == 21
+          assert plan["worlds_per_condition"] == 512
+          assert plan["population_seeds"] == [0, 1, 2]
+          assert plan["bootstrap_samples"] == 20000
+          assert plan["model_loading_admitted"] is False
+          assert plan["world_generation_admitted"] is False
+          assert plan["population_execution_admitted"] is False
+          assert plan["reference_inference_admitted"] is False
+          assert plan["training_admitted"] is False
+          print(plan)
+          PY
+
+      - name: Keep CI outside scientific artifact and execution boundaries
+        run: |
+          python - <<'PY'
+          import pathlib
+          workflow = pathlib.Path(".github/workflows/gate8-v1-final-comparison-execution-v0-ci.yml").read_text()
+          forbidden = (
+              "run_gate8_v1_final_comparison.py" + " --",
+              "gate8-v1-population-per-" + "world.jsonl",
+              "gate8-v1-gemma-reference-per-" + "world.jsonl",
+              "model" + ".safetensors",
+              "from_" + "pretrained(",
+              "generate_gate8_" + "world(",
+          )
+          for token in forbidden:
+              assert token not in workflow, token
+          source = (
+              pathlib.Path("ai_hypothesis/population_compute/gate8_v1_final_comparison.py").read_text()
+              + pathlib.Path("scripts/run_gate8_v1_final_comparison.py").read_text()
+          )
+          for token in ("import torch", "from transformers", "torch.load(", "optimizer", "backward("):
+              assert token not in source, token
+          PY
+
+      - name: Prove exact six-file execution slice
+        run: |
+          python - <<'PY'
+          import subprocess
+          expected = {
+              ".github/workflows/gate8-v1-final-comparison-execution-v0-ci.yml",
+              "ai_hypothesis/population_compute/gate8_v1_final_comparison.py",
+              "experiments/population_compute_scaling_v0/gate8_v1_final_comparison_execution_v0.md",
+              "scripts/run_gate8_v1_final_comparison.py",
+              "scripts/run_gate8_v1_final_comparison.ps1",
+              "tests/test_gate8_v1_final_comparison.py",
+          }
+          changed = set(subprocess.check_output(
+              ["git", "diff", "--name-only", "1d48ecfd623a2fb9e3a2f846a4d1c49d20d8cadc", "HEAD"],
+              text=True,
+          ).splitlines())
+          assert changed == expected, (changed, expected)
+          PY
+
+  windows-wrapper-smoke:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Smoke wrapper before packages, source artifacts, output or classification
+        shell: pwsh
+        env:
+          GATE8_V1_FINAL_COMPARISON_WRAPPER_SMOKE: "1"
+        run: |
+          .\scripts\run_gate8_v1_final_comparison.ps1 `
+            -PopulationRoot "Z:\not-accessed-population" `
+            -ReferenceRoot "Z:\not-accessed-reference" `
+            -OutputRoot "$env:RUNNER_TEMP\not-created-gate8-final"
+          if (Test-Path "$env:RUNNER_TEMP\not-created-gate8-final") {
+            throw "Final-comparison wrapper smoke created an output directory."
+          }
