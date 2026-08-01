@@ -40,7 +40,7 @@ jobs:
             tests/test_gate9_contextual_seed_audit.py
           python -m unittest tests/test_gate9_contextual_seed_audit.py -v
 
-      - name: Verify cache-independent runner and historical identity contract
+      - name: Verify cache-independent runner and exact config contract
         run: |
           python - <<'PY'
           import importlib.util
@@ -86,12 +86,50 @@ jobs:
           assert historical == "c689cc3f38f6f642916ee1a702d7de7bd0e43b"
           assert len(historical) == 38
           assert all(character in "0123456789abcdef" for character in historical)
+
+          real_config = {
+              "architecture_head": historical,
+              "branch": auditor.EXPECTED_EXECUTION_BRANCH,
+              "execution_head": auditor.EXPECTED_EXECUTION_HEAD,
+              "experiment_version": auditor.EXPECTED_EXPERIMENT_VERSION,
+              "graph_test_operator_access": False,
+              "local_test_operator_access": False,
+              "numpy": auditor.EXPECTED_SOFTWARE["numpy"],
+              "output_root": r"F:\gate9_contextual_training_seed0_v0",
+              "python": auditor.EXPECTED_SOFTWARE["python"],
+              "scientific_assignment_key_access": False,
+              "seed": 0,
+              "torch": auditor.EXPECTED_SOFTWARE["torch"],
+              "training_protocol_head": auditor.EXPECTED_TRAINING_PROTOCOL_HEAD,
+          }
+          auditor.validate_exact_mapping(
+              dict(real_config), real_config, "real Windows run-config fixture"
+          )
+
+          mutations = []
+          extra = dict(real_config)
+          extra["unexpected"] = None
+          mutations.append(extra)
+          wrong_type = dict(real_config)
+          wrong_type["seed"] = False
+          mutations.append(wrong_type)
+          wrong_value = dict(real_config)
+          wrong_value["torch"] = "2.9.1+cpu"
+          mutations.append(wrong_value)
+          for mutation in mutations:
+              try:
+                  auditor.validate_exact_mapping(
+                      mutation, real_config, "mutated run-config fixture"
+                  )
+              except auditor.AuditError:
+                  pass
+              else:
+                  raise AssertionError("mutated run-config did not fail closed")
+
           print({
               "cache_independent_source_loaded": True,
-              "execution_head_length": len(auditor.EXPECTED_EXECUTION_HEAD),
-              "training_protocol_head_length": len(
-                  auditor.EXPECTED_TRAINING_PROTOCOL_HEAD
-              ),
+              "real_windows_run_config_exact_match": True,
+              "run_config_mutations_fail_closed": True,
               "historical_architecture_identifier": historical,
               "historical_architecture_identifier_length": len(historical),
               "historical_architecture_identifier_is_full_git_sha": False,
@@ -101,7 +139,7 @@ jobs:
       - name: Verify exact auditor blob and numeric contract
         run: |
           observed_blob="$(git hash-object ai_hypothesis/population_compute/gate9_contextual_seed_audit.py)"
-          expected_blob="f1214e1209440c6381561fd92c10d89a0c5e74f8"
+          expected_blob="4260a034e0abcb5eeeabb881d019e08ee60c60d4"
           test "$observed_blob" = "$expected_blob"
           python - <<'PY'
           import importlib.util
@@ -152,6 +190,8 @@ jobs:
               assert token not in source, token
           assert "weights_only=True" in source
           assert "source_artifact_modified" in source
+          assert "validate_exact_mapping" in source
+          assert "config == expected_config" not in source
 
           base = "bdc1af9bc65b94b01ae3946977686bd90158786f"
           expected = {
