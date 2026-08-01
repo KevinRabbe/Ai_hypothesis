@@ -252,6 +252,11 @@ class Gate9ContextualWorker(nn.Module):
         feedforward = self.support_ff_out(F.gelu(self.support_ff_in(support)))
         support = F.layer_norm(support + feedforward, (GATE9_EMBED_DIM,))
         support_summary = support.mean(dim=1)
+        return self._output_from_summary(support_summary, query)
+
+    def _output_from_summary(self, support_summary: Tensor, query: Tensor) -> Tensor:
+        if support_summary.shape != (query.shape[0], GATE9_EMBED_DIM):
+            raise ValueError("Gate9 support summary shape drifted")
         query_state = self.query_projection(_byte_bits(query))
         fused = torch.tanh(
             self.query_support_fusion(
@@ -259,9 +264,26 @@ class Gate9ContextualWorker(nn.Module):
             )
         )
         logits = self.output_bit_head(fused) * self.output_scale
-        if logits.shape != (support_inputs.shape[0], GATE9_OUTPUT_BITS):
+        if logits.shape != (query.shape[0], GATE9_OUTPUT_BITS):
             raise RuntimeError("Gate9 contextual-worker output shape drifted")
         return logits
+
+    def forward_query_only(self, query: Tensor) -> Tensor:
+        """Evaluate the frozen query-only control with no support rows available."""
+
+        if query.dtype != torch.long:
+            raise ValueError("Gate9 query tensor must use torch.long")
+        if query.ndim != 1 or query.shape[0] <= 0:
+            raise ValueError("Gate9 query-only tensor must be one nonempty byte vector")
+        if bool(torch.any((query < 0) | (query > 255))):
+            raise ValueError("Gate9 query byte lies outside 0..255")
+        empty_support = torch.zeros(
+            query.shape[0],
+            GATE9_EMBED_DIM,
+            device=query.device,
+            dtype=self.query_projection.weight.dtype,
+        )
+        return self._output_from_summary(empty_support, query)
 
     @staticmethod
     def decode_bytes(bit_logits: Tensor) -> Tensor:
@@ -306,6 +328,7 @@ def gate9_contextual_worker_architecture_plan() -> dict[str, Any]:
             "output_bit_head": [24, 8],
             "normalization": "parameter_free_layer_norm",
             "byte_decoding": "eight_independent_zero_threshold_bits",
+            "query_only_control": "zero_support_summary_no_support_rows",
         },
         "shared_across_workers": True,
         "shared_across_populations": True,
