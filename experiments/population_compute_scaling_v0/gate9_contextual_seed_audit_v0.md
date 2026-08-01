@@ -143,6 +143,21 @@ It also proves:
 
 No CI artifact is evidence about the real seed-0 run.
 
+## Failed audit-attempt preservation
+
+The audit runner creates a new output root before the read-only source audit.
+Three earlier tooling failures therefore produced three empty roots which must
+remain preserved and must never be reused:
+
+```text
+F:\gate9_contextual_training_seed0_audit_v0
+F:\gate9_contextual_training_seed0_audit_v0_retry1
+F:\gate9_contextual_training_seed0_audit_v0_retry2
+```
+
+They contain no scientific audit report. The next qualified execution uses a
+new `retry3` root.
+
 ## Next boundary
 
 After the real seed-0 audit report is uploaded and independently checked, the
