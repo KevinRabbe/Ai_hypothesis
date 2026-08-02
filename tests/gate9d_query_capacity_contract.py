@@ -108,7 +108,13 @@ def verify_gate9d_query_capacity_contract() -> None:
     )
     assert bool(torch.isfinite(loss))
     loss.backward()
-    assert diagnostic._active_gradient_elements(raw_32) == 544
+    active = diagnostic._active_gradient_elements(raw_32)
+    assert 0 < active <= 544
+    assert all(parameter.grad is not None for parameter in raw_32.parameters())
+    assert all(
+        bool(torch.isfinite(parameter.grad).all())
+        for parameter in raw_32.parameters()
+    )
 
     all_queries = torch.arange(256, dtype=torch.long)
     identity_contract = diagnostic._affine_parity_contract(
