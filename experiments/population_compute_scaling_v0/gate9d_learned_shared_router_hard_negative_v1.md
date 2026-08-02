@@ -77,3 +77,6 @@ explicitly in the training distribution.
 
 It would still not establish automatic coordinate discovery or learning from
 answer loss alone.
+
+The qualification slice is intentionally limited to six source, runner,
+documentation, test, and workflow files; no binary artifact is admitted.
