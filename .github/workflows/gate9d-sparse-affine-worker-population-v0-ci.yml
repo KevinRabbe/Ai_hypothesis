@@ -1,0 +1,76 @@
+name: Gate9D sparse affine worker population qualification
+
+on:
+  pull_request:
+    branches:
+      - agent/gate9d-affine-feature-bridge-v0
+    paths:
+      - .github/workflows/gate9d-sparse-affine-worker-population-v0-ci.yml
+      - ai_hypothesis/population_compute/gate9d_sparse_affine_worker_population.py
+      - experiments/population_compute_scaling_v0/gate9d_sparse_affine_worker_population_v0.md
+      - scripts/run_gate9d_sparse_affine_worker_population.py
+      - scripts/run_gate9d_sparse_affine_worker_population.ps1
+      - tests/gate9d_sparse_affine_worker_population_contract.py
+
+permissions:
+  contents: read
+
+jobs:
+  sparse-population-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11.9"
+
+      - name: Install exact CPU Torch family
+        run: |
+          python -m pip install --disable-pip-version-check \
+            torch==2.9.1 \
+            --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Compile and run sparse population contract
+        run: |
+          python -m py_compile \
+            ai_hypothesis/population_compute/gate9d_sparse_affine_worker_population.py \
+            scripts/run_gate9d_sparse_affine_worker_population.py \
+            tests/gate9d_sparse_affine_worker_population_contract.py
+          python tests/gate9d_sparse_affine_worker_population_contract.py
+
+      - name: Prove exact six-file development slice
+        run: |
+          base=c0242268f2938fe1131f2aa90c87b5a48ae248f6
+          mapfile -t changed < <(git diff --name-only "$base...HEAD" | sort)
+          expected=(
+            ".github/workflows/gate9d-sparse-affine-worker-population-v0-ci.yml"
+            "ai_hypothesis/population_compute/gate9d_sparse_affine_worker_population.py"
+            "experiments/population_compute_scaling_v0/gate9d_sparse_affine_worker_population_v0.md"
+            "scripts/run_gate9d_sparse_affine_worker_population.ps1"
+            "scripts/run_gate9d_sparse_affine_worker_population.py"
+            "tests/gate9d_sparse_affine_worker_population_contract.py"
+          )
+          test "${#changed[@]}" -eq "${#expected[@]}"
+          for index in "${!expected[@]}"; do
+            test "${changed[$index]}" = "${expected[$index]}"
+          done
+
+      - name: Keep learned and scientific execution closed
+        run: |
+          ! git diff --name-only \
+            c0242268f2938fe1131f2aa90c87b5a48ae248f6...HEAD |
+            grep -E '\.(pt|bin|safetensors|sqlite3)$'
+          python - <<'PY'
+          import pathlib
+          source = pathlib.Path(
+              "ai_hypothesis/population_compute/"
+              "gate9d_sparse_affine_worker_population.py"
+          ).read_text(encoding="utf-8")
+          assert "torch.optim" not in source
+          assert "nn.Module" not in source
+          assert '"learned_parameter_count": 0' in source
+          assert '"automatic_coordinate_discovery_claimed": False' in source
+          PY
