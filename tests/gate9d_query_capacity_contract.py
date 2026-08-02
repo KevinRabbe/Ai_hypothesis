@@ -133,10 +133,23 @@ def verify_gate9d_query_capacity_contract() -> None:
     assert [row["bias"] for row in identity_contract] == [0] * 8
     assert [row["parity_weight"] for row in identity_contract] == [1] * 8
 
-    runtime = diagnostic._load_stage1_runtime()
-    assert diagnostic._learning_rate(runtime, 1024) == 0.0001
-    assert diagnostic._learning_rate(runtime, 1025) == 0.0001
-    assert diagnostic._learning_rate(runtime, 4096) == 0.0001
+    class _ProtocolProbe:
+        GATE9D_MIN_LEARNING_RATE = 0.0001
+
+    class _RuntimeProbe:
+        GATE9D_TRAIN_STEPS = 1024
+        protocol = _ProtocolProbe()
+
+        @staticmethod
+        def learning_rate_at_step(step: int) -> float:
+            if step != 1024:
+                raise AssertionError("probe admits only the frozen final step")
+            return 0.0001
+
+    runtime_probe = _RuntimeProbe()
+    assert diagnostic._learning_rate(runtime_probe, 1024) == 0.0001
+    assert diagnostic._learning_rate(runtime_probe, 1025) == 0.0001
+    assert diagnostic._learning_rate(runtime_probe, 4096) == 0.0001
 
     passed = (True, True, True)
     failed = (False, False, False)
@@ -210,6 +223,8 @@ def verify_gate9d_query_capacity_contract() -> None:
     ):
         assert forbidden not in source
         assert forbidden not in cli
+    assert "runtime.GATE9D_TRAIN_STEPS" in source
+    assert "runtime.learning_rate_at_step(step)" in source
     assert "zipfile.ZipFile" in cli
     assert "git-status.txt" in cli
     assert cli.index('status = _git("status", "--porcelain")') < cli.index(
