@@ -68,8 +68,15 @@ They do not grow with nominal population size.
 - support outputs shifted across operators;
 - no round-1 bias broadcast.
 
-The full and permuted populations must be exact at every population size. Both
-causal controls must remain below two percent exact accuracy.
+The full and permuted populations must be exact at every population size. The
+shuffled-support control must remain below two percent exact accuracy.
+
+The no-bias control must be evaluated on **even-popcount queries**. For odd-
+popcount queries, the affine bias cancels algebraically inside the XOR of basis
+deltas, so removing the explicit broadcast is expected to remain correct. The
+legacy aggregate no-bias metric is retained as descriptive evidence, but it is
+not a valid pass/fail threshold. The corrected even-popcount no-bias accuracy
+must remain below two percent.
 
 ## Fresh evidence range
 
@@ -84,8 +91,8 @@ This range is disjoint from the affine-bridge training and evaluation ranges.
 
 ## Interpretation boundary
 
-A pass would establish that the verified affine representation can be executed
-as sparse, permutation-invariant population computation with a fixed zero-
+A pass establishes that the verified affine representation can be executed as
+sparse, permutation-invariant population computation with a fixed zero-
 parameter rule and bounded communication.
 
 It would not establish that generic workers discover the representation from
@@ -106,4 +113,5 @@ run-config.json
 manifest.sha256
 ```
 
-No model checkpoint is produced.
+The summary records both the legacy aggregate no-bias diagnosis and the
+corrected even-popcount causal diagnosis. No model checkpoint is produced.
