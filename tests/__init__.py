@@ -137,3 +137,4 @@ _verify_gate9d_stage1_seed1_result_when_present()
 
 from . import gate9d_fast_harness_contract as _gate9d_fast_harness_contract
 from . import gate9d_query_capacity_contract as _gate9d_query_capacity_contract
+from . import gate9d_affine_feature_bridge_contract as _gate9d_affine_feature_bridge_contract
