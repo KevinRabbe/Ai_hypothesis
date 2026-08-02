@@ -154,7 +154,7 @@ def verify_gate9d_sparse_population_contract() -> None:
     )
     assert "GATE9D_SPARSE_POPULATION_WRAPPER_SMOKE" in wrapper
     assert "DEVELOPMENT-ONLY" in document
-    assert "does not establish" in document
+    assert "It would not establish" in document
 
 
 verify_gate9d_sparse_population_contract()
