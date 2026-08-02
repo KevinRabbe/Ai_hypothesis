@@ -19,6 +19,9 @@ DIAGNOSTIC_PATH = REPO_ROOT / (
 )
 EXPECTED_BRANCH = "agent/gate9d-sparse-affine-worker-population-v0"
 AFFINE_BRIDGE_BASE_HEAD = "c0242268f2938fe1131f2aa90c87b5a48ae248f6"
+CORRECTED_PASS = "G9D_SPARSE_AFFINE_POPULATION_PASSES"
+CORRECTED_FAIL = "G9D_SPARSE_AFFINE_POPULATION_FAILED"
+CONTROL_MAX = 0.02
 
 
 def _load_diagnostic():
@@ -50,6 +53,80 @@ def _write_json(path: pathlib.Path, payload: Any) -> None:
         encoding="utf-8",
         newline="\n",
     )
+
+
+def _write_jsonl(path: pathlib.Path, rows: list[dict[str, Any]]) -> None:
+    with path.open("w", encoding="utf-8", newline="\n") as handle:
+        for row in rows:
+            handle.write(json.dumps(row, sort_keys=True, separators=(",", ":")) + "\n")
+
+
+def _read_jsonl(path: pathlib.Path) -> list[dict[str, Any]]:
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+
+
+def _correct_causal_control(output_root: pathlib.Path) -> dict[str, Any]:
+    """Replace the invalid aggregate no-bias threshold with even-query evidence.
+
+    For odd-popcount queries the affine bias cancels algebraically, so a missing
+    bias broadcast is expected to remain correct. Even-popcount queries are the
+    causal subset on which the broadcast is required.
+    """
+
+    summary_path = output_root / "aggregate-summary.json"
+    rows_path = output_root / "population-rows.jsonl"
+    episodes_path = output_root / "episodes.jsonl"
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    rows = _read_jsonl(rows_path)
+    episodes = _read_jsonl(episodes_path)
+    by_population = {int(row["population_size"]): row for row in rows}
+
+    for population_size, row in by_population.items():
+        population_episodes = [
+            episode
+            for episode in episodes
+            if int(episode["population_size"]) == population_size
+        ]
+        even = [episode for episode in population_episodes if int(episode["query"]).bit_count() % 2 == 0]
+        odd = [episode for episode in population_episodes if int(episode["query"]).bit_count() % 2 == 1]
+        if not even or not odd:
+            raise RuntimeError("Gate9D sparse population parity control partition is empty")
+        even_correct = sum(
+            int(episode["no_bias_prediction"]) == int(episode["target"])
+            for episode in even
+        )
+        odd_correct = sum(
+            int(episode["no_bias_prediction"]) == int(episode["target"])
+            for episode in odd
+        )
+        row["no_bias_even_rows"] = len(even)
+        row["no_bias_even_correct"] = even_correct
+        row["no_bias_even_exact_accuracy"] = even_correct / len(even)
+        row["no_bias_odd_rows"] = len(odd)
+        row["no_bias_odd_correct"] = odd_correct
+        row["no_bias_odd_exact_accuracy"] = odd_correct / len(odd)
+
+    corrected_rows = [by_population[size] for size in sorted(by_population)]
+    passes = all(
+        row["parameter_count"] == 0
+        and row["full_exact_accuracy"] == 1.0
+        and row["permuted_exact_accuracy"] == 1.0
+        and row["shuffled_exact_accuracy"] <= CONTROL_MAX
+        and row["no_bias_even_exact_accuracy"] <= CONTROL_MAX
+        for row in corrected_rows
+    )
+    summary["diagnosis_legacy_aggregate_no_bias"] = summary["diagnosis"]
+    summary["diagnosis"] = CORRECTED_PASS if passes else CORRECTED_FAIL
+    summary["control_correction"] = {
+        "reason": "affine bias cancels for odd-popcount queries",
+        "valid_causal_subset": "even-popcount queries",
+        "threshold": CONTROL_MAX,
+        "legacy_aggregate_no_bias_retained": True,
+    }
+    summary["rows"] = corrected_rows
+    _write_json(summary_path, summary)
+    _write_jsonl(rows_path, corrected_rows)
+    return summary
 
 
 def _write_manifest(root: pathlib.Path) -> pathlib.Path:
@@ -119,7 +196,8 @@ def main() -> int:
         )
 
     diagnostic = _load_diagnostic()
-    summary = diagnostic.run_sparse_population_diagnostic(output_root, head)
+    diagnostic.run_sparse_population_diagnostic(output_root, head)
+    summary = _correct_causal_control(output_root)
     (output_root / "git-head.txt").write_text(
         head + "\n", encoding="ascii", newline="\n"
     )
@@ -148,6 +226,7 @@ def main() -> int:
             "later_stage_access": False,
             "gate9_v0_science_access": False,
             "frozen_result_mutation_access": False,
+            "causal_control": "no-bias exact accuracy on even-popcount queries",
         },
     )
     manifest = _write_manifest(output_root)
@@ -157,6 +236,7 @@ def main() -> int:
             {
                 "status": summary["status"],
                 "diagnosis": summary["diagnosis"],
+                "legacy_diagnosis": summary["diagnosis_legacy_aggregate_no_bias"],
                 "population_sizes": summary["population_sizes"],
                 "learned_parameter_count": summary["learned_parameter_count"],
                 "aggregate_summary_sha256": _sha256(
