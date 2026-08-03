@@ -20,6 +20,8 @@ jobs:
   contract:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    env:
+      PYTHONPATH: ${{ github.workspace }}
     steps:
       - uses: actions/checkout@v4
         with:
