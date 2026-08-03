@@ -85,9 +85,12 @@ class TransformerConfig:
 class PopulationConfig:
     vocab_size: int = len(VOCABULARY)
     max_sequence_length: int = MAX_SEQUENCE_LENGTH
-    d_model: int = 992
-    feed_forward: int = 5440
-    router_dim: int = 96
+    token_width: int = 512
+    lexical_encoder_width: int = 14_544
+    worker_width: int = 128
+    worker_feed_forward: int = 512
+    lexical_decoder_width: int = 14_544
+    router_dim: int = 32
     training_workers: int = TRAIN_WORKERS
 
 
@@ -187,22 +190,30 @@ def transformer_parameter_count(config: TransformerConfig = TransformerConfig())
     return embeddings + config.layers * per_layer + final_norm + tied_lm_bias
 
 
-def population_parameter_count(config: PopulationConfig = PopulationConfig()) -> int:
-    d = config.d_model
-    ff = config.feed_forward
+def population_worker_core_parameter_count(config: PopulationConfig = PopulationConfig()) -> int:
+    d = config.worker_width
+    ff = config.worker_feed_forward
     route = config.router_dim
-    embeddings = (config.vocab_size + config.max_sequence_length) * d
     initializer = d * d + d
     shared_gru = 6 * d * d + 3 * d
     message_encoder = d * d + d
     shared_router = 2 * d * route + 2 * route
     shared_feed_forward = 2 * d * ff + ff + d
-    final_norm = 2 * d
+    return initializer + shared_gru + message_encoder + shared_router + shared_feed_forward
+
+
+def population_parameter_count(config: PopulationConfig = PopulationConfig()) -> int:
+    token = config.token_width
+    worker = config.worker_width
+    encoder = config.lexical_encoder_width
+    decoder = config.lexical_decoder_width
+    embeddings = (config.vocab_size + config.max_sequence_length) * token
+    lexical_encoder = token * encoder + encoder + encoder * worker + worker
+    worker_core = population_worker_core_parameter_count(config)
+    lexical_decoder = worker * decoder + decoder + decoder * token + token
+    final_norm = 2 * token
     tied_lm_bias = config.vocab_size
-    return (
-        embeddings + initializer + shared_gru + message_encoder + shared_router
-        + shared_feed_forward + final_norm + tied_lm_bias
-    )
+    return embeddings + lexical_encoder + worker_core + lexical_decoder + final_norm + tied_lm_bias
 
 
 def relative_parameter_delta() -> float:
@@ -214,12 +225,14 @@ def relative_parameter_delta() -> float:
 def validate_protocol() -> dict[str, object]:
     transformer = transformer_parameter_count()
     population = population_parameter_count()
+    worker_core = population_worker_core_parameter_count()
     checks = {
         "vocabulary_size_is_64": len(VOCABULARY) == 64,
         "vocabulary_is_unique": len(set(VOCABULARY)) == len(VOCABULARY),
         "training_worker_count_is_evaluated": TRAIN_WORKERS in EVAL_WORKERS,
         "worker_counts_are_strictly_increasing": tuple(sorted(set(EVAL_WORKERS))) == EVAL_WORKERS,
         "parameter_budget_is_matched": relative_parameter_delta() <= PARAMETER_TOLERANCE_FRACTION,
+        "worker_core_is_small": worker_core / population < 0.05,
         "no_per_worker_parameter_term": population_parameter_count(PopulationConfig(training_workers=256)) == population,
         "sequence_fits": len(make_episode("train", 0).tokens) <= MAX_SEQUENCE_LENGTH,
         "splits_are_semantically_disjoint": all(
@@ -239,6 +252,7 @@ def validate_protocol() -> dict[str, object]:
         "version": VERSION,
         "transformer_parameters": transformer,
         "population_parameters": population,
+        "population_worker_core_parameters": worker_core,
         "relative_parameter_delta": relative_parameter_delta(),
         "training_workers": TRAIN_WORKERS,
         "evaluation_workers": list(EVAL_WORKERS),
