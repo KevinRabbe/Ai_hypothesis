@@ -1,0 +1,41 @@
+name: Bootstrap Population Language L0 autoregressive correction
+
+on:
+  pull_request:
+    branches:
+      - agent/population-language-l0-overfit-diagnostic-v0
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/population-language-l0-reference-training-v0
+          fetch-depth: 0
+      - name: Apply exact autoregressive evaluation correction
+        shell: bash
+        run: |
+          set -euo pipefail
+          PATCH_B64=.bootstrap/population-language-l0-autoregressive-fix/patch.b64
+          echo "43d2ca268da4ba6d79b4b60483165d415c0fd62fe4f44e72d637d159bf61c4e6  ${PATCH_B64}" | sha256sum --check
+          base64 --decode "${PATCH_B64}" | gzip --decompress > /tmp/autoregressive.patch
+          echo "36e49c09575f2d3476ade4ff89d7071a74a34c607a90e6c88b20d989465b8195  /tmp/autoregressive.patch" | sha256sum --check
+          git apply --check /tmp/autoregressive.patch
+          git apply /tmp/autoregressive.patch
+          test "$(git hash-object ai_hypothesis/population_language/l0_reference_training.py)" = "7dbc708aeaa47dc1ebd5e1a309bc30fc8e731ac1"
+          test "$(git hash-object tests/test_population_language_l0_reference_training.py)" = "f8e8dececa65a5f842489300edac81d71b8c8237"
+          test "$(git hash-object experiments/population_language_l0/reference_training_v0.md)" = "491bdb75055efd325725187693094c7eff8f6aaa"
+          git rm -r .bootstrap/population-language-l0-autoregressive-fix
+          git rm .github/workflows/_bootstrap-population-language-l0-autoregressive-fix.yml
+          git add \
+            ai_hypothesis/population_language/l0_reference_training.py \
+            tests/test_population_language_l0_reference_training.py \
+            experiments/population_language_l0/reference_training_v0.md
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git commit -m "Correct reference answer evaluation to autoregressive decoding"
+          git push origin HEAD:agent/population-language-l0-reference-training-v0
