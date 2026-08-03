@@ -1,0 +1,23 @@
+name: Gate9D answer-loss router feasibility v8 qualification
+on:
+  pull_request:
+    paths:
+      - 'ai_hypothesis/population_compute/gate9d_answer_loss_router_feasibility_v8.py'
+      - 'scripts/run_gate9d_answer_loss_router_feasibility_v8.py'
+      - 'scripts/run_gate9d_answer_loss_router_feasibility_v8.ps1'
+      - 'tests/test_gate9d_answer_loss_router_feasibility_v8.py'
+      - 'experiments/population_compute_scaling_v0/gate9d_answer_loss_router_feasibility_v8.md'
+      - '.github/workflows/gate9d-answer-loss-router-feasibility-v8.yml'
+jobs:
+  contract:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11.9'}
+      - run: python -m pip install --disable-pip-version-check torch==2.9.1 --index-url https://download.pytorch.org/whl/cpu
+      - run: |
+          python -m py_compile ai_hypothesis/population_compute/gate9d_answer_loss_router_feasibility_v8.py scripts/run_gate9d_answer_loss_router_feasibility_v8.py tests/test_gate9d_answer_loss_router_feasibility_v8.py
+          python -m unittest tests/test_gate9d_answer_loss_router_feasibility_v8.py -v
+      - run: test "$(git diff --name-only 0a1b02e648852daf4e8a7d91b1eef8e302c74cb4...HEAD | wc -l)" -eq 6
