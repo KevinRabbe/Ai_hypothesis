@@ -1,0 +1,45 @@
+name: Population Language L0 model qualification
+
+on:
+  pull_request:
+    branches:
+      - agent/population-language-l0-protocol-v0
+    paths:
+      - "ai_hypothesis/population_language/l0_data.py"
+      - "ai_hypothesis/population_language/l0_models.py"
+      - "tests/test_population_language_l0_models.py"
+      - "scripts/run_population_language_l0_model_contract.py"
+      - "experiments/population_language_l0/model_contract_v0.md"
+      - ".github/workflows/population-language-l0-model-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: 3.11.9
+      - name: Install CPU Torch
+        run: >-
+          python -m pip install --disable-pip-version-check
+          torch==2.9.1
+          --index-url https://download.pytorch.org/whl/cpu
+      - name: Compile model slice
+        run: |
+          python -m py_compile \
+            ai_hypothesis/population_language/l0_data.py \
+            ai_hypothesis/population_language/l0_models.py \
+            tests/test_population_language_l0_models.py \
+            scripts/run_population_language_l0_model_contract.py
+      - name: Run model contracts
+        run: python -m unittest tests/test_population_language_l0_models.py -v
+      - name: Emit contract report
+        run: python scripts/run_population_language_l0_model_contract.py
+      - name: Enforce stacked six-file scope
+        run: test "$(git diff --name-only 7a3e41f4c20a3e2725b9d05d7cc2bcd133e71c80...HEAD | wc -l)" -eq 6
