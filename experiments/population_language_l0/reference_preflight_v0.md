@@ -122,6 +122,14 @@ one ZIP archive
 
 The runner requires the exact branch, a clean tree, a fresh output path, CUDA BF16 support, and deterministic cuBLAS configuration before Torch initializes.
 
+## Failure preservation
+
+The runtime creates the output directory before CUDA profiling begins. If CUDA initialization, a model step, classification, manifest generation, or archive creation fails, any partial directory must be preserved unchanged as diagnostic evidence.
+
+A failed run must never be repaired in place or overwritten. The next attempt uses a fresh output-root name, while the original directory and any archive remain available for comparison.
+
+A classified engineering failure still produces the complete manifest and ZIP when execution reaches packaging. The command exits nonzero only after printing and preserving that bundle.
+
 ## Explicit non-claims
 
 A pass does not demonstrate:
