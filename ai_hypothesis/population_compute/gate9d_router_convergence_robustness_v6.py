@@ -9,7 +9,6 @@ import time
 from typing import Any
 
 import torch
-from torch import nn
 
 _ROOT = pathlib.Path(__file__).resolve().parent
 _V5_PATH = _ROOT / "gate9d_router_factorization_sweep_v5.py"
@@ -45,15 +44,13 @@ LocalSummaryLinear = v5.LocalSummaryLinear
 
 
 def analytic_model(device: torch.device) -> LocalSummaryLinear:
-    """Exact separator over [zero, worker_popcount, worker_query_overlap]."""
+    """Exact unit-margin separator over [zero, popcount, overlap]."""
     model = LocalSummaryLinear().to(device)
     with torch.no_grad():
-        # bias: positive iff zero==1
         model.output.weight[0].copy_(torch.tensor([4.0, 0.0, 0.0], device=device))
         model.output.bias[0] = -2.0
-        # contribution: positive only at popcount=1 and overlap=1
-        model.output.weight[1].copy_(torch.tensor([0.0, -3.0, 1.5], device=device))
-        model.output.bias[1] = 2.0
+        model.output.weight[1].copy_(torch.tensor([-4.0, -4.0, 2.0], device=device))
+        model.output.bias[1] = 3.0
     return model
 
 
