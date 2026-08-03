@@ -44,6 +44,7 @@ POPULATION_TRAIN_WORKERS = 32
 POPULATION_COMMUNICATION_ROUNDS = 6
 POPULATION_TOP_K = 4
 EXPECTED_TARGET_TOKENS_PER_EPISODE = 27
+ANSWER_TOKEN_COUNT = 5
 SCALING_SUPPORTS = "SUPPORTS_FIXED_PARAMETER_POPULATION_SCALING"
 SCALING_DOES_NOT_SUPPORT = "DOES_NOT_SUPPORT_FIXED_PARAMETER_POPULATION_SCALING"
 SCALING_INVALID = "INVALID_REFERENCE_RUN_NO_SCALING_CONCLUSION"
@@ -229,8 +230,12 @@ def swap_definition_order(input_ids: Tensor) -> Tensor:
 
 def transformer_forward_flops_per_episode(
     config: protocol.TransformerConfig = protocol.TransformerConfig(),
+    *,
+    sequence_length: int = protocol.MAX_SEQUENCE_LENGTH - 1,
 ) -> int:
-    sequence = protocol.MAX_SEQUENCE_LENGTH - 1
+    if type(sequence_length) is not int or not 1 <= sequence_length < protocol.MAX_SEQUENCE_LENGTH:
+        raise ValueError("transformer FLOP sequence length is outside the model contract")
+    sequence = sequence_length
     width = config.d_model
     per_layer = (
         8 * sequence * width * width
@@ -247,12 +252,15 @@ def population_forward_flops_per_episode(
     *,
     communication_rounds: int = POPULATION_COMMUNICATION_ROUNDS,
     top_k: int = POPULATION_TOP_K,
+    sequence_length: int = protocol.MAX_SEQUENCE_LENGTH - 1,
 ) -> int:
     if type(worker_count) is not int or worker_count <= 0:
         raise ValueError("worker count must be a positive integer")
     if communication_rounds <= 0 or top_k <= 0:
         raise ValueError("population communication settings must be positive")
-    sequence = protocol.MAX_SEQUENCE_LENGTH - 1
+    if type(sequence_length) is not int or not 1 <= sequence_length < protocol.MAX_SEQUENCE_LENGTH:
+        raise ValueError("population FLOP sequence length is outside the model contract")
+    sequence = sequence_length
     token = config.token_width
     worker = config.worker_width
     lexical = (
@@ -602,6 +610,62 @@ def _split_count(split: protocol.Split) -> int:
     raise ValueError("reference evaluation is restricted to validation/test")
 
 
+
+def _answer_prompt_input_length(batch: LanguageBatch) -> int:
+    if batch.answer_mask.ndim != 2 or batch.answer_mask.shape != batch.input_ids.shape:
+        raise ValueError("answer mask/input shape mismatch")
+    counts = batch.answer_mask.sum(dim=1)
+    if not bool(torch.all(counts == ANSWER_TOKEN_COUNT)):
+        raise ValueError("reference answer span must contain exactly five targets")
+    first = torch.argmax(batch.answer_mask.to(torch.int64), dim=1)
+    if not bool(torch.all(first == first[0])):
+        raise ValueError("reference answer prompt length drifted within a batch")
+    start = int(first[0].item())
+    expected = torch.arange(
+        start,
+        start + ANSWER_TOKEN_COUNT,
+        device=batch.answer_mask.device,
+    )
+    observed = torch.nonzero(batch.answer_mask[0], as_tuple=False).flatten()
+    if not bool(torch.equal(observed, expected)):
+        raise ValueError("reference answer mask is not one contiguous five-token span")
+    prompt_length = start + 1
+    if prompt_length + ANSWER_TOKEN_COUNT > protocol.MAX_SEQUENCE_LENGTH:
+        raise ValueError("greedy answer generation exceeds the model sequence contract")
+    return prompt_length
+
+
+def greedy_answer_tokens(
+    *,
+    model: nn.Module,
+    name: str,
+    batch: LanguageBatch,
+    input_ids: Tensor | None = None,
+    worker_count: int | None = None,
+) -> Tensor:
+    """Generate the five answer tokens autoregressively without answer leakage."""
+    if name == "population" and worker_count is None:
+        raise ValueError("population greedy generation requires a worker count")
+    if name == "transformer" and worker_count is not None:
+        raise ValueError("transformer greedy generation cannot set a worker count")
+    source = batch.input_ids if input_ids is None else input_ids
+    if source.dtype != torch.long or source.shape != batch.input_ids.shape:
+        raise ValueError("greedy generation input does not match the reference batch")
+    prompt_length = _answer_prompt_input_length(batch)
+    generated = source[:, :prompt_length].clone()
+    answer: list[Tensor] = []
+    for _ in range(ANSWER_TOKEN_COUNT):
+        if name == "population":
+            logits = model(generated, worker_count=worker_count)  # type: ignore[call-arg]
+        elif name == "transformer":
+            logits = model(generated)
+        else:
+            raise ValueError(f"unknown model: {name}")
+        next_token = torch.argmax(logits[:, -1, :], dim=-1)
+        answer.append(next_token)
+        generated = torch.cat((generated, next_token.unsqueeze(1)), dim=1)
+    return torch.stack(answer, dim=1)
+
 def _evaluate_model(
     *,
     model: nn.Module,
@@ -674,9 +738,30 @@ def _evaluate_model(
             target_tokens += int(batch.loss_mask.sum().item())
             answer_tokens += int(batch.answer_mask.sum().item())
 
-            predictions = torch.argmax(logits, dim=-1)
-            answer_predictions = predictions[batch.answer_mask].view(-1, 5)
-            answer_targets = batch.target_ids[batch.answer_mask].view(-1, 5)
+            answer_targets = batch.target_ids[batch.answer_mask].view(
+                -1, ANSWER_TOKEN_COUNT
+            )
+            if probe is not None:
+                probe.enabled = False
+            try:
+                with torch.amp.autocast("cuda", dtype=torch.bfloat16):
+                    answer_predictions = greedy_answer_tokens(
+                        model=model,
+                        name=name,
+                        batch=batch,
+                        worker_count=worker_count,
+                    )
+                    swapped_answer = greedy_answer_tokens(
+                        model=model,
+                        name=name,
+                        batch=batch,
+                        input_ids=swap_definition_order(batch.input_ids),
+                        worker_count=worker_count,
+                    )
+            finally:
+                if probe is not None:
+                    probe.enabled = True
+
             exact_correct += int(
                 torch.all(answer_predictions == answer_targets, dim=1).sum().item()
             )
@@ -689,22 +774,6 @@ def _evaluate_model(
             relation_correct += int(
                 (answer_predictions[:, 2] == answer_targets[:, 2]).sum().item()
             )
-
-            if probe is not None:
-                probe.enabled = False
-            with torch.amp.autocast("cuda", dtype=torch.bfloat16):
-                swapped_input = swap_definition_order(batch.input_ids)
-                if name == "population":
-                    swapped_logits = model(  # type: ignore[call-arg]
-                        swapped_input,
-                        worker_count=worker_count,
-                    )
-                else:
-                    swapped_logits = model(swapped_input)
-            if probe is not None:
-                probe.enabled = True
-            swapped_predictions = torch.argmax(swapped_logits, dim=-1)
-            swapped_answer = swapped_predictions[batch.answer_mask].view(-1, 5)
             swapped_exact_correct += int(
                 torch.all(swapped_answer == answer_targets, dim=1).sum().item()
             )
@@ -715,10 +784,23 @@ def _evaluate_model(
     torch.cuda.synchronize()
     nll = full_loss_sum / target_tokens
     answer_nll = answer_loss_sum / answer_tokens
-    forward_flops = (
+    teacher_forced_flops = (
         transformer_forward_flops_per_episode()
         if name == "transformer"
         else population_forward_flops_per_episode(int(worker_count))
+    )
+    prompt_length = _answer_prompt_input_length(
+        dataset.batch(split, (0,), device=device)
+    )
+    greedy_answer_flops = sum(
+        (
+            transformer_forward_flops_per_episode(sequence_length=prompt_length + offset)
+            if name == "transformer"
+            else population_forward_flops_per_episode(
+                int(worker_count), sequence_length=prompt_length + offset
+            )
+        )
+        for offset in range(ANSWER_TOKEN_COUNT)
     )
     result: dict[str, Any] = {
         "split": split,
@@ -732,11 +814,13 @@ def _evaluate_model(
         "shape_token_accuracy": shape_correct / (2 * count),
         "relation_token_accuracy": relation_correct / count,
         "swapped_definition_answer_exact_accuracy": swapped_exact_correct / count,
-        "definition_order_answer_token_agreement": order_agreement_correct / (5 * count),
-        "estimated_forward_flops_per_episode": forward_flops,
+        "definition_order_answer_token_agreement": order_agreement_correct / (ANSWER_TOKEN_COUNT * count),
+        "estimated_forward_flops_per_episode": teacher_forced_flops,
+        "estimated_greedy_answer_flops_per_episode": greedy_answer_flops,
         "answer_exact_accuracy_per_gigaflop": (
-            (exact_correct / count) / (forward_flops / 1e9)
+            (exact_correct / count) / (greedy_answer_flops / 1e9)
         ),
+        "answer_exact_decoding": "AUTOREGRESSIVE_GREEDY_FIVE_TOKEN",
         "seconds": time.perf_counter() - started,
     }
     if name == "population":
@@ -790,10 +874,13 @@ def _valid_evaluation(
         "perplexity",
         "answer_span_nll",
         "estimated_forward_flops_per_episode",
+        "estimated_greedy_answer_flops_per_episode",
         "answer_exact_accuracy_per_gigaflop",
         "seconds",
     )
     if any(not _finite_number(row.get(field)) or float(row[field]) < 0 for field in nonnegative):
+        return False
+    if row.get("answer_exact_decoding") != "AUTOREGRESSIVE_GREEDY_FIVE_TOKEN":
         return False
     accuracies = (
         "answer_exact_accuracy",

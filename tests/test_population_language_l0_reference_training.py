@@ -6,6 +6,7 @@ import torch
 
 from ai_hypothesis.population_language import l0_protocol as protocol
 from ai_hypothesis.population_language import l0_reference_training as training
+from ai_hypothesis.population_language.l0_data import LanguageBatch
 from ai_hypothesis.population_language.l0_models import PopulationLanguageOrganism
 
 
@@ -32,7 +33,9 @@ def _evaluation(
         "swapped_definition_answer_exact_accuracy": answer_exact,
         "definition_order_answer_token_agreement": 0.99,
         "estimated_forward_flops_per_episode": 1_000_000_000,
-        "answer_exact_accuracy_per_gigaflop": answer_exact,
+        "estimated_greedy_answer_flops_per_episode": 5_000_000_000,
+        "answer_exact_accuracy_per_gigaflop": answer_exact / 5.0,
+        "answer_exact_decoding": "AUTOREGRESSIVE_GREEDY_FIVE_TOKEN",
         "seconds": 1.0,
     }
     if worker is not None:
@@ -184,6 +187,56 @@ class PopulationLanguageL0ReferenceTrainingContract(unittest.TestCase):
         self.assertTrue(torch.equal(swapped[:, 7:13], values[:, 1:7]))
         self.assertTrue(torch.equal(swapped[:, :1], values[:, :1]))
         self.assertTrue(torch.equal(swapped[:, 13:], values[:, 13:]))
+
+    def test_greedy_answer_generation_is_autoregressive(self) -> None:
+        class IncrementModel(torch.nn.Module):
+            def forward(self, input_ids: torch.Tensor) -> torch.Tensor:
+                logits = torch.zeros(
+                    (*input_ids.shape, protocol.TransformerConfig().vocab_size),
+                    dtype=torch.float32,
+                )
+                next_ids = (input_ids + 1) % protocol.TransformerConfig().vocab_size
+                logits.scatter_(2, next_ids.unsqueeze(-1), 1.0)
+                return logits
+
+        input_ids = torch.zeros((2, 31), dtype=torch.long)
+        input_ids[:, 21] = 5
+        target_ids = torch.zeros_like(input_ids)
+        loss_mask = torch.ones_like(input_ids, dtype=torch.bool)
+        answer_mask = torch.zeros_like(input_ids, dtype=torch.bool)
+        answer_mask[:, 21:26] = True
+        batch = LanguageBatch(
+            input_ids=input_ids,
+            target_ids=target_ids,
+            loss_mask=loss_mask,
+            answer_mask=answer_mask,
+            ordinals=(0, 1),
+        )
+        prompt_length = training._answer_prompt_input_length(batch)
+        generated = training.greedy_answer_tokens(
+            model=IncrementModel(),
+            name="transformer",
+            batch=batch,
+        )
+        initial = batch.input_ids[:, prompt_length - 1]
+        expected = torch.stack(
+            [
+                (initial + offset) % protocol.TransformerConfig().vocab_size
+                for offset in range(1, training.ANSWER_TOKEN_COUNT + 1)
+            ],
+            dim=1,
+        )
+        self.assertTrue(torch.equal(generated, expected))
+
+        poisoned = batch.input_ids.clone()
+        poisoned[:, prompt_length:] = 0
+        regenerated = training.greedy_answer_tokens(
+            model=IncrementModel(),
+            name="transformer",
+            batch=batch,
+            input_ids=poisoned,
+        )
+        self.assertTrue(torch.equal(regenerated, generated))
 
     def test_active_flops_increase_with_worker_count(self) -> None:
         estimates = [

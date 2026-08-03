@@ -112,9 +112,9 @@ The population organism is trained only with 32 workers. Its one fixed checkpoin
 
 Every evaluation records:
 
-- next-token NLL and perplexity;
-- answer-span NLL;
-- greedy five-token answer exact accuracy;
+- next-token NLL and perplexity under ordinary teacher forcing;
+- answer-span NLL under ordinary teacher forcing;
+- true autoregressive greedy five-token answer exact accuracy;
 - color-token accuracy;
 - shape-token accuracy;
 - relation-token accuracy;
@@ -137,11 +137,15 @@ Population rows additionally record:
 
 Router statistics are collected with forward hooks on the qualified query/key projections. The probe reconstructs the exact top-k scores and tie break without changing model outputs or learned parameters.
 
+Answer exactness is not read from teacher-forced full-sequence logits. Evaluation truncates each episode immediately after the `<answer>` marker, predicts one token greedily, appends that prediction, and repeats until all five answer tokens are generated. The same autoregressive procedure is used after swapping the two definition blocks. Ground-truth answer tokens never enter the generation prefix.
+
 ## FLOP estimates
 
 Multiply-add is counted as two FLOPs. Estimates include the dominant dense projections, attention score/value products, population routing score products, selected-message aggregation, recurrent projections, and worker feed-forward projections.
 
 Layer normalization, activation functions, softmax elementwise work, embedding lookup, and optimizer elementwise operations are not included. These values are analytical active-compute estimates, not hardware throughput measurements.
+
+The answer-exactness denominator charges all five autoregressive decoding passes at their growing prefix lengths. Because the qualified models do not implement an inference cache, the estimate reflects repeated full-prefix computation rather than a single teacher-forced forward pass.
 
 ## Validity classification
 
