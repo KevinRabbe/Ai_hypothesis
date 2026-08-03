@@ -64,8 +64,13 @@ class PopulationLanguageL0ProtocolContract(unittest.TestCase):
 
     def test_parameter_budget_and_worker_independence(self) -> None:
         self.assertEqual(p.transformer_parameter_count(), 18_964_544)
-        self.assertEqual(p.population_parameter_count(), 18_964_800)
+        self.assertEqual(p.population_parameter_count(), 18_967_968)
+        self.assertEqual(p.population_worker_core_parameter_count(), 271_680)
         self.assertLessEqual(p.relative_parameter_delta(), p.PARAMETER_TOLERANCE_FRACTION)
+        self.assertLess(
+            p.population_worker_core_parameter_count() / p.population_parameter_count(),
+            0.05,
+        )
         self.assertEqual(
             p.population_parameter_count(p.PopulationConfig(training_workers=256)),
             p.population_parameter_count(),
