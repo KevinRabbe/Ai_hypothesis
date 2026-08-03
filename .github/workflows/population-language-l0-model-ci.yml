@@ -3,6 +3,7 @@ name: Population Language L0 model qualification
 on:
   pull_request:
     branches:
+      - main
       - agent/population-language-l0-protocol-v0
     paths:
       - "ai_hypothesis/population_language/l0_data.py"
