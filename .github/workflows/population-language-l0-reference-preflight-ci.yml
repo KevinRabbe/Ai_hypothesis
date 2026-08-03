@@ -40,6 +40,8 @@ jobs:
             ai_hypothesis/population_language/l0_reference_preflight.py \
             scripts/run_population_language_l0_reference_preflight.py \
             tests/test_population_language_l0_reference_preflight.py
+      - name: Smoke test standalone CLI
+        run: python scripts/run_population_language_l0_reference_preflight.py --help
       - name: Run preflight contracts
         run: python -m unittest tests/test_population_language_l0_reference_preflight.py -v
       - name: Verify immutable runner boundaries
