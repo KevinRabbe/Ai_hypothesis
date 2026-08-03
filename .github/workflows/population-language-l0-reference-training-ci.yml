@@ -1,0 +1,85 @@
+name: Population Language L0 reference training qualification
+
+on:
+  pull_request:
+    branches:
+      - main
+      - agent/population-language-l0-overfit-diagnostic-v0
+    paths:
+      - "ai_hypothesis/population_language/l0_reference_training.py"
+      - "scripts/run_population_language_l0_reference_training.py"
+      - "scripts/run_population_language_l0_reference_training.ps1"
+      - "tests/test_population_language_l0_reference_training.py"
+      - "experiments/population_language_l0/reference_training_v0.md"
+      - ".github/workflows/population-language-l0-reference-training-ci.yml"
+  push:
+    branches:
+      - agent/population-language-l0-reference-training-v0
+    paths:
+      - "ai_hypothesis/population_language/l0_reference_training.py"
+      - "scripts/run_population_language_l0_reference_training.py"
+      - "scripts/run_population_language_l0_reference_training.ps1"
+      - "tests/test_population_language_l0_reference_training.py"
+      - "experiments/population_language_l0/reference_training_v0.md"
+      - ".github/workflows/population-language-l0-reference-training-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      PYTHONPATH: ${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: 3.11.9
+      - name: Install CPU Torch
+        run: >-
+          python -m pip install --disable-pip-version-check
+          torch==2.9.1
+          --index-url https://download.pytorch.org/whl/cpu
+      - name: Compile reference training slice
+        run: |
+          python -m py_compile \
+            ai_hypothesis/population_language/l0_reference_training.py \
+            scripts/run_population_language_l0_reference_training.py \
+            tests/test_population_language_l0_reference_training.py
+      - name: Run reference training contracts
+        run: >-
+          python -m unittest discover
+          -s tests
+          -p "test_population_language_l0_reference_training.py"
+          -v
+      - name: Smoke test standalone CLI
+        run: python scripts/run_population_language_l0_reference_training.py --help
+      - name: Verify locked scientific constants
+        run: |
+          python - <<'PY'
+          from ai_hypothesis.population_language import l0_reference_training as t
+          assert t.OPTIMIZER_STEPS == 4096
+          assert t.GLOBAL_BATCH_SIZE == 256
+          assert t.DEFAULT_MICROBATCH == 8
+          assert t.WARMUP_STEPS == 205
+          assert t.POPULATION_TRAIN_WORKERS == 32
+          assert t.training_schedule_sha256() == "2813a743f3bbb32a182ee7bf83efde654fa95359977a0ad050236141575e4f64"
+          PY
+      - name: Verify immutable execution boundaries
+        run: |
+          grep -Fq 'BRANCH = "agent/population-language-l0-reference-training-v0"' scripts/run_population_language_l0_reference_training.py
+          grep -Fq 'CUBLAS_WORKSPACE_CONFIG = ":4096:8"' scripts/run_population_language_l0_reference_training.py
+          grep -Fq 'status", "--porcelain"' scripts/run_population_language_l0_reference_training.py
+          grep -Fq 'manifest.sha256' scripts/run_population_language_l0_reference_training.py
+          grep -Fq 'zipfile.ZIP_STORED' scripts/run_population_language_l0_reference_training.py
+          ! grep -Fq -- '--steps' scripts/run_population_language_l0_reference_training.py
+      - name: Verify Windows deterministic launch boundary
+        run: |
+          grep -Fq "CUBLAS_WORKSPACE_CONFIG" scripts/run_population_language_l0_reference_training.ps1
+          grep -Fq ":4096:8" scripts/run_population_language_l0_reference_training.ps1
+      - name: Enforce stacked six-file scope
+        run: test "$(git diff --name-only 6a991a2dbf0a0ac3a157966a8898362192439626...HEAD | wc -l)" -eq 6
