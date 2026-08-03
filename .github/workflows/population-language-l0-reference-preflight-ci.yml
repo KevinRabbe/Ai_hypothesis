@@ -1,0 +1,77 @@
+name: Population Language L0 reference preflight qualification
+
+on:
+  pull_request:
+    branches:
+      - main
+      - agent/population-language-l0-overfit-diagnostic-v0
+    paths:
+      - "ai_hypothesis/population_language/l0_reference_preflight.py"
+      - "scripts/run_population_language_l0_reference_preflight.py"
+      - "scripts/run_population_language_l0_reference_preflight.ps1"
+      - "tests/test_population_language_l0_reference_preflight.py"
+      - "experiments/population_language_l0/reference_preflight_v0.md"
+      - ".github/workflows/population-language-l0-reference-preflight-ci.yml"
+  push:
+    branches:
+      - agent/population-language-l0-reference-preflight-qualification-v0
+    paths:
+      - "ai_hypothesis/population_language/l0_reference_preflight.py"
+      - "scripts/run_population_language_l0_reference_preflight.py"
+      - "scripts/run_population_language_l0_reference_preflight.ps1"
+      - "tests/test_population_language_l0_reference_preflight.py"
+      - "experiments/population_language_l0/reference_preflight_v0.md"
+      - ".github/workflows/population-language-l0-reference-preflight-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      PYTHONPATH: ${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: 3.11.9
+      - name: Install CPU Torch
+        run: >-
+          python -m pip install --disable-pip-version-check
+          torch==2.9.1
+          --index-url https://download.pytorch.org/whl/cpu
+      - name: Compile preflight slice
+        run: |
+          python -m py_compile \
+            ai_hypothesis/population_language/l0_reference_preflight.py \
+            scripts/run_population_language_l0_reference_preflight.py \
+            tests/test_population_language_l0_reference_preflight.py
+      - name: Smoke test locked constants
+        run: |
+          python - <<'PY'
+          from ai_hypothesis.population_language import l0_reference_preflight as p
+          assert p.MICROBATCH_CANDIDATES == (1, 2, 4, 8)
+          assert p.MINIMUM_COMMON_MICROBATCH == 4
+          assert p.GLOBAL_BATCH_SIZE == 256
+          assert p.GLOBAL_BATCH_SIZE % p.MINIMUM_COMMON_MICROBATCH == 0
+          PY
+      - name: Smoke test standalone CLI
+        run: python scripts/run_population_language_l0_reference_preflight.py --help
+      - name: Run preflight contracts
+        run: python -m unittest discover -s tests -p "test_population_language_l0_reference_preflight.py" -v
+      - name: Verify immutable runner boundaries
+        run: |
+          grep -Fq 'BRANCH = "agent/population-language-l0-reference-preflight-v0"' scripts/run_population_language_l0_reference_preflight.py
+          grep -Fq 'status", "--porcelain"' scripts/run_population_language_l0_reference_preflight.py
+          grep -Fq 'manifest.sha256' scripts/run_population_language_l0_reference_preflight.py
+          grep -Fq 'zipfile.ZipFile(archive, "x"' scripts/run_population_language_l0_reference_preflight.py
+      - name: Verify Windows deterministic launch boundary
+        run: |
+          grep -Fq "CUBLAS_WORKSPACE_CONFIG" scripts/run_population_language_l0_reference_preflight.ps1
+          grep -Fq ":4096:8" scripts/run_population_language_l0_reference_preflight.ps1
+      - name: Enforce stacked six-file scope
+        run: test "$(git diff --name-only 8f6ba0456cf57dad7209e44f62cac0e40331e8f4...HEAD | wc -l)" -eq 6

@@ -1,0 +1,72 @@
+name: Population Language L0 overfit qualification
+
+on:
+  pull_request:
+    branches:
+      - main
+      - agent/population-language-l0-model-contract-v0
+    paths:
+      - "ai_hypothesis/population_language/l0_overfit_diagnostic.py"
+      - "scripts/run_population_language_l0_overfit_diagnostic.py"
+      - "scripts/run_population_language_l0_overfit_diagnostic.ps1"
+      - "tests/test_population_language_l0_overfit_diagnostic.py"
+      - "experiments/population_language_l0/overfit_diagnostic_v0.md"
+      - ".github/workflows/population-language-l0-overfit-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      PYTHONPATH: ${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: 3.11.9
+      - name: Install CPU Torch
+        run: >-
+          python -m pip install --disable-pip-version-check
+          torch==2.9.1
+          --index-url https://download.pytorch.org/whl/cpu
+      - name: Compile diagnostic slice
+        run: |
+          python -m py_compile \
+            ai_hypothesis/population_language/l0_overfit_diagnostic.py \
+            scripts/run_population_language_l0_overfit_diagnostic.py \
+            tests/test_population_language_l0_overfit_diagnostic.py
+      - name: Run diagnostic contracts
+        run: python -m unittest tests/test_population_language_l0_overfit_diagnostic.py -v
+      - name: Run bounded overfit diagnostic
+        id: bounded-diagnostic
+        continue-on-error: true
+        run: >-
+          python scripts/run_population_language_l0_overfit_diagnostic.py
+          --output-root population-language-l0-overfit-evidence
+          --steps 256
+      - name: Upload immutable diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: population-language-l0-overfit-evidence
+          path: population-language-l0-overfit-evidence
+          if-no-files-found: error
+          retention-days: 90
+      - name: Enforce stacked six-file scope
+        if: always()
+        run: test "$(git diff --name-only 8da5038f9bb1878c9779bab68fa0f8e2aae88743...HEAD | wc -l)" -eq 6
+      - name: Require diagnostic pass
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          summary = json.loads(Path("population-language-l0-overfit-evidence/summary.json").read_text())
+          if summary["diagnosis"] != "POPULATION_LANGUAGE_L0_TINY_OVERFIT_PASSES":
+              raise SystemExit(summary["diagnosis"])
+          PY
