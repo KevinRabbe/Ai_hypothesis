@@ -1,0 +1,48 @@
+name: Gate9D learned shared router hard-negative v1 qualification
+
+on:
+  pull_request:
+    branches:
+      - agent/gate9d-learned-shared-router-v0
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11.9"
+      - name: Install exact CPU runtime
+        run: |
+          python -m pip install --disable-pip-version-check numpy==2.3.5
+          python -m pip install --disable-pip-version-check torch==2.9.1 --index-url https://download.pytorch.org/whl/cpu
+      - name: Compile and verify contract
+        run: |
+          python -m py_compile \
+            ai_hypothesis/population_compute/gate9d_learned_shared_router_hard_negative_v1.py \
+            scripts/run_gate9d_learned_shared_router_hard_negative_v1.py \
+            tests/test_gate9d_learned_shared_router_hard_negative_v1.py
+          python -m unittest tests/test_gate9d_learned_shared_router_hard_negative_v1.py -v
+      - name: Prove exact six-file slice and closed binaries
+        run: |
+          base=d974277db6e270433876228b7534d44456ecee3e
+          mapfile -t changed < <(git diff --name-only "$base...HEAD" | sort)
+          expected=(
+            ".github/workflows/gate9d-learned-shared-router-hard-negative-v1-ci.yml"
+            "ai_hypothesis/population_compute/gate9d_learned_shared_router_hard_negative_v1.py"
+            "experiments/population_compute_scaling_v0/gate9d_learned_shared_router_hard_negative_v1.md"
+            "scripts/run_gate9d_learned_shared_router_hard_negative_v1.ps1"
+            "scripts/run_gate9d_learned_shared_router_hard_negative_v1.py"
+            "tests/test_gate9d_learned_shared_router_hard_negative_v1.py"
+          )
+          test "${#changed[@]}" -eq "${#expected[@]}"
+          for index in "${!expected[@]}"; do
+            test "${changed[$index]}" = "${expected[$index]}"
+          done
+          ! git diff --name-only "$base...HEAD" | grep -E '\.(pt|bin|safetensors|sqlite3|jsonl)$'
