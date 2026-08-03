@@ -14,11 +14,7 @@ from torch.nn import functional as F
 
 from . import l0_protocol as protocol
 from .l0_data import LanguageBatch, materialize_batch
-from .l0_models import (
-    MatchedCausalTransformer,
-    PopulationLanguageOrganism,
-    count_parameters,
-)
+from .l0_models import MatchedCausalTransformer, PopulationLanguageOrganism, count_parameters
 
 VERSION = "population-language-l0-reference-preflight-v0"
 BRANCH = "agent/population-language-l0-reference-preflight-v0"
@@ -46,14 +42,7 @@ def transformer_kv_cache_bytes(
     ):
         if type(value) is not int or value <= 0:
             raise ValueError(f"{label} must be a positive integer")
-    return (
-        2
-        * config.layers
-        * batch_size
-        * sequence_length
-        * config.d_model
-        * bytes_per_element
-    )
+    return 2 * config.layers * batch_size * sequence_length * config.d_model * bytes_per_element
 
 
 def organism_state_bytes(
@@ -183,32 +172,44 @@ def _profile_model(
     return rows, actual_parameters
 
 
-def classify(rows: list[dict[str, Any]]) -> tuple[str, int | None]:
-    expected_order = [
-        (name, candidate)
-        for name in ("transformer", "population")
-        for candidate in MICROBATCH_CANDIDATES
-    ]
+def _validate_model_row_prefix(name: str, rows: list[dict[str, Any]]) -> None:
+    if not rows:
+        raise ValueError(f"reference preflight contains no {name} rows")
     observed = [(row.get("model"), row.get("microbatch")) for row in rows]
-    if observed != expected_order[: len(observed)]:
-        raise ValueError("reference preflight row order drifted")
+    expected = [(name, candidate) for candidate in MICROBATCH_CANDIDATES]
+    if observed != expected[: len(observed)]:
+        raise ValueError(f"reference preflight {name} row order drifted")
+    failures = [index for index, row in enumerate(rows) if row.get("success") is not True]
+    if failures and failures != [len(rows) - 1]:
+        raise ValueError(f"reference preflight {name} failure row is not terminal")
+
+
+def classify(rows: list[dict[str, Any]]) -> tuple[str, int | None]:
+    grouped = {
+        name: [row for row in rows if row.get("model") == name]
+        for name in ("transformer", "population")
+    }
+    if sum(len(group) for group in grouped.values()) != len(rows):
+        raise ValueError("reference preflight contains an unknown model row")
+    for name, group in grouped.items():
+        _validate_model_row_prefix(name, group)
 
     successful_by_model: dict[str, set[int]] = {
         "transformer": set(),
         "population": set(),
     }
-    for row in rows:
-        name = row.get("model")
-        if name not in successful_by_model:
-            raise ValueError("reference preflight contains an unknown model row")
-        if row.get("success") is True:
-            for field in (
-                "loss",
-                "gradient_norm_before_clip",
-                "seconds",
-                "peak_allocated_bytes",
-                "peak_reserved_bytes",
-            ):
+    required_fields = (
+        "loss",
+        "gradient_norm_before_clip",
+        "seconds",
+        "peak_allocated_bytes",
+        "peak_reserved_bytes",
+    )
+    for name, group in grouped.items():
+        for row in group:
+            if row.get("success") is not True:
+                continue
+            for field in required_fields:
                 value = row.get(field)
                 if not isinstance(value, (int, float)) or not math.isfinite(float(value)):
                     return FAIL, None
@@ -314,6 +315,7 @@ def run(
         "boundaries": {
             "engineering_preflight_only": True,
             "optimizer_steps_per_candidate": 1,
+            "optimizer_state_reused_across_candidates_within_model": True,
             "full_next_token_objective_used": True,
             "reference_training_performed": False,
             "validation_or_test_metrics_computed": False,
