@@ -49,3 +49,4 @@ jobs:
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git commit -m "Implement Population Language L0 reference training"
           git push origin HEAD:${GITHUB_REF_NAME}
+# trigger-after-install
