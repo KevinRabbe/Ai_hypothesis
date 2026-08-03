@@ -40,6 +40,15 @@ jobs:
             ai_hypothesis/population_language/l0_reference_preflight.py \
             scripts/run_population_language_l0_reference_preflight.py \
             tests/test_population_language_l0_reference_preflight.py
+      - name: Smoke test locked constants
+        run: |
+          python - <<'PY'
+          from ai_hypothesis.population_language import l0_reference_preflight as p
+          assert p.MICROBATCH_CANDIDATES == (1, 2, 4, 8)
+          assert p.MINIMUM_COMMON_MICROBATCH == 4
+          assert p.GLOBAL_BATCH_SIZE == 256
+          assert p.GLOBAL_BATCH_SIZE % p.MINIMUM_COMMON_MICROBATCH == 0
+          PY
       - name: Smoke test standalone CLI
         run: python scripts/run_population_language_l0_reference_preflight.py --help
       - name: Run preflight contracts
