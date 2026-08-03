@@ -51,9 +51,23 @@ communication rounds 2
 top-k 2
 ```
 
-Both optimize answer-span cross-entropy for 256 full-batch AdamW steps at learning rate 0.003 from seed 120100.
+Both run for 256 full-batch AdamW steps at learning rate 0.003 from seed 120100.
 
-Answer-span-only training is allowed here solely to test architecture and gradient viability. It is not the L0 reference objective, which remains full next-token cross-entropy.
+## Diagnostic objective
+
+The initial answer-span-only run left the population model at 18/20 correct answer tokens. Its only persistent errors were first-answer tokens—the positions that must retrieve definitions before teacher-forced answer history identifies the episode. All required gradient paths were live.
+
+The corrected diagnostic therefore minimizes:
+
+```text
+full five-token answer cross-entropy
++
+first-answer-token cross-entropy
+```
+
+with auxiliary weight 1.0.
+
+This is a diagnostic-only delayed-credit objective. It does not modify the preregistered L0 reference objective, which remains unweighted full next-token cross-entropy.
 
 ## Required gradient paths
 
