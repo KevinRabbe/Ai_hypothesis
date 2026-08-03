@@ -1,0 +1,45 @@
+name: Population Language L0 protocol qualification
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "ai_hypothesis/population_language/**"
+      - "experiments/population_language_l0/**"
+      - "tests/test_population_language_l0_protocol.py"
+      - ".github/workflows/population-language-l0-protocol-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: 3.11.9
+      - name: Compile protocol
+        run: |
+          python -m py_compile \
+            ai_hypothesis/population_language/__init__.py \
+            ai_hypothesis/population_language/l0_protocol.py \
+            tests/test_population_language_l0_protocol.py
+      - name: Run protocol contract
+        run: python -m unittest tests/test_population_language_l0_protocol.py -v
+      - name: Validate protocol report
+        run: |
+          python - <<'PY'
+          import json
+          from ai_hypothesis.population_language.l0_protocol import validate_protocol
+          report = validate_protocol()
+          print(json.dumps(report, indent=2, sort_keys=True))
+          if not report["valid"]:
+              raise SystemExit("Population Language L0 protocol is invalid")
+          PY
+      - name: Enforce isolated six-file scope
+        run: test "$(git diff --name-only origin/main...HEAD | wc -l)" -eq 6
