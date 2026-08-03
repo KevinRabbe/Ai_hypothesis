@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - agent/population-language-l0-reference-training-v0
+  pull_request:
+    branches:
+      - agent/population-language-l0-overfit-diagnostic-v0
 
 permissions:
   contents: write
@@ -13,6 +16,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: agent/population-language-l0-reference-training-v0
       - name: Materialize exact six-file slice
         shell: bash
         run: |
@@ -48,5 +53,4 @@ jobs:
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git commit -m "Implement Population Language L0 reference training"
-          git push origin HEAD:${GITHUB_REF_NAME}
-# trigger-after-install
+          git push origin HEAD:agent/population-language-l0-reference-training-v0
