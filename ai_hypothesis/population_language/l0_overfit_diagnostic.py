@@ -24,6 +24,7 @@ FAIL = "POPULATION_LANGUAGE_L0_TINY_OVERFIT_FAILED"
 SEED = 120100
 STEPS = 256
 LEARNING_RATE = 0.003
+FIRST_ANSWER_AUXILIARY_WEIGHT = 1.0
 WORKER_COUNT = 4
 COMMUNICATION_ROUNDS = 2
 TOP_K = 2
@@ -153,6 +154,17 @@ def masked_loss(logits: Tensor, targets: Tensor, mask: Tensor) -> Tensor:
     return F.cross_entropy(logits[mask], targets[mask])
 
 
+def training_loss(
+    logits: Tensor,
+    batch: LanguageBatch,
+    first_answer_mask: Tensor,
+) -> Tensor:
+    """Diagnostic-only delayed-binding objective; not the L0 reference objective."""
+    answer = masked_loss(logits, batch.target_ids, batch.answer_mask)
+    first = masked_loss(logits, batch.target_ids, first_answer_mask)
+    return answer + FIRST_ANSWER_AUXILIARY_WEIGHT * first
+
+
 def _metrics(logits: Tensor, batch: LanguageBatch, first_answer_mask: Tensor) -> dict[str, float]:
     predictions = torch.argmax(logits, dim=-1)
     answer_correct = predictions[batch.answer_mask] == batch.target_ids[batch.answer_mask]
@@ -211,7 +223,7 @@ def _train_model(
     for step in range(steps + 1):
         optimizer.zero_grad(set_to_none=True)
         logits = model(batch.input_ids)
-        loss = masked_loss(logits, batch.target_ids, batch.answer_mask)
+        loss = training_loss(logits, batch, first_answer_mask)
         loss.backward()
         if step == 0:
             gradient_report = _gradient_report(model, required_gradient_paths)
@@ -306,13 +318,16 @@ def run(output_root: pathlib.Path, *, steps: int = STEPS) -> dict[str, Any]:
         "seed": SEED,
         "steps": steps,
         "learning_rate": LEARNING_RATE,
+        "first_answer_auxiliary_weight": FIRST_ANSWER_AUXILIARY_WEIGHT,
         "binding_examples": 4,
         "same_query_across_examples": True,
         "rows": rows,
         "boundaries": {
             "tiny_diagnostic_only": True,
             "answer_span_training_used": True,
+            "first_answer_auxiliary_loss_used": True,
             "reference_19m_training_performed": False,
+            "reference_full_next_token_objective_modified": False,
             "validation_or_test_data_used": False,
             "population_scaling_claimed": False,
             "natural_language_capability_claimed": False,
