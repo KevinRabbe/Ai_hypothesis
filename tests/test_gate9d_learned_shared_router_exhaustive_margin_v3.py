@@ -14,8 +14,8 @@ class ExhaustiveMarginRouterTests(unittest.TestCase):
         m=load(); worker,query,targets=m.v0.exhaustive_router_domain(torch.device('cpu'))
         exact=torch.where(targets.bool(),torch.full_like(targets,4.0),torch.full_like(targets,-4.0))
         overlap=torch.zeros_like(targets)
-        self.assertLess(float(m.exhaustive_margin_loss(exact)),float(m.exhaustive_margin_loss(overlap)))
-        exact.requires_grad_(); loss=m.exhaustive_margin_loss(exact); loss.backward(); self.assertTrue(torch.isfinite(exact.grad).all())
+        self.assertLess(float(m.exhaustive_margin_loss(exact,targets)),float(m.exhaustive_margin_loss(overlap,targets)))
+        exact.requires_grad_(); loss=m.exhaustive_margin_loss(exact,targets); loss.backward(); self.assertTrue(torch.isfinite(exact.grad).all())
     def test_worst_state_identities_are_exact(self):
         m=load()
         class Exact(torch.nn.Module):
