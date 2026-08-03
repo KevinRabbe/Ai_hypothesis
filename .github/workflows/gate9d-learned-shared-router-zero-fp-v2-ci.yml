@@ -1,0 +1,47 @@
+name: Gate9D learned shared router zero-FP v2 qualification
+
+on:
+  pull_request:
+    branches:
+      - agent/gate9d-learned-shared-router-hard-negative-v1
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11.9"
+      - name: Install exact CPU runtime
+        run: |
+          python -m pip install --disable-pip-version-check torch==2.9.1 --index-url https://download.pytorch.org/whl/cpu
+      - name: Compile and verify contract
+        run: |
+          python -m py_compile \
+            ai_hypothesis/population_compute/gate9d_learned_shared_router_zero_fp_v2.py \
+            scripts/run_gate9d_learned_shared_router_zero_fp_v2.py \
+            tests/test_gate9d_learned_shared_router_zero_fp_v2.py
+          python -m unittest tests/test_gate9d_learned_shared_router_zero_fp_v2.py -v
+      - name: Prove exact six-file slice and closed binaries
+        run: |
+          base=5e89fb42d6a84e32f163d3309abbb2294206f9a1
+          mapfile -t changed < <(git diff --name-only "$base...HEAD" | sort)
+          expected=(
+            ".github/workflows/gate9d-learned-shared-router-zero-fp-v2-ci.yml"
+            "ai_hypothesis/population_compute/gate9d_learned_shared_router_zero_fp_v2.py"
+            "experiments/population_compute_scaling_v0/gate9d_learned_shared_router_zero_fp_v2.md"
+            "scripts/run_gate9d_learned_shared_router_zero_fp_v2.ps1"
+            "scripts/run_gate9d_learned_shared_router_zero_fp_v2.py"
+            "tests/test_gate9d_learned_shared_router_zero_fp_v2.py"
+          )
+          test "${#changed[@]}" -eq "${#expected[@]}"
+          for index in "${!expected[@]}"; do
+            test "${changed[$index]}" = "${expected[$index]}"
+          done
+          ! git diff --name-only "$base...HEAD" | grep -E '\.(pt|bin|safetensors|sqlite3|jsonl)$'
