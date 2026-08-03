@@ -42,6 +42,12 @@ jobs:
             tests/test_population_language_l0_reference_preflight.py
       - name: Run preflight contracts
         run: python -m unittest tests/test_population_language_l0_reference_preflight.py -v
+      - name: Verify immutable runner boundaries
+        run: |
+          grep -Fq 'BRANCH = "agent/population-language-l0-reference-preflight-v0"' scripts/run_population_language_l0_reference_preflight.py
+          grep -Fq 'status", "--porcelain"' scripts/run_population_language_l0_reference_preflight.py
+          grep -Fq 'manifest.sha256' scripts/run_population_language_l0_reference_preflight.py
+          grep -Fq 'zipfile.ZipFile(archive, "x"' scripts/run_population_language_l0_reference_preflight.py
       - name: Verify Windows deterministic launch boundary
         run: |
           grep -Fq "CUBLAS_WORKSPACE_CONFIG" scripts/run_population_language_l0_reference_preflight.ps1
