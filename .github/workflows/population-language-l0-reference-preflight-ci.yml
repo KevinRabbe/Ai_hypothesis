@@ -12,6 +12,16 @@ on:
       - "tests/test_population_language_l0_reference_preflight.py"
       - "experiments/population_language_l0/reference_preflight_v0.md"
       - ".github/workflows/population-language-l0-reference-preflight-ci.yml"
+  push:
+    branches:
+      - agent/population-language-l0-reference-preflight-qualification-v0
+    paths:
+      - "ai_hypothesis/population_language/l0_reference_preflight.py"
+      - "scripts/run_population_language_l0_reference_preflight.py"
+      - "scripts/run_population_language_l0_reference_preflight.ps1"
+      - "tests/test_population_language_l0_reference_preflight.py"
+      - "experiments/population_language_l0/reference_preflight_v0.md"
+      - ".github/workflows/population-language-l0-reference-preflight-ci.yml"
 
 permissions:
   contents: read
