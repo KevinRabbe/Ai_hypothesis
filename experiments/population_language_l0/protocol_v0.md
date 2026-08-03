@@ -80,20 +80,26 @@ The baseline is a pre-norm causal decoder with standard multi-head self-attentio
 ### Population organism
 
 ```text
-vocabulary             64
-worker state width     992
-shared FF width      5,440
-router width            96
-training workers        32
+vocabulary                    64
+token width                  512
+lexical encoder width     14,544
+worker state width           128
+worker FF width              512
+router width                  32
+lexical decoder width     14,544
+training workers              32
 evaluation workers 16, 32, 64, 128, 256
-learned parameters 18,964,800
+learned parameters     18,967,968
+shared worker core        271,680
 ```
 
-The organism uses persistent recurrent worker state, deterministic non-learned worker coordinates, shared token injection, a shared low-rank message router, shared message encoding, a shared GRU-like update, a shared feed-forward update, deterministic mean readout, and tied token embedding/output weights.
+The organism has a lexical encoder and decoder that each run once per token, surrounding a much smaller worker-shared recurrent core. The core uses persistent worker state, deterministic non-learned worker coordinates, a shared low-rank message router, shared message encoding, a shared GRU-like update, and a shared feed-forward update.
+
+Only the 271,680-parameter worker core is repeated over workers and communication rounds. The full approximately 19M parameter budget is not independently applied to every worker.
 
 No learned parameter is indexed by worker identity or worker count.
 
-The pairwise parameter mismatch is 256 parameters, or approximately 0.00135%, below the locked 0.5% tolerance.
+The pairwise parameter mismatch is 3,424 parameters, or approximately 0.0181%, below the locked 0.5% tolerance.
 
 ## Training contract
 
@@ -108,12 +114,15 @@ weight decay            0.1
 peak learning rate      3e-4
 schedule                5% linear warmup, cosine decay
 optimizer steps         4,096
-batch size              256 episodes
+global batch size       256 episodes
+microbatch size         implementation-selected, recorded
 sequence length         28, padded to 32
 precision               BF16 autocast, FP32 optimizer state
 gradient clipping       1.0
 initialization seeds    120100, 120101, 120102
 ```
+
+Gradient accumulation may differ only to satisfy memory limits. The ordered global episode batches, optimizer updates, and effective global batch size must remain identical.
 
 The full next-token cross-entropy is optimized. Answer-span metrics are reported separately; the answer span is not given extra training weight in L0.
 
@@ -147,7 +156,8 @@ The run is invalid rather than failed if:
 - datasets, token order, optimizer steps, or seeds differ between systems;
 - a worker-count-specific learned table or checkpoint is used;
 - test semantics enter training or checkpoint selection;
-- the transformer baseline fails to reach 95% validation answer exact accuracy in every seed.
+- the transformer baseline fails to reach 95% validation answer exact accuracy in every seed;
+- the implementation applies the complete 19M parameter budget once per worker.
 
 ## Population-scaling criterion
 
