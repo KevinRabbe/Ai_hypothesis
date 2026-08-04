@@ -1,126 +1,153 @@
-# Population Model Hypothesis
+# Population Intelligence Hypothesis
 
 ## Problem statement
 
-Conventional dense neural networks generally apply a largely fixed model structure to every request. A simple task and a difficult task may use the same parameter set even when the simple task requires only a small fraction of the available learned capability.
+A conventional dense language model generally applies a largely fixed learned computation graph to every token and request. Easy and difficult tasks therefore tend to activate similar parameter sets even when they require very different amounts or kinds of reasoning.
 
-This project explores a different organization of learned computation.
+This project studies whether an approximately 300M learned-parameter budget can produce more useful intelligence when it is organized around recurrent population computation rather than one fixed dense forward pass.
 
-Instead of asking one large dense network to process all information, divide a fixed total parameter budget into many **architecturally identical tiny neural processing units**. The units are not autonomous agents and do not need to solve complete tasks independently. A unit only needs to perform a useful local learned transformation.
+The population is not a collection of autonomous chat agents. Workers are neural states inside one model. They may share the same learned parameters while receiving different information, developing different hypotheses, retrieving different memories, or performing different temporary roles.
 
-Examples of useful local transformations may include:
+## Primary hypothesis
 
-- detecting a fuzzy pattern;
-- identifying relevance;
-- extracting a relationship;
-- recognizing an anomaly;
-- identifying ambiguity or conflict;
-- transforming a compact local representation into another useful representation.
+> An approximately 300M population model can achieve stronger reasoning, coding, continual-learning, and adaptive-computation capability than a conventional dense model of comparable learned-parameter budget by repeatedly reusing a shared neural core across diverse worker states, allocating additional computation only where useful, preserving causally distinct evidence, and grounding revision in memory and verification.
 
-The runtime can allocate additional identical units when a region, subproblem, or evidence gap requires more learned processing.
+This hypothesis is about **intelligence per learned parameter under transparent compute accounting**. It does not assume that the population model will always be faster, cheaper, or better on every workload.
 
-## Factorio analogy
+## Sub-hypotheses
 
-Think of each neural unit as the smallest useful subfactory.
+### H1 — Population scaling
 
-A subfactory does not build the entire rocket. It performs one useful production step. When more throughput is needed, more identical subfactories are assigned to the production line.
+At a fixed checkpoint, increasing the number of worker states can improve capability on tasks that benefit from additional independent or complementary computation.
 
-The research question is therefore not "how many tiny models can we create?" It is:
+The useful effect must exceed coordination cost and must not be explained solely by repeated identical sampling.
 
-> How small can a learned processing unit become before it stops producing useful signal, and how efficiently can additional identical units be allocated when more processing capacity is needed?
+### H2 — Recurrent latent depth
+
+Reusing the same learned population core for additional reasoning rounds can improve difficult-task performance without increasing learned parameter count.
+
+A valid result must show improvement as a function of controlled additional computation and must report diminishing returns or instability.
+
+### H3 — Diversity without incoherence
+
+Workers become more useful when they maintain functionally different hypotheses, information access, or temporary roles before communication.
+
+Too little diversity produces clone collapse. Too much unconstrained diversity produces noise. The project seeks a measurable operating region between those failures.
+
+### H4 — Adaptive test-time computation
+
+A learned controller can allocate workers, rounds, candidate generation, and verification depth according to task difficulty, disagreement, uncertainty, unresolved subgoals, or recent progress.
+
+The claim succeeds only when adaptive allocation beats fixed-compute baselines under matched end-to-end budgets.
+
+### H5 — Verification-guided revision
+
+A compact model can achieve stronger reliable performance through a generate-test-diagnose-revise loop than through one-pass generation alone.
+
+For code and deterministic environments, execution evidence remains authoritative. A learned verifier may prioritize candidates or diagnose failures but must not override exact execution results.
+
+### H6 — Memory and learning are complementary
+
+Facts, episodes, procedures, and generalized skills should not all be stored in the same way.
+
+The model should separate:
+
+- temporary worker state for the current computation;
+- episodic memory for particular experiences;
+- semantic or conditional memory for stable retrievable knowledge;
+- persistent bounded neural adaptation for reusable learned procedures or transformations;
+- immutable base weights for broadly trained capability.
+
+A retrieval success is not automatically a learning success. Persistent learning requires useful behavior after context reset and restart, generalization beyond stored examples, and bounded interference with prior capability.
+
+### H7 — Conditional memory can free reasoning capacity
+
+Some learned capacity may be more useful as sparsely addressed knowledge or pattern memory than as dense computation used on every token.
+
+The relevant question is whether reallocating part of the fixed 300M budget to conditional memory improves reasoning, code, or continual learning at matched total parameters and active compute—not merely factual recall.
+
+### H8 — Data and curriculum determine effective capacity
+
+A 300M model cannot afford to spend most of its capacity modeling duplication, noise, or unverified reasoning.
+
+A staged curriculum built from high-quality language, code, procedural environments, exact execution feedback, verified search trajectories, and controlled continual-learning tasks may produce substantially more capability than an undifferentiated data mixture.
+
+### H9 — Scale-stable mechanisms
+
+Mechanisms discovered at approximately 19M, 50M, and 100M can inform the 300M architecture when their optimization and communication behavior are explicitly retested across scale.
+
+No mechanism is assumed to scale automatically. The hypothesis includes the possibility that worker count, width, routing, recurrence, memory allocation, and training dynamics require scale-dependent changes.
+
+### H10 — Deterministic interactive worlds provide an embodied-learning test
+
+A deterministic virtual environment can test observation, memory, planning, action, consequence prediction, recovery, and continual learning before physical robotics is justified.
+
+Structured emulator state should be tested before pixels and controller-only input so perception failures can be separated from reasoning and learning failures. Fixed games must later be randomized or replaced by procedural worlds to prevent walkthrough memorization from being mistaken for intelligence.
 
 ## Fixed-budget framing
 
-A long-term reference experiment may use approximately 1 billion total learned parameters.
+The primary integration budget is approximately 300M learned parameters.
 
-Possible organizations are illustrative, not predetermined:
+Candidate internal allocations are experimental rather than predetermined. Capacity may be distributed among:
 
-- 1 × 1B
-- 10 × 100M
-- 100 × 10M
-- 1,000 × 1M
-- 10,000 × 100K
+- lexical representation and decoding;
+- shared recurrent reasoning core;
+- routing and communication;
+- sparse specialists;
+- conditional memory;
+- verifier or value systems;
+- persistent adaptation capacity.
 
-The project does **not** assume that any of these is optimal. The useful unit size may be much larger or smaller, and the optimum depends on batching efficiency, hardware, memory movement, coordination cost, and task type.
-
-## Dynamic allocation
-
-The total population represents available neural capacity.
-
-A task may activate only a small subset:
-
-- easy local transformation → few units;
-- noisy or ambiguous region → more units;
-- large divisible input → many units working on different regions;
-- missing discriminating evidence → targeted additional units;
-- deterministic task → zero additional neural units when ordinary logic can solve it.
-
-The system should scale compute by need rather than activating the entire parameter population for every request.
+Every allocation must be compared against alternatives under normalized data, training, parameter, and inference conditions.
 
 ## Evidence, not voting
 
 Worker count is not truth.
 
-If 8,000 units do not observe a decisive fact and 200 units process the only region containing that fact, the smaller group may hold the important evidence.
+A minority worker may hold decisive evidence because it received a different context fragment, memory retrieval, subgoal, or counterexample. Aggregation must therefore preserve:
 
-Therefore aggregation must preserve:
-
-- source provenance;
-- local observations;
+- provenance;
 - unique findings;
 - contradictions;
-- evidence coverage;
-- evidence strength.
+- prediction confidence;
+- causal contribution;
+- access to original evidence.
 
-Population disagreement may indicate uncertainty or a need for more investigation, but majority vote must not be the final decision rule.
+Majority agreement is an uncertainty signal, not a sufficient decision rule.
 
 ## Deterministic computation boundary
 
-Learned computation should be used where learning adds value.
+Learned computation should be used where learning adds value. Deterministic implementations should remain authoritative for exact operations such as:
 
-Deterministic algorithms should handle tasks such as:
-
-- arithmetic;
-- exact comparisons;
-- sorting;
-- coordinates;
-- deduplication;
+- parsing and schema validation;
+- arithmetic and exact comparison;
+- sorting and deduplication;
+- permissions and resource limits;
 - state transitions;
-- routing rules;
-- permissions;
-- queue management;
-- resource limits;
-- schema validation.
+- compilers, tests, and formal checks;
+- reproducible environment control;
+- artifact hashing and provenance verification.
 
-The research should explicitly identify the lower boundary where a neural unit becomes either:
+The model may decide when to invoke these operations and may reason over their results, but it should not replace reliable exact computation with unnecessary prediction.
 
-1. mostly noise; or
-2. so simple that deterministic logic performs the same transformation more reliably and cheaply.
+## Null and failure outcomes
 
-## Hardware hypothesis
+The primary hypothesis is unsupported for a tested configuration when one or more of the following dominate:
 
-The architecture should treat CPU and GPU as complementary resources.
+- additional workers become correlated copies with no causal benefit;
+- recurrent rounds amplify errors or converge to unproductive loops;
+- routing, synchronization, memory movement, or aggregation cost exceeds the capability gained;
+- adaptive compute cannot outperform well-chosen fixed budgets;
+- memory retrieval creates the appearance of learning without generalization;
+- persistent adaptation causes unacceptable forgetting or cannot survive restart;
+- learned verification rewards plausible but incorrect reasoning;
+- sparse memory or experts reduce usable reasoning capacity;
+- curriculum gains disappear on held-out compositions or environments;
+- dense matched baselines remain consistently stronger;
+- mechanisms that work at small scale fail to transfer toward 300M.
 
-The CPU is suited to orchestration, deterministic logic, task graphs, evidence tracking, queues, scheduling, and data preparation.
+Negative results remain valuable because they identify which organizational mechanisms do not justify their complexity.
 
-The GPU is suited to batched execution of many identical neural units through efficient matrix operations.
+## Deployment boundary
 
-The architecture succeeds only if batching and resource scheduling keep coordination overhead below the value gained from sparse, parallel, and adaptive computation.
-
-## Primary hypothesis
-
-> For at least some workloads, a fixed neural parameter budget can produce more useful information per unit of active compute when organized as a dynamically allocated population of identical small learned processing units than when organized as one fixed dense network.
-
-## Null / failure outcomes
-
-The hypothesis should be considered unsupported for a tested configuration when any of the following dominate:
-
-- individual units become too weak and produce mostly noise;
-- additional workers add correlated errors rather than useful information;
-- routing and aggregation cost exceeds saved neural compute;
-- GPU utilization collapses because workloads are too granular;
-- memory movement dominates execution;
-- hierarchical compression loses decisive information;
-- a conventional dense model reaches better end-to-end quality under the same resource budget.
-
-Negative results are useful: they define the boundary of the architecture and narrow the search for the viable operating region.
+Running a qualified model on microcontrollers, edge accelerators, or many inexpensive chips is a separate downstream systems problem. It may reuse sparse activation, hierarchical communication, quantization, or conditional memory, but edge deployment is not part of the primary intelligence hypothesis and must not constrain the 300M architecture prematurely.
