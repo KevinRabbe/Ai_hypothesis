@@ -1,0 +1,82 @@
+name: Population Language Post-Training Learning L0 Calibration Orchestrator CI
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/population-language-post-training-learning-l0-calibration-orchestrator-ci.yml"
+      - "ai_hypothesis/population_language/post_training_learning_l0_calibration_orchestrator.py"
+      - "experiments/population_language_post_training_learning_l0/calibration_orchestrator_v0.md"
+      - "tests/test_population_language_post_training_learning_l0_calibration_orchestrator.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  calibration-orchestrator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: 3.11.9
+      - name: Install qualification dependencies
+        run: |
+          python -m pip install --disable-pip-version-check numpy==2.2.6
+          python -m pip install --disable-pip-version-check \
+            torch==2.9.1 \
+            --index-url https://download.pytorch.org/whl/cpu
+      - name: Compile calibration-orchestrator slice
+        run: |
+          python -m py_compile \
+            ai_hypothesis/population_language/post_training_learning_l0_calibration_orchestrator.py \
+            tests/test_population_language_post_training_learning_l0_calibration_orchestrator.py
+      - name: Run complete preparation contract stack
+        run: |
+          python -m unittest \
+            tests.test_population_language_l0_reference_training \
+            tests.test_population_language_post_training_learning_l0 \
+            tests.test_population_language_post_training_learning_l0_adapter \
+            tests.test_population_language_post_training_learning_l0_calibration \
+            tests.test_population_language_post_training_learning_l0_execution \
+            tests.test_population_language_post_training_learning_l0_checkpoint \
+            tests.test_population_language_post_training_learning_l0_fresh_process \
+            tests.test_population_language_l0_reference_manifest \
+            tests.test_population_language_post_training_learning_l0_calibration_plan \
+            tests.test_population_language_post_training_learning_l0_calibration_orchestrator
+      - name: Verify locked calibration-orchestrator constants
+        run: |
+          python - <<'PY'
+          from ai_hypothesis.population_language import post_training_learning_l0_calibration_orchestrator as orchestrator
+
+          report = orchestrator.validate_calibration_orchestrator_contract()
+          assert report["valid"], report
+          assert orchestrator.SOURCE_CALIBRATION_PLAN_HEAD == "780c19c0c8e63dafe6e7c74bbfe3d579129e53fe"
+          assert orchestrator.AUTHORIZATION_SCOPE == "POST_TRAINING_LEARNING_L0_CALIBRATION_ONLY"
+          assert orchestrator.AUTHORIZATION_MAX_BYTES == 32 * 1024
+          assert orchestrator.RUN_MANIFEST_MAX_BYTES == 2 * 1024 * 1024
+          assert orchestrator.RESULT_BUNDLE_MAX_BYTES == 16 * 1024 * 1024
+          assert orchestrator.VERIFICATION_MAX_BYTES == 64 * 1024
+          assert len(orchestrator.AUTHORIZATION_KEYS) == 10
+          assert len(orchestrator.RUN_MANIFEST_KEYS) == 12
+          assert len(orchestrator.WORK_ITEM_KEYS) == 18
+          assert len(orchestrator.RESULT_RECORD_KEYS) == 3
+          assert len(orchestrator.RESULT_BUNDLE_KEYS) == 10
+          assert len(orchestrator.VERIFICATION_KEYS) == 24
+          PY
+      - name: Verify exact four-file scope
+        run: |
+          base=780c19c0c8e63dafe6e7c74bbfe3d579129e53fe
+          git cat-file -e "$base^{commit}"
+          git diff --name-only "$base" HEAD | sort > /tmp/actual-files
+          cat > /tmp/expected-files <<'EOF'
+          .github/workflows/population-language-post-training-learning-l0-calibration-orchestrator-ci.yml
+          ai_hypothesis/population_language/post_training_learning_l0_calibration_orchestrator.py
+          experiments/population_language_post_training_learning_l0/calibration_orchestrator_v0.md
+          tests/test_population_language_post_training_learning_l0_calibration_orchestrator.py
+          EOF
+          sort -o /tmp/expected-files /tmp/expected-files
+          diff -u /tmp/expected-files /tmp/actual-files
