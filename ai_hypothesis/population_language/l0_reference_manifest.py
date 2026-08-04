@@ -12,7 +12,6 @@ import json
 import os
 import pathlib
 import stat
-from types import SimpleNamespace
 from typing import Any
 
 from . import l0_protocol as l0_protocol
@@ -210,7 +209,10 @@ def _validate_summary_header(
         "cuda_version",
         "bf16_supported",
     )
-    if any(field not in cuda for field in required_cuda) or cuda.get("bf16_supported") is not True:
+    if (
+        any(field not in cuda for field in required_cuda)
+        or cuda.get("bf16_supported") is not True
+    ):
         raise ValueError("reference summary CUDA evidence drifted")
 
 
@@ -225,6 +227,32 @@ def _expected_boundaries() -> dict[str, bool]:
         "worker_specific_learned_parameters_used": False,
         "gate9_evidence_modified": False,
     }
+
+
+def _canonicalize_seed_rows(seed_rows: list[object]) -> list[dict[str, Any]]:
+    """Restore the locked numeric worker order after sort_keys JSON serialization."""
+    expected_worker_keys = [str(worker) for worker in l0_protocol.EVAL_WORKERS]
+    normalized: list[dict[str, Any]] = []
+    for seed_row in seed_rows:
+        if type(seed_row) is not dict:
+            raise TypeError("reference seed row must be a plain object")
+        copied = dict(seed_row)
+        population = copied.get("population")
+        if type(population) is not dict:
+            raise TypeError("reference population row must be a plain object")
+        population_copy = dict(population)
+        for field in ("validation_by_workers", "test_by_workers"):
+            worker_rows = population_copy.get(field)
+            if type(worker_rows) is not dict:
+                raise TypeError(f"reference {field} must be a plain object")
+            if set(worker_rows) != set(expected_worker_keys):
+                raise ValueError(f"reference {field} worker keys drifted")
+            population_copy[field] = {
+                key: worker_rows[key] for key in expected_worker_keys
+            }
+        copied["population"] = population_copy
+        normalized.append(copied)
+    return normalized
 
 
 def _verify_progress(
@@ -254,7 +282,8 @@ def _verify_progress(
         or progress["last_completed_optimizer_step"] != training.OPTIMIZER_STEPS
         or progress["canonical_checkpoint_sha256"]
         != trained.get("canonical_checkpoint_sha256")
-        or progress["checkpoint_file_sha256"] != trained.get("checkpoint_file_sha256")
+        or progress["checkpoint_file_sha256"]
+        != trained.get("checkpoint_file_sha256")
         or progress["curves"] != trained.get("curves")
     ):
         raise ValueError("reference COMPLETE progress evidence drifted")
@@ -324,20 +353,29 @@ def verify_reference_output(
         contract=contract,
         fingerprints=fingerprints,
     )
-    if start.get("dataset_cache_build_seconds") != summary.get("dataset_cache_build_seconds"):
+    if (
+        start.get("dataset_cache_build_seconds")
+        != summary.get("dataset_cache_build_seconds")
+    ):
         raise ValueError("reference dataset cache build time drifted between artifacts")
-    if start.get("dataset_cache_resident_bytes") != summary.get("dataset_cache_resident_bytes"):
+    if (
+        start.get("dataset_cache_resident_bytes")
+        != summary.get("dataset_cache_resident_bytes")
+    ):
         raise ValueError("reference dataset cache bytes drifted between artifacts")
 
     seed_rows = summary.get("seed_rows")
     if type(seed_rows) is not list:
         raise TypeError("reference summary seed_rows must be a list")
-    diagnosis = training.classify(seed_rows)
+    normalized_seed_rows = _canonicalize_seed_rows(seed_rows)
+    diagnosis = training.classify(normalized_seed_rows)
     if summary.get("diagnosis") != diagnosis:
         raise ValueError("reference summary diagnosis does not match recomputation")
-    scaling = training.population_scaling_summary(seed_rows)
+    scaling = training.population_scaling_summary(normalized_seed_rows)
     if summary.get("population_scaling") != scaling:
-        raise ValueError("reference population scaling summary does not match recomputation")
+        raise ValueError(
+            "reference population scaling summary does not match recomputation"
+        )
     if summary.get("boundaries") != _expected_boundaries():
         raise ValueError("reference scientific boundaries drifted")
 
@@ -369,7 +407,9 @@ def verify_reference_output(
                     checkpoint_path,
                     expected_seed=expected_seed,
                     expected_file_sha256=observed_hash,
-                    expected_canonical_sha256=trained["canonical_checkpoint_sha256"],
+                    expected_canonical_sha256=trained[
+                        "canonical_checkpoint_sha256"
+                    ],
                 )
                 if (
                     loaded.seed != expected_seed
@@ -384,7 +424,9 @@ def verify_reference_output(
                         path=str(checkpoint_path),
                         file_bytes=file_bytes,
                         file_sha256=observed_hash,
-                        canonical_state_sha256=trained["canonical_checkpoint_sha256"],
+                        canonical_state_sha256=trained[
+                            "canonical_checkpoint_sha256"
+                        ],
                     )
                 )
                 del loaded
@@ -412,7 +454,8 @@ def validate_reference_manifest_contract() -> dict[str, object]:
         == checkpoint.REFERENCE_CHECKPOINT_MAX_BYTES,
         "expected_file_count_is_exact": len(expected) == EXPECTED_FILE_COUNT == 17,
         "all_three_seed_files_are_present": all(
-            f"seed-{seed}.json" in expected for seed in l0_protocol.INITIALIZATION_SEEDS
+            f"seed-{seed}.json" in expected
+            for seed in l0_protocol.INITIALIZATION_SEEDS
         ),
         "all_population_checkpoints_are_present": all(
             f"checkpoints/population-seed-{seed}.pt" in expected
