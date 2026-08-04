@@ -439,7 +439,11 @@ def _validate_result(
     if (
         type(final_ids) is not list
         or len(final_ids) != len(request["input_ids"])
-        or any(type(token_id) is not int or not 0 <= token_id < len(l0_protocol.VOCABULARY) for token_id in final_ids)
+        or any(
+            type(token_id) is not int
+            or not 0 <= token_id < len(l0_protocol.VOCABULARY)
+            for token_id in final_ids
+        )
     ):
         raise ValueError("fresh-process final argmax token IDs are invalid")
     if not _is_sha256(value["logits_sha256"]):
@@ -521,7 +525,7 @@ def child_main(request_path: pathlib.Path) -> int:
 def validate_fresh_process_contract() -> dict[str, object]:
     checks = {
         "request_keys_are_exact": len(REQUEST_KEYS) == 13,
-        "result_keys_are_exact": len(RESULT_KEYS) == 19,
+        "result_keys_are_exact": len(RESULT_KEYS) == 18,
         "request_is_bounded": REQUEST_MAX_BYTES == 32 * 1024,
         "result_is_bounded": RESULT_MAX_BYTES == 64 * 1024,
         "probe_batch_is_bounded": MAX_PROBE_BATCH == 8,
@@ -545,7 +549,10 @@ def validate_fresh_process_contract() -> dict[str, object]:
 
 def _main(arguments: Sequence[str]) -> int:
     if len(arguments) != 2 or arguments[0] != "--child":
-        raise SystemExit("usage: python -m ...post_training_learning_l0_fresh_process --child REQUEST.json")
+        raise SystemExit(
+            "usage: python -m ...post_training_learning_l0_fresh_process "
+            "--child REQUEST.json"
+        )
     return child_main(pathlib.Path(arguments[1]))
 
 
