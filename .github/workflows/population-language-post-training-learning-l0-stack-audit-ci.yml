@@ -1,0 +1,63 @@
+name: Population Language Post-Training Learning L0 Stack Audit CI
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/population-language-post-training-learning-l0-stack-audit-ci.yml"
+      - "ai_hypothesis/population_language/post_training_learning_l0_stack_manifest.py"
+      - "experiments/population_language_post_training_learning_l0/stack_audit_v0.md"
+      - "tests/test_population_language_post_training_learning_l0_stack_manifest.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  stack-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: 3.11.9
+      - name: Compile stack-audit slice
+        run: |
+          python -m py_compile \
+            ai_hypothesis/population_language/post_training_learning_l0_stack_manifest.py \
+            tests/test_population_language_post_training_learning_l0_stack_manifest.py
+      - name: Run stack-audit contracts
+        run: |
+          python -m unittest \
+            tests.test_population_language_post_training_learning_l0_stack_manifest
+      - name: Verify exact qualified chain and protected defaults
+        run: |
+          python - <<'PY'
+          from ai_hypothesis.population_language import post_training_learning_l0_stack_manifest as stack
+
+          report = stack.validate_stack_audit()
+          assert report["valid"], report
+          assert stack.SOURCE_ORCHESTRATOR_HEAD == "52f0e5e1a97a2a78d42b17e6861da4464665c754"
+          assert stack.MERGE_ORDER == (203, 204, 207, 208, 209, 210, 211, 212, 215)
+          assert stack.MERGE_POLICY == "REVIEW_BEFORE_MERGE_NO_AUTOMATIC_MERGE"
+          assert stack.DEFAULT_PROTECTED_STATE["automatic_merge_allowed"] is False
+          assert stack.DEFAULT_PROTECTED_STATE["calibration_execution_authorized"] is False
+          assert stack.DEFAULT_PROTECTED_STATE["final_execution_authorized"] is False
+          assert len(stack.STACK) == 9
+          assert len(stack.MISSING_OPERATIONAL_COMPONENTS) == 4
+          PY
+      - name: Verify exact four-file scope
+        run: |
+          base=52f0e5e1a97a2a78d42b17e6861da4464665c754
+          git cat-file -e "$base^{commit}"
+          git diff --name-only "$base" HEAD | sort > /tmp/actual-files
+          cat > /tmp/expected-files <<'EOF'
+          .github/workflows/population-language-post-training-learning-l0-stack-audit-ci.yml
+          ai_hypothesis/population_language/post_training_learning_l0_stack_manifest.py
+          experiments/population_language_post_training_learning_l0/stack_audit_v0.md
+          tests/test_population_language_post_training_learning_l0_stack_manifest.py
+          EOF
+          sort -o /tmp/expected-files /tmp/expected-files
+          diff -u /tmp/expected-files /tmp/actual-files
