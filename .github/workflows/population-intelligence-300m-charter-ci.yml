@@ -1,0 +1,42 @@
+name: Population Intelligence 300M Charter CI
+
+on:
+  pull_request:
+    paths:
+      - README.md
+      - docs/project_charter.md
+      - docs/hypothesis.md
+      - docs/research_questions.md
+      - docs/roadmap.md
+      - tests/test_population_intelligence_300m_charter.py
+      - .github/workflows/population-intelligence-300m-charter-ci.yml
+  push:
+    paths:
+      - README.md
+      - docs/project_charter.md
+      - docs/hypothesis.md
+      - docs/research_questions.md
+      - docs/roadmap.md
+      - tests/test_population_intelligence_300m_charter.py
+      - .github/workflows/population-intelligence-300m-charter-ci.yml
+
+permissions:
+  contents: read
+
+jobs:
+  charter-consistency:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: 3.11.9
+      - name: Compile charter guard
+        run: python -m py_compile tests/test_population_intelligence_300m_charter.py
+      - name: Verify locked objective and roadmap
+        run: >-
+          python -m unittest discover
+          -s tests
+          -p 'test_population_intelligence_300m_charter.py'
+          -v

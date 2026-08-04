@@ -2,199 +2,277 @@
 
 ## Primary question
 
-At a fixed hardware and parameter budget, what is the smallest learned neural processing unit that still produces useful signal beyond deterministic logic, and can dynamically allocating populations of such units improve capability or resource efficiency compared with a conventional fixed dense model?
+> Within an approximately 300 million learned-parameter budget, can a recurrent population model produce stronger reasoning, coding, continual-learning, and adaptive-computation capability than matched dense alternatives, and which mechanisms are responsible for any advantage?
 
-## RQ1 — Minimum useful unit
+The project must answer this through isolated mechanism tests, matched baselines, transparent compute accounting, and staged scaling rather than one final demonstration.
 
-How does useful signal change as the identical unit architecture is progressively reduced in parameter count?
+## RQ1 — Fixed-checkpoint worker scaling
 
-Measure:
-
-- task accuracy;
-- precision and recall;
-- invalid or unusable outputs;
-- consistency;
-- useful information extracted;
-- noise rate;
-- inference latency;
-- memory use;
-- batch throughput.
-
-Key boundary:
-
-> At what size does further shrinking stop producing a useful learned transformation?
-
-## RQ2 — Learned value versus deterministic logic
-
-For which transformations does a learned unit outperform or complement ordinary deterministic algorithms?
-
-A neural unit is not justified when a deterministic implementation is more reliable, cheaper, and equally capable.
-
-## RQ3 — Population scaling
-
-For a viable unit size, how does system quality change as more identical units are allocated?
-
-Test widths such as:
-
-- 1;
-- 4;
-- 16;
-- 64;
-- 256;
-- larger widths when hardware and results justify them.
-
-The objective is not majority voting. Measure whether additional units increase evidence coverage, unique findings, ambiguity resolution, or error detection.
-
-## RQ4 — Correlation and diversity
-
-How similar should independently weighted units be?
-
-Too much functional correlation may create many copies of the same failure mode. Too little correlation may produce incompatible or noisy outputs.
-
-Measure functional diversity under controlled changes to:
-
-- initialization;
-- sample order;
-- dropout or masking;
-- optimization trajectory.
-
-All compared units should retain the same architecture and overall training distribution.
-
-## RQ5 — Adaptive worker allocation
-
-Can the runtime begin with a small worker allocation and add workers only when more learned processing is useful?
-
-Possible triggers include:
-
-- low signal quality;
-- unresolved contradiction;
-- missing discriminating evidence;
-- high local information density;
-- high disagreement;
-- boundary uncertainty;
-- failure of a prior prediction.
-
-Compare adaptive allocation against fixed-width execution under equal end-to-end resource budgets.
-
-## RQ6 — Information partitioning
-
-Can large information spaces be divided across tiny units without losing important cross-boundary relationships?
-
-Study:
-
-- overlapping partitions;
-- semantic boundaries;
-- cross-boundary reprocessing;
-- source pointers;
-- targeted zoom-in on uncertain regions.
-
-Candidate modalities include text, images, logs, and structured state.
-
-## RQ7 — Hierarchical recombination
-
-How can thousands of local outputs be recursively reduced without recreating a single-context bottleneck?
-
-The aggregation system must preserve access to original evidence so compressed representations can be challenged and expanded.
-
-## RQ8 — Evidence preservation
-
-How should the runtime preserve rare but decisive evidence?
-
-A minority of workers may observe critical evidence that most workers never received.
+At a fixed checkpoint, how does capability change as worker count increases while learned parameters remain unchanged?
 
 Measure:
 
-- unique finding recall;
-- evidence provenance retention;
-- contradiction preservation;
-- failure rate from premature aggregation or averaging.
+- task accuracy and calibration;
+- compositional generalization;
+- unique correct evidence contributed by additional workers;
+- worker-state similarity and functional diversity;
+- routed messages and communication cost;
+- active memory, latency, and FLOPs;
+- where gains saturate or reverse.
 
-## RQ9 — Coordination overhead
+The question is not whether more workers generate more votes. It is whether they add useful computation or information.
 
-At what granularity do routing, weight gathering, data movement, synchronization, and aggregation become more expensive than the neural computation saved?
+## RQ2 — Recurrent latent depth
 
-End-to-end measurements must include:
+Can repeated application of the same learned population core improve difficult-task performance without increasing parameter count?
 
-- neural execution;
-- routing;
-- batching;
-- memory transfers;
-- aggregation;
-- scheduling;
-- idle time.
+Test controlled reasoning-round schedules and measure:
 
-A configuration fails if organization overhead dominates useful compute.
+- accuracy gain per additional round;
+- accuracy gain per additional inference FLOP;
+- convergence, oscillation, and error amplification;
+- whether training depth transfers to greater inference depth;
+- whether intermediate worker states become more useful or merely more confident.
 
-## RQ10 — GPU batch efficiency
+## RQ3 — Worker diversity and anti-collapse
 
-Can large numbers of identical small units be executed as efficient batched matrix operations rather than thousands of tiny launches?
+Which mechanisms produce useful independent error modes without making the population incoherent?
 
-Measure utilization and throughput as unit size and batch width change.
+Candidate mechanisms include:
 
-## RQ11 — CPU/GPU scheduling
+- private deliberation before communication;
+- different context or memory access;
+- temporary learned roles;
+- diversity regularization;
+- adversarial or counterexample objectives;
+- controlled stochasticity.
 
-Which operations belong on CPU versus GPU for consumer hardware?
+Measure hidden-state similarity, proposal diversity, causal contribution, correction of another worker's error, and robustness after worker ablation.
 
-Initial hypothesis:
+## RQ4 — Adaptive test-time computation
 
-CPU:
+Can the model learn when to allocate more workers, rounds, candidate generation, retrieval, or verification?
 
-- scheduling;
-- deterministic logic;
-- evidence graphs;
-- queues;
-- partitioning;
-- aggregation;
-- resource control.
+Possible signals include:
 
-GPU:
+- predictive entropy;
+- worker disagreement;
+- unresolved subgoals;
+- verifier rejection;
+- recent improvement or stagnation;
+- failure of predicted consequences.
 
-- batched learned transformations;
-- training forward/backward passes;
-- large parallel worker batches.
+Compare against fixed-compute baselines under matched end-to-end budgets. The controller must also learn when additional computation is unlikely to help.
 
-The allocation should be decided by profiling, not by fixed assumptions.
+## RQ5 — Persistent post-training learning
 
-## RQ12 — Fixed-budget comparison
+Can a frozen base checkpoint acquire a bounded new skill from limited verified examples, retain it across context reset and process restart, generalize to unseen compositions, and preserve old-task performance?
 
-Under equal or carefully normalized parameter, training-data, hardware, and runtime budgets, how do different organizations compare?
+Separate measurements are required for:
 
-Example comparison:
+- immediate acquisition;
+- direct holdout improvement;
+- compositional generalization;
+- fresh-process persistence;
+- immutable base-state verification;
+- adaptation bytes and trainable parameters;
+- retention and interference;
+- rejection of invalid or poisoned updates.
 
-- one dense network;
-- few larger units;
-- medium population;
-- large population of smaller units.
+## RQ6 — Memory versus learning
 
-Metrics:
+Which outcomes require retrieval, episodic memory, semantic memory, or neural adaptation?
 
-- final task quality;
-- useful information extracted;
-- evidence recall;
-- latency;
-- throughput;
-- RAM and VRAM;
-- active learned parameters;
-- coordination overhead;
-- compute efficiency.
+Compare at least:
 
-## RQ13 — Scaling toward 1B total parameters
+- complete context replay;
+- raw retrieval only;
+- compressed learned memory;
+- persistent adapter only;
+- memory plus adapter;
+- population reasoning over each memory form.
 
-If a smaller experiment demonstrates a measurable advantage, does that advantage persist as the total learned parameter population grows toward approximately 1 billion parameters?
+A system has not learned a reusable skill merely because the answer is present in a retrievable record.
 
-Scaling is a separate hypothesis and must be retested rather than assumed.
+## RQ7 — Conditional memory allocation
 
-## RQ14 — Workload dependence
+How much of the fixed 300M budget should be dense recurrent computation versus sparsely addressed learned memory?
 
-Which workloads benefit from this architecture?
+Compare allocations at matched total parameters, training data, active FLOPs, and inference budget.
 
-Likely candidates to test include workloads where information is divisible and only some regions deserve expensive processing:
+Measure:
 
-- large document analysis;
-- image-region understanding;
-- logs and event streams;
-- codebase analysis;
-- anomaly discovery;
-- multi-stage planning.
+- factual recall;
+- reasoning and coding performance;
+- compositional generalization;
+- memory lookup bandwidth;
+- active parameter count;
+- whether conditional memory frees the recurrent core for deeper computation.
 
-The architecture does not need to outperform dense models on every task to be useful.
+## RQ8 — Verification-guided generation and repair
+
+How much capability can a compact model gain from generate-test-diagnose-revise loops?
+
+For code and deterministic tasks, compare:
+
+- one-pass generation;
+- independent resampling;
+- learned candidate ranking;
+- compiler or execution feedback;
+- process-level diagnosis;
+- population-based repair;
+- exact verifier acceptance.
+
+Measure verified success per unit of inference compute and the rate at which learned verifiers accept plausible but incorrect work.
+
+## RQ9 — Search and distillation
+
+Can expensive population search produce verified trajectories that are later distilled into cheaper behavior?
+
+Study whether:
+
+- successful search traces improve the base model;
+- decisive intermediate states can be identified;
+- distillation reduces required workers or rounds;
+- teacher dependence decreases over time;
+- distilled gains remain on held-out task families.
+
+## RQ10 — Hierarchical communication
+
+Can large worker populations communicate without all-to-all cost or rapid consensus collapse?
+
+Compare:
+
+- flat sparse routing;
+- local worker groups;
+- group summaries;
+- hierarchical global exchange;
+- blackboard or shared-memory communication.
+
+Measure message bandwidth, latency, information loss, unique evidence retention, routing entropy, and causal contribution of each level.
+
+## RQ11 — Parameter allocation inside 300M
+
+What fraction of the budget should be assigned to:
+
+- lexical representation and decoding;
+- recurrent worker core;
+- routing and communication;
+- conditional memory;
+- sparse specialists;
+- verifier or value systems;
+- persistent adaptation capacity?
+
+The answer must come from ablations and matched alternatives rather than scaling the current small model proportionally.
+
+## RQ12 — Data quality and curriculum
+
+Which staged data curriculum produces the greatest general capability per parameter and training token?
+
+Candidate progression:
+
+1. language representation;
+2. deterministic transformations;
+3. compositional reasoning;
+4. algorithms and state tracking;
+5. code prediction and execution;
+6. program repair and verification;
+7. long-horizon decomposition;
+8. tool use;
+9. continual skill acquisition;
+10. interactive environment learning.
+
+Measure transfer, forgetting, contamination resistance, and whether gains survive procedurally generated held-out tasks.
+
+## RQ13 — Fixed-budget dense and sparse baselines
+
+Under matched conditions, how does the population model compare with:
+
+- a conventional dense transformer;
+- a recurrent dense model;
+- a model with equivalent test-time sampling;
+- sparse expert models;
+- retrieval-augmented models;
+- memory-only and adapter-only ablations?
+
+Normalize or explicitly report:
+
+- learned parameters;
+- active parameters;
+- training tokens and FLOPs;
+- inference FLOPs;
+- hardware;
+- latency and memory;
+- tools, retrieval, and verifier usage.
+
+## RQ14 — Scale-stable parameterization
+
+Can optimization and communication rules be designed so that hyperparameters transfer across approximately 19M, 50M, 100M, and 300M scales?
+
+Study scaling of:
+
+- worker width and count;
+- router dimension and top-k;
+- recurrent depth;
+- residual and message magnitude;
+- learning rates and initialization;
+- adapter rank;
+- conditional-memory capacity;
+- gradient and activation scales.
+
+Scaling is successful only when transferred settings remain close to optimal and preserve stable training dynamics.
+
+## RQ15 — Longitudinal continual learning
+
+Can the model learn from a changing stream over days or simulated organizational time without replaying the complete history?
+
+A synthetic organization benchmark should separate:
+
+- factual updates;
+- episodic recall;
+- procedural learning;
+- transfer to new cases;
+- conflicting information;
+- personnel or rule changes;
+- selective forgetting;
+- consolidation of repeatedly verified knowledge.
+
+## RQ16 — Deterministic interactive worlds
+
+Can the qualified model observe, remember, plan, act, predict consequences, recover from mistakes, and learn over thousands of actions in a deterministic virtual environment?
+
+Evaluation should progress from:
+
+1. structured emulator state and constrained actions;
+2. screenshots plus extracted text;
+3. pixels and controller inputs;
+4. randomized or procedurally generated RPG-like worlds.
+
+A fixed game completion is not sufficient because a walkthrough may be memorized. World randomization must test genuine online learning and planning.
+
+## RQ17 — AI-assisted model research
+
+Can the model help improve its successor through bounded, verifiable experiments?
+
+The loop should be:
+
+- read repository state and prior evidence;
+- propose one falsifiable hypothesis;
+- implement one bounded change;
+- execute tests or a controlled training probe;
+- classify the result as supporting, negative, null, or invalid;
+- propose the next experiment.
+
+Measure verified uncertainty removed per GPU-hour and per unit of human review time, not lines of code produced.
+
+## RQ18 — Scaling beyond 300M
+
+After the 300M architecture is qualified, which mechanisms transfer to approximately 1B and larger scales?
+
+This is a later hypothesis. It must be tested through controlled pilot runs before committing to a large training program.
+
+Potentially scale-sensitive mechanisms include routing entropy, worker diversity, communication bandwidth, optimal recurrence, data mixture, memory allocation, and expert balance.
+
+## Explicitly separate systems question
+
+Ultra-cheap execution on microcontrollers, edge accelerators, or many inexpensive chips is not part of the primary research question. It belongs to a later Population Edge Runtime project unless a deployment mechanism independently improves capability within the 300M intelligence objective.
