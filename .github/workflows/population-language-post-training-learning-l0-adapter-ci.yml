@@ -1,0 +1,57 @@
+name: Population Language post-training learning L0 adapter qualification
+
+on:
+  pull_request:
+    branches:
+      - agent/population-language-post-training-learning-l0-protocol-v0
+    paths:
+      - "ai_hypothesis/population_language/post_training_learning_l0_adapter.py"
+      - "tests/test_population_language_post_training_learning_l0_adapter.py"
+      - "experiments/population_language_post_training_learning_l0/adapter_v0.md"
+      - ".github/workflows/population-language-post-training-learning-l0-adapter-ci.yml"
+  push:
+    branches:
+      - agent/population-language-post-training-learning-l0-adapter-v0
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: ${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: 3.11.9
+      - name: Install CPU Torch
+        run: >-
+          python -m pip install --disable-pip-version-check
+          torch==2.9.1
+          --index-url https://download.pytorch.org/whl/cpu
+      - name: Compile adapter slice
+        run: |
+          python -m py_compile \
+            ai_hypothesis/population_language/post_training_learning_l0_adapter.py \
+            tests/test_population_language_post_training_learning_l0_adapter.py
+      - name: Run protocol and adapter contracts
+        run: |
+          python -m unittest tests/test_population_language_post_training_learning_l0.py -v
+          python -m unittest tests/test_population_language_post_training_learning_l0_adapter.py -v
+      - name: Verify locked adapter constants
+        run: |
+          python - <<'PY'
+          from ai_hypothesis.population_language import post_training_learning_l0_adapter as a
+          result = a.validate_adapter_contract()
+          assert result["valid"]
+          assert a.parameter_count(6) == 180_176
+          assert a.raw_fp32_bytes(6) == 720_704
+          assert tuple(result["declared_tensor_names"]) == a.NAMES
+          PY
+      - name: Enforce exact four-file scope
+        run: test "$(git diff --name-only 48e8edb9ff39417bfb5cb44521318efa032a340a...HEAD | wc -l)" -eq 4
