@@ -1,0 +1,92 @@
+name: Population Language Post-Training Learning L0 Calibration CI
+
+on:
+  push:
+    branches:
+      - agent/population-language-post-training-learning-l0-calibration-v0
+  pull_request:
+    paths:
+      - ".github/workflows/population-language-post-training-learning-l0-calibration-ci.yml"
+      - "ai_hypothesis/population_language/post_training_learning_l0_calibration.py"
+      - "experiments/population_language_post_training_learning_l0/calibration_v0.md"
+      - "tests/test_population_language_post_training_learning_l0_calibration.py"
+
+permissions:
+  contents: read
+
+jobs:
+  calibration-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: 3.11.9
+      - name: Install qualification dependencies
+        run: |
+          python -m pip install --disable-pip-version-check numpy==2.2.6
+          python -m pip install --disable-pip-version-check \
+            torch==2.9.1 \
+            --index-url https://download.pytorch.org/whl/cpu
+      - name: Compile calibration slice
+        run: |
+          python -m py_compile \
+            ai_hypothesis/population_language/post_training_learning_l0_calibration.py \
+            tests/test_population_language_post_training_learning_l0_calibration.py
+      - name: Run protocol, adapter, and calibration contract tests
+        run: |
+          python -m unittest -v \
+            tests.test_population_language_post_training_learning_l0 \
+            tests.test_population_language_post_training_learning_l0_adapter \
+            tests.test_population_language_post_training_learning_l0_calibration
+      - name: Verify locked calibration constants
+        run: |
+          python - <<'PY'
+          from ai_hypothesis.population_language import (
+              post_training_learning_l0_calibration as calibration,
+          )
+
+          report = calibration.validate_calibration_contract()
+          assert report["valid"], report["checks"]
+          assert report["candidate_count"] == 48
+          assert report["expected_result_rows"] == 144
+          assert report["grid_sha256"] == (
+              "84264fbb475259ca224c01cee81700a62"
+              "c6baf7e73017a0510fc5cbc6c036874"
+          )
+          assert calibration.STATUS == (
+              "CALIBRATION_CONTRACT_ONLY_NO_CALIBRATION_OR_FINAL_RESULT"
+          )
+          assert calibration.CALIBRATION_REJECTS_CANDIDATE == (
+              "POST_TRAINING_LEARNING_L0_CALIBRATION_REJECTS_"
+              "ADAPTER_CANDIDATE"
+          )
+          assert calibration.EARLY_STOPPING_ALLOWED is False
+          PY
+      - name: Verify exact four-file scope
+        env:
+          BASE_SHA: 508a1021f3724a39023d4a4f7c6918d98f379f5c
+        run: |
+          python - <<'PY'
+          import os
+          import subprocess
+
+          expected = {
+              ".github/workflows/population-language-post-training-learning-l0-calibration-ci.yml",
+              "ai_hypothesis/population_language/post_training_learning_l0_calibration.py",
+              "experiments/population_language_post_training_learning_l0/calibration_v0.md",
+              "tests/test_population_language_post_training_learning_l0_calibration.py",
+          }
+          output = subprocess.check_output(
+              ["git", "diff", "--name-only", f"{os.environ['BASE_SHA']}...HEAD"],
+              text=True,
+          )
+          observed = {line for line in output.splitlines() if line}
+          assert observed == expected, {
+              "missing": sorted(expected - observed),
+              "unexpected": sorted(observed - expected),
+          }
+          PY
