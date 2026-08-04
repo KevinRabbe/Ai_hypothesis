@@ -1,0 +1,73 @@
+name: Population Language L0 Reference Manifest Verifier CI
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/population-language-l0-reference-manifest-verifier-ci.yml"
+      - "ai_hypothesis/population_language/l0_reference_manifest.py"
+      - "experiments/population_language_l0_reference_training/manifest_verifier_v0.md"
+      - "tests/test_population_language_l0_reference_manifest.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reference-manifest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: 3.11.9
+      - name: Install qualification dependencies
+        run: |
+          python -m pip install --disable-pip-version-check numpy==2.2.6
+          python -m pip install --disable-pip-version-check \
+            torch==2.9.1 \
+            --index-url https://download.pytorch.org/whl/cpu
+      - name: Compile reference-manifest slice
+        run: |
+          python -m py_compile \
+            ai_hypothesis/population_language/l0_reference_manifest.py \
+            tests/test_population_language_l0_reference_manifest.py
+      - name: Run reference and Post-Training Learning contract stack
+        run: |
+          python -m unittest \
+            tests.test_population_language_l0_reference_training \
+            tests.test_population_language_post_training_learning_l0 \
+            tests.test_population_language_post_training_learning_l0_adapter \
+            tests.test_population_language_post_training_learning_l0_calibration \
+            tests.test_population_language_post_training_learning_l0_execution \
+            tests.test_population_language_post_training_learning_l0_checkpoint \
+            tests.test_population_language_post_training_learning_l0_fresh_process \
+            tests.test_population_language_l0_reference_manifest
+      - name: Verify locked manifest constants
+        run: |
+          python - <<'PY'
+          from ai_hypothesis.population_language import l0_reference_manifest as manifest
+
+          report = manifest.validate_reference_manifest_contract()
+          assert report["valid"], report
+          assert manifest.SOURCE_FRESH_PROCESS_HEAD == "f0cf83d1be0426fda976f08a379ab040be53ba89"
+          assert manifest.JSON_MAX_BYTES == 16 * 1024 * 1024
+          assert manifest.CHECKPOINT_MAX_BYTES == 96 * 1024 * 1024
+          assert manifest.EXPECTED_FILE_COUNT == 17
+          assert len(manifest.expected_relative_files()) == 17
+          PY
+      - name: Verify exact four-file scope
+        run: |
+          base=f0cf83d1be0426fda976f08a379ab040be53ba89
+          git cat-file -e "$base^{commit}"
+          git diff --name-only "$base" HEAD | sort > /tmp/actual-files
+          cat > /tmp/expected-files <<'EOF'
+          .github/workflows/population-language-l0-reference-manifest-verifier-ci.yml
+          ai_hypothesis/population_language/l0_reference_manifest.py
+          experiments/population_language_l0_reference_training/manifest_verifier_v0.md
+          tests/test_population_language_l0_reference_manifest.py
+          EOF
+          sort -o /tmp/expected-files /tmp/expected-files
+          diff -u /tmp/expected-files /tmp/actual-files
