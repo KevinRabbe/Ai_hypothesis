@@ -1,57 +1,85 @@
-# AI Hypothesis — Population Model Research
+# AI Hypothesis — Population Intelligence 300M
 
-This repository investigates whether a fixed neural parameter and hardware budget can be used more effectively by organizing learned computation as a dynamically allocated population of many identical tiny neural processing units instead of one conventional dense network.
+This repository investigates whether a compact neural system can become substantially more capable by organizing computation as a recurrent, dynamically allocated population rather than relying on one fixed dense forward pass.
+
+## Locked primary objective
+
+> Build and rigorously evaluate the smartest population-based language model that can be produced within an approximately **300 million learned-parameter budget**.
+
+"Smartest" means maximizing demonstrated capability in:
+
+- reasoning and compositional generalization;
+- code understanding, generation, execution-guided repair, and verification;
+- adaptive test-time computation;
+- persistent post-training skill acquisition;
+- memory use without confusing retrieval with learning;
+- uncertainty recognition, counterexample search, and self-correction;
+- long-horizon planning and learning in deterministic interactive environments.
+
+The project is not primarily optimizing for the cheapest runtime, the largest worker count, or deployment on microcontrollers. Those may become separate downstream engineering projects after the intelligence architecture is scientifically qualified.
+
+See [`docs/project_charter.md`](docs/project_charter.md) for the change-controlled project objective and scope boundaries.
 
 ## Core hypothesis
 
-The goal is **not** to build thousands of autonomous agents.
+A fixed learned-parameter budget may produce more useful intelligence when it is organized around:
 
-The goal is to find the smallest identical learned neural unit that can still perform a useful local information transformation beyond what deterministic logic can do, then test whether dynamically allocating more of those units to difficult, noisy, ambiguous, or information-dense regions can improve capability and resource efficiency.
+- a shared recurrent neural core;
+- many concurrent worker states that can develop different hypotheses;
+- sparse and hierarchical communication;
+- adaptive allocation of workers and reasoning rounds;
+- explicit verification and revision;
+- distinct temporary, episodic, semantic, and persistent learned memory;
+- deterministic tools for exact operations;
+- bounded post-training adaptation that survives restart without modifying the immutable base.
 
-A unit may be individually weak. Useful system-level capability is expected to come from:
+Workers are not thousands of autonomous chat agents. They are neural processing states inside one model and may share the same learned parameters. Additional workers are useful only when they add causally distinct information, computation, or error correction.
 
-- distributing large inputs across many units;
-- allocating more units where uncertainty or information density is high;
-- preserving rare but decisive evidence rather than using majority voting;
-- recursively combining local findings into higher-level representations;
-- using deterministic algorithms for routing, exact logic, validation, arithmetic, coordinates, scheduling, and other tasks that do not require learned prediction;
-- batching identical neural units efficiently on GPU hardware;
-- using the CPU for orchestration, evidence management, deterministic logic, and resource scheduling.
+## Evaluation modes
 
-The long-term reference budget is approximately **1 billion total learned parameters**, but the first experiments will use much smaller fixed budgets. Example worker counts such as 10,000 are illustrative only; the optimal unit size and population width must be discovered empirically and will depend on the available hardware.
+Every major result should distinguish three capability modes:
 
-## Central research question
+1. **One-pass, closed-book model capability** — no retrieval, tools, persistent adaptation, or extra recursive compute.
+2. **Recursive population capability** — the same learned parameters with additional workers, recurrent rounds, search, and verification.
+3. **Full-system capability** — the same model with declared retrieval, deterministic tools, and qualified persistent memory or adapters.
 
-> At a fixed hardware and parameter budget, what is the smallest learned neural processing unit that still produces useful signal beyond deterministic logic, and can a dynamically allocated population of those units outperform a conventional fixed dense model in useful capability per unit of active compute?
+Reports should include total learned parameters, active parameters, worker count, recurrent rounds, inference FLOPs, retrieved bytes, tool calls, latency, memory use, and coordination overhead. This prevents external memory or unlimited test-time compute from being misreported as model intelligence.
 
-## Core principles
+## Fixed research sequence
 
-1. Workers contribute **evidence and transformations, not votes**.
-2. More workers are allocated to obtain missing or discriminating information, not merely to repeat the same opinion.
-3. Rare evidence must never be averaged away because it is held by a minority of workers.
-4. Deterministic logic should replace neural prediction wherever the task can be solved reliably without learning.
-5. End-to-end cost matters: routing, memory movement, batching, aggregation, and synchronization count against the architecture.
-6. If organization costs more than the compute it saves, that configuration fails.
-7. The population size is dynamic. Total parameters represent available capacity, not mandatory compute for every task.
-8. The smallest useful unit is an empirical result, not a predetermined parameter count.
-9. Consumer hardware is a first-class target. Inefficiency should not be hidden behind datacenter-scale compute.
+The current evidence ladder is:
 
-## Research sequence
+1. finish and verify Population Language L0;
+2. prove bounded persistent post-training learning;
+3. isolate recurrent depth, worker diversity, adaptive compute, verification, memory, and routing mechanisms at small scale;
+4. integrate qualified mechanisms in an approximately 50M model;
+5. train and evaluate an approximately 100M language-and-code model;
+6. freeze and train the strongest justified approximately 300M architecture;
+7. test long-horizon continual learning in deterministic interactive worlds;
+8. only then test scaling beyond 300M;
+9. treat ultra-cheap edge deployment as a separate later project.
 
-The project proceeds through research gates. Each stage should answer one major uncertainty before the next architectural commitment is made.
+Later gates must not silently replace earlier scientific questions or redefine success after results are visible.
 
-The immediate milestone is **Step 1: Minimum Useful Neural Unit**.
+## Scientific discipline
 
-See:
+- Preregister decisive experiments before protected result access.
+- Keep final evaluation worlds and labels unavailable during calibration.
+- Compare against matched dense and ablation baselines.
+- Count routing, memory movement, synchronization, retrieval, and verification costs.
+- Preserve negative and null results.
+- Separate memory, retrieval, adaptation, and base-weight learning.
+- Do not weaken thresholds after observing results.
+- Do not claim that a mechanism scales until it is retested at the next model size.
 
-- [`docs/hypothesis.md`](docs/hypothesis.md)
-- [`docs/research_questions.md`](docs/research_questions.md)
-- [`docs/roadmap.md`](docs/roadmap.md)
-- [`experiments/step_01_minimum_useful_unit/README.md`](experiments/step_01_minimum_useful_unit/README.md)
-- [`experiments/step_01_minimum_useful_unit/architecture_v0.md`](experiments/step_01_minimum_useful_unit/architecture_v0.md)
-- [`experiments/step_01_minimum_useful_unit/protocol_v0.md`](experiments/step_01_minimum_useful_unit/protocol_v0.md)
-- [`benchmarks/step_01_benchmark_v0.md`](benchmarks/step_01_benchmark_v0.md)
+## Project documents
+
+- [`docs/project_charter.md`](docs/project_charter.md) — locked objective, scope, and change control
+- [`docs/hypothesis.md`](docs/hypothesis.md) — primary and subordinate scientific hypotheses
+- [`docs/research_questions.md`](docs/research_questions.md) — current research questions and measurements
+- [`docs/roadmap.md`](docs/roadmap.md) — ordered experimental gates toward the 300M model
+- [`experiments/population_language_post_training_learning_l0/protocol_v0.md`](experiments/population_language_post_training_learning_l0/protocol_v0.md) — preregistered persistent-learning protocol
 
 ## Current status
 
-**Step 1 experiment design.** The v0 architecture family, benchmark concept, and controlled experiment protocol are now defined. The next work is implementation: procedural benchmark generators and deterministic baselines first, followed by the scalable neural-unit implementation and the first large reference training run.
+The active evidence line is Population Language L0 and its bounded Post-Training Learning L0 extension. The later 50M, 100M, and 300M architectures are intentionally not frozen yet; they must be selected from qualified small-scale evidence rather than preference.
