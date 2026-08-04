@@ -1,0 +1,68 @@
+name: Population Intelligence 300M Mechanism Program CI
+
+on:
+  pull_request:
+    paths:
+      - ai_hypothesis/population_language/intelligence_300m_mechanism_program.py
+      - docs/population_intelligence_300m_mechanism_program.md
+      - tests/test_population_intelligence_300m_mechanism_program.py
+      - .github/workflows/population-intelligence-300m-mechanism-program-ci.yml
+  push:
+    paths:
+      - ai_hypothesis/population_language/intelligence_300m_mechanism_program.py
+      - docs/population_intelligence_300m_mechanism_program.md
+      - tests/test_population_intelligence_300m_mechanism_program.py
+      - .github/workflows/population-intelligence-300m-mechanism-program-ci.yml
+
+permissions:
+  contents: read
+
+jobs:
+  mechanism-program:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: 3.11.9
+      - name: Compile mechanism-program slice
+        run: >-
+          python -m py_compile
+          ai_hypothesis/population_language/intelligence_300m_mechanism_program.py
+          tests/test_population_intelligence_300m_mechanism_program.py
+      - name: Run charter and mechanism-program contracts
+        run: >-
+          python -m unittest
+          tests.test_population_intelligence_300m_charter
+          tests.test_population_intelligence_300m_mechanism_program
+          -v
+      - name: Verify locked mechanism-program constants
+        run: |
+          python - <<'PY'
+          from ai_hypothesis.population_language import intelligence_300m_mechanism_program as program
+
+          snapshot = program.validate_program()
+          assert snapshot["valid"] is True
+          assert snapshot["primary_target_parameters"] == 300_000_000
+          assert len(snapshot["mechanism_lanes"]) == 10
+          assert snapshot["later_integration_benchmark"] == "DETERMINISTIC_INTERACTIVE_WORLD"
+          assert snapshot["separate_later_project"] == "POPULATION_EDGE_RUNTIME"
+          print(snapshot["version"])
+          PY
+      - name: Verify exact four-file scope
+        env:
+          BASE_HEAD: eba20a82710b02092bf5c44b91247c3d277b5694
+        run: |
+          mapfile -t changed < <(git diff --name-only "$BASE_HEAD" HEAD)
+          expected=(
+            .github/workflows/population-intelligence-300m-mechanism-program-ci.yml
+            ai_hypothesis/population_language/intelligence_300m_mechanism_program.py
+            docs/population_intelligence_300m_mechanism_program.md
+            tests/test_population_intelligence_300m_mechanism_program.py
+          )
+          printf '%s\n' "${changed[@]}" > /tmp/changed.txt
+          printf '%s\n' "${expected[@]}" > /tmp/expected.txt
+          diff -u /tmp/expected.txt /tmp/changed.txt
