@@ -6,6 +6,12 @@
 
 This slice implements the smallest neural adaptation surface admitted by the preregistered Post-Training Learning L0 protocol.
 
+Exact qualified protocol base:
+
+```text
+48e8edb9ff39417bfb5cb44521318efa032a340a
+```
+
 ## Frozen base
 
 The adapter wraps the exact `18,967,968`-parameter `PopulationLanguageOrganism`. Every base parameter is set non-trainable. Construction fails if the base parameter count or any locked lexical/worker dimension differs.
