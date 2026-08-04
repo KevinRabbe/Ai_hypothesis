@@ -1,0 +1,66 @@
+name: Population Language post-training learning L0 protocol qualification
+
+on:
+  pull_request:
+    branches:
+      - agent/population-language-l0-overfit-diagnostic-v0
+    paths:
+      - "ai_hypothesis/population_language/post_training_learning_l0_world.py"
+      - "ai_hypothesis/population_language/post_training_learning_l0_protocol.py"
+      - "tests/test_population_language_post_training_learning_l0.py"
+      - "experiments/population_language_post_training_learning_l0/protocol_v0.md"
+      - ".github/workflows/population-language-post-training-learning-l0-protocol-ci.yml"
+  push:
+    branches:
+      - agent/population-language-post-training-learning-l0-protocol-v0
+    paths:
+      - "ai_hypothesis/population_language/post_training_learning_l0_world.py"
+      - "ai_hypothesis/population_language/post_training_learning_l0_protocol.py"
+      - "tests/test_population_language_post_training_learning_l0.py"
+      - "experiments/population_language_post_training_learning_l0/protocol_v0.md"
+      - ".github/workflows/population-language-post-training-learning-l0-protocol-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      PYTHONPATH: ${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: 3.11.9
+      - name: Compile protocol slice
+        run: |
+          python -m py_compile \
+            ai_hypothesis/population_language/post_training_learning_l0_world.py \
+            ai_hypothesis/population_language/post_training_learning_l0_protocol.py \
+            tests/test_population_language_post_training_learning_l0.py
+      - name: Run protocol contracts
+        run: >-
+          python -m unittest discover
+          -s tests
+          -p "test_population_language_post_training_learning_l0.py"
+          -v
+      - name: Verify locked constants
+        run: |
+          python - <<'PY'
+          from ai_hypothesis.population_language import post_training_learning_l0_protocol as p
+          from ai_hypothesis.population_language import post_training_learning_l0_world as w
+          assert p.validate_protocol()["valid"]
+          assert p.BASE_PARAMETER_COUNT == 18_967_968
+          assert p.MAX_TRAINABLE_ADAPTATION_PARAMETERS == 189_680
+          assert p.MAX_PERSISTED_ADAPTATION_BYTES == 1_048_576
+          assert p.adapter_initialization_seed(120100) == 820100
+          assert p.PAIRED_BOOTSTRAP_RESAMPLES == 20_000
+          assert w.CALIBRATION_WORLD_SEEDS == (210100, 210101, 210102)
+          assert w.FINAL_WORLD_SEEDS == (220100, 220101, 220102)
+          PY
+      - name: Enforce exact five-file scope
+        run: test "$(git diff --name-only bfd2111b65f805e6379ad45ecda6f5fe09d2a282...HEAD | wc -l)" -eq 5
