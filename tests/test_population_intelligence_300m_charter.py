@@ -68,6 +68,22 @@ class PopulationIntelligence300MCharterTests(unittest.TestCase):
         self.assertIn("explicit owner approval before merge", charter)
         self.assertIn("Existing preregistered protocols remain immutable historical records", charter)
 
+    def test_external_models_remain_a_practical_training_accelerator(self) -> None:
+        charter = read(CHARTER)
+        required = (
+            "### External-model training acceleration",
+            "practical training tools for the later 50M, 100M, and 300M stages",
+            "engineering acceleration rule, not a new research objective or mandatory scientific gate",
+            "does not require a dedicated experiment",
+            "Use it when it is practically faster",
+            "Teacher outputs are candidate training evidence, not authority",
+            "must not alter an active or frozen run",
+        )
+        for phrase in required:
+            self.assertIn(phrase, charter)
+        self.assertNotIn("at least 30% fewer student GPU-hours", charter)
+        self.assertNotIn("Teacher Acceleration L0", charter)
+
     def test_stale_primary_budget_language_is_removed(self) -> None:
         stale_phrases = (
             "long-term reference budget is approximately **1 billion",
