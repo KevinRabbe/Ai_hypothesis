@@ -143,6 +143,16 @@ A new idea enters the main roadmap only when it plausibly improves the smartest 
 
 An idea that only reduces deployment cost belongs to the later edge-runtime project unless it independently improves the intelligence objective.
 
+### External-model training acceleration
+
+External models may be used as practical training tools for the later 50M, 100M, and 300M stages. They may generate examples, propose repairs, critique failed attempts, or supply alternative verified solutions when doing so shortens the end-to-end time required to train the next model.
+
+This is an engineering acceleration rule, not a new research objective or mandatory scientific gate. It does not require a dedicated experiment, a fixed percentage-improvement threshold, or a separate capability claim. Use it when it is practically faster; stop using it when teacher generation, verification, or integration makes the training process slower or less reliable.
+
+Teacher outputs are candidate training evidence, not authority. Exact tests, deterministic verifiers, compilation, execution, or environment outcomes should decide whether generated material is accepted. Data provenance should identify the external source and verification method, but ordinary use of teacher-generated data does not change the roadmap.
+
+This rule applies prospectively. It must not alter an active or frozen run, its training distribution, its comparison boundary, or its preregistered interpretation.
+
 ## 9. Current interpretation
 
 The present small-scale Population Language and Post-Training Learning experiments are mechanism probes. They do not yet establish the final 300M architecture, general language competence, or scaling behavior.
